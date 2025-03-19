@@ -1,0 +1,8 @@
+.log
+cache/
+config.ini
+*.pem
+*.mitm
+*.pyc
+youtube-cookies.txt
+data-ingestion/youtube_cookies.txt
