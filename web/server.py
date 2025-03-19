@@ -1,0 +1,369 @@
+from flask import Flask, request, jsonify, render_template
+import psycopg2
+import datetime
+import plotly
+import plotly.graph_objects as go
+import json
+
+app = Flask(__name__)
+DB_CONFIG = {
+    "dbname": "youtube_data",
+    "user": "postgres",
+    "password": "12345",  # Use environment variable instead
+    "host": "localhost",
+    "port": "5432"
+}
+
+def get_db_connection():
+    return psycopg2.connect(**DB_CONFIG)
+
+@app.route('/')
+def index():
+    return render_template("index.html")
+
+def streaming_hours_query(aggregation_function, group=None):
+    group = request.args.get('group', None)
+    month = request.args.get('month', datetime.datetime.utcnow().strftime('%Y-%m'))
+    timezone_offset = int(request.args.get('timezone', 0))
+    month_start = f"{month}-01"
+
+    base_query = f"""
+        SELECT
+            c.channel_name,
+            DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC' + INTERVAL %s) AS month,
+            {aggregation_function}(EXTRACT(EPOCH FROM v.duration)) / 3600 AS hours
+        FROM videos v
+        JOIN channels c ON v.channel_id = c.channel_id
+        WHERE DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC' + INTERVAL %s) = %s::DATE
+    """
+
+    params = [f"{timezone_offset} hour", f"{timezone_offset} hour", month_start]
+
+    if group and group != "All":
+        if group == "Indie":
+            base_query += " AND c.channel_group IS NULL"
+        else:
+            base_query += " AND c.channel_group = %s"
+            params.append(group)
+    elif group == "All":
+        base_query += " AND (c.channel_group = 'Hololive' OR c.channel_group IS NULL)"
+
+    base_query += " GROUP BY c.channel_name, month ORDER BY hours DESC"
+
+    return base_query, params
+
+@app.route('/api/get_group_total_streaming_hours', methods=['GET'])
+def get_group_total_streaming_hours():
+    query, params = streaming_hours_query('SUM')
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(query, params)
+            results = cur.fetchall()
+        data = [{"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)} for row in results]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/get_group_avg_streaming_hours', methods=['GET'])
+def get_group_avg_streaming_hours():
+    query, params = streaming_hours_query('AVG')
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(query, params)
+            results = cur.fetchall()
+        data = [{"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)} for row in results]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/get_group_max_streaming_hours', methods=['GET'])
+def get_group_max_streaming_hours():
+    query, params = streaming_hours_query('MAX')
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(query, params)
+            results = cur.fetchall()
+        data = [{"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)} for row in results]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+@app.route('/api/get_group_chat_makeup', methods=['GET'])
+def get_group_chat_makeup():
+    """API to fetch chat makeup statistics per channel, with optional filtering."""
+    group = request.args.get('group', None)  # "Hololive", "Indie", or None
+    month = request.args.get('month', datetime.datetime.utcnow().strftime('%Y-%m'))  # Default: current month
+    timezone_offset = int(request.args.get('timezone', 0))  # Default: UTC (0)
+
+    # Convert 'YYYY-MM' to 'YYYY-MM-01' and the end of that month ('YYYY-MM-01')
+    start_month = datetime.datetime.strptime(month + "-01", '%Y-%m-%d').strftime('%Y-%m-01')
+
+    # Calculate time zone offset for INTERVAL
+    timezone_interval = f"{timezone_offset} hours"
+
+    # SQL query to calculate rates
+    query = """
+        WITH streaming_time AS (
+            SELECT 
+                v.channel_id,
+                DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC' + INTERVAL %s) AS observed_month,
+                SUM(EXTRACT(EPOCH FROM v.duration)) / 60 AS total_streaming_minutes
+            FROM videos v
+            WHERE duration IS NOT NULL 
+            AND duration > INTERVAL '0 seconds'
+            AND has_chat_log = 't'
+            AND DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC' + INTERVAL %s) = %s::DATE
+            GROUP BY v.channel_id, observed_month
+        )
+        SELECT 
+            c.channel_name,
+            st.observed_month,
+            SUM(cls.es_en_id_count)::DECIMAL / NULLIF(SUM(st.total_streaming_minutes), 0) AS es_en_id_rate_per_minute,
+            SUM(cls.jp_count)::DECIMAL / NULLIF(SUM(st.total_streaming_minutes), 0) AS jp_rate_per_minute,
+            SUM(cls.kr_count)::DECIMAL / NULLIF(SUM(st.total_streaming_minutes), 0) AS kr_rate_per_minute,
+            SUM(cls.ru_count)::DECIMAL / NULLIF(SUM(st.total_streaming_minutes), 0) AS ru_rate_per_minute,
+            SUM(cls.emoji_count)::DECIMAL / NULLIF(SUM(st.total_streaming_minutes), 0) AS emoji_rate_per_minute
+        FROM chat_language_stats cls
+        JOIN channels c ON cls.channel_id = c.channel_id
+        JOIN streaming_time st 
+            ON st.channel_id = c.channel_id 
+            AND CAST(st.observed_month AS DATE) = CAST(cls.observed_month AS DATE)
+    """
+
+    params = [timezone_interval, timezone_interval, start_month]
+
+    # Group filtering
+    if group:
+        if group == "Indie":
+            query += " WHERE c.channel_group IS NULL"
+        else:
+            query += " WHERE c.channel_group = %s"
+            params.append(group)
+    else:  # Default to All
+        query += " WHERE (c.channel_group = 'Hololive' OR c.channel_group IS NULL)"
+
+    query += " GROUP BY c.channel_name, st.observed_month ORDER BY SUM(st.total_streaming_minutes) DESC"
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        print(query % tuple(params))  # Print the query with parameters for debugging
+        cur.execute(query, params)
+        results = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        # Convert to JSON
+        data = [
+            {
+                "channel_name": row[0],
+                "observed_month": row[1].strftime('%Y-%m'),  # Format date for consistency
+                "es_en_id_rate_per_minute": round(float(row[2]) if row[2] is not None else 0, 2),
+                "jp_rate_per_minute": round(float(row[3]) if row[3] is not None else 0, 2),
+                "kr_rate_per_minute": round(float(row[4]) if row[4] is not None else 0, 2),
+                "ru_rate_per_minute": round(float(row[5]) if row[5] is not None else 0, 2),
+                "emoji_rate_per_minute": round(float(row[6]) if row[6] is not None else 0, 2)
+            }
+            for row in results
+        ]
+
+        return jsonify({"success": True, "data": data})
+
+    except Exception as e:
+        print(f"Error: {e}")  # Print error message for debugging
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+@app.route('/api/common_chatters', methods=['GET'])
+def get_common_chatters():
+    """API to get common chatters between two (channel, month) pairs using channel names."""
+
+    channel_a = request.args.get('channel_a')
+    month_a = request.args.get('month_a')  # YYYY-MM format
+    channel_b = request.args.get('channel_b')
+    month_b = request.args.get('month_b')  # YYYY-MM format
+    timezone_offset = request.args.get('timezone', 0)  # Optional timezone offset
+
+    timezone_interval = f"{timezone_offset} hours"
+
+    if not (channel_a and month_a and channel_b and month_b):
+        return jsonify({"error": "Missing required parameters"}), 400
+    
+    month_a += "-01"
+    month_b += "-01"
+
+    query = """
+        WITH user_activity AS (
+            SELECT
+                ud.user_id,
+                ud.channel_id,
+                DATE_TRUNC('month', ud.last_message_at AT TIME ZONE 'UTC' + INTERVAL %s) AS observed_month
+            FROM user_data ud
+            JOIN channels c ON ud.channel_id = c.channel_id
+            WHERE (c.channel_name = %s AND ud.last_message_at >= %s::DATE AND ud.last_message_at < (%s::DATE + INTERVAL '1 month'))
+            OR (c.channel_name = %s AND ud.last_message_at >= %s::DATE AND ud.last_message_at < (%s::DATE + INTERVAL '1 month'))
+            GROUP BY ud.user_id, ud.channel_id, observed_month
+        ),
+        common_chatters AS (
+            SELECT
+                ua1.channel_id AS channel_a,
+                ua2.channel_id AS channel_b,
+                ua1.observed_month AS month_a,
+                ua2.observed_month AS month_b,
+                COUNT(DISTINCT ua1.user_id) AS shared_users
+            FROM user_activity ua1
+            JOIN user_activity ua2 
+                ON ua1.user_id = ua2.user_id
+                AND (ua1.channel_id <> ua2.channel_id OR ua1.observed_month <> ua2.observed_month)
+            GROUP BY ua1.channel_id, ua2.channel_id, ua1.observed_month, ua2.observed_month
+        )
+        SELECT
+            ca.channel_name AS channel_a,
+            cb.channel_name AS channel_b,
+            cg.month_a AS month_a,
+            cg.month_b AS month_b,
+            cg.shared_users AS num_common_users,
+            100.0 * cg.shared_users / NULLIF(
+                (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = cg.channel_a AND observed_month = cg.month_a),
+                0
+            ) AS percent_A_to_B,
+            100.0 * cg.shared_users / NULLIF(
+                (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = cg.channel_b AND observed_month = cg.month_b),
+                0
+            ) AS percent_B_to_A
+        FROM common_chatters cg
+        JOIN channels ca ON cg.channel_a = ca.channel_id
+        JOIN channels cb ON cg.channel_b = cb.channel_id;
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(query, (
+        timezone_interval, channel_a, month_a, month_a, channel_b, month_b, month_b
+    ))
+
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    if results:
+        data = {
+            "channel_a": results[0][0],
+            "channel_b": results[0][1],
+            "month_a": results[0][2].strftime('%Y-%m'),
+            "month_b": results[0][3].strftime('%Y-%m'),
+            "num_common_users": results[0][4],
+            "percent_A_to_B": round(results[0][5], 2) if results[0][5] is not None else None,
+            "percent_B_to_A": round(results[0][6], 2) if results[0][6] is not None else None
+        }
+    else:
+        data = {}
+
+    return jsonify(data)
+
+@app.route('/api/get_group_common_chatters', methods=['GET'])
+def get_group_common_chatters():
+    """API to fetch common chatters between channels in a given group and month from `mv_common_chatters`."""
+
+    channel_group = request.args.get('channel_group')
+    month = request.args.get('month')  # Expected format: YYYY-MM
+
+    if not channel_group or not month:
+        return jsonify({"error": "Missing required parameters"}), 400
+
+    query = """
+        SELECT 
+            channel_a, 
+            channel_b, 
+            percentage_common_chatters
+        FROM mv_common_chatters
+        WHERE channel_group = %s 
+          AND observed_month = %s::DATE;
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, (channel_group, f"{month}-01"))
+
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    if not results:
+        return jsonify({"error": "No data found"}), 404
+
+    # Extract unique channels
+    channels = list(set([row[0] for row in results] + [row[1] for row in results]))
+    channels.sort()  # Alphabetical order
+
+    # Create adjacency matrix
+    matrix = [[0 for _ in range(len(channels))] for _ in range(len(channels))]
+
+    for row in results:
+        i = channels.index(row[0])
+        j = channels.index(row[1])
+        matrix[i][j] = row[2]  # A->B Percentage
+        matrix[j][i] = row[2]  # B->A Percentage (Mirror)
+
+    return jsonify({
+        "channels": channels,
+        "matrix": matrix
+    })
+
+
+@app.route('/api/get_channel_names', methods=['GET'])
+def get_channel_names():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT channel_name FROM channels ORDER BY channel_name")
+    channel_names = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return jsonify(channel_names)
+
+@app.route('/api/get_date_ranges', methods=['GET'])
+def get_date_ranges():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Gets first and last date from video table using end_time
+    cursor.execute("SELECT MIN(end_time), MAX(end_time) FROM videos")
+    
+    date_range = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return jsonify(date_range)
+
+@app.route('/streaming_hours')
+def streaming_hours_view():
+    return render_template('streaming_hours.html')
+
+@app.route('/streaming_hours_avg')
+def streaming_hours_avg_view():
+    return render_template('streaming_hours_avg.html')
+
+@app.route('/streaming_hours_max')
+def streaming_hours_max_view():
+    return render_template('streaming_hours_max.html')
+
+@app.route('/streaming_hours_diff')
+def streaming_hours_diff_view():
+    return render_template('streaming_hours_diff.html')
+
+@app.route('/chat_makeup')
+def chat_makeup_view():
+    return render_template('chat_makeup.html')
+
+@app.route('/common_users')
+def common_users_view():
+    return render_template('common_users.html')
+
+@app.route('/common_chat_heatmap')
+def common_chat_heatmap_view():
+    return render_template('common_chat_heatmap.html')
+
+if __name__ == '__main__':
+    app.run(debug=True)

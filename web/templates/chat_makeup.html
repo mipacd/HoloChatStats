@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Makeup</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-colorschemes"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+    <style>
+        .chart-container {
+            margin-top: 20px;
+            position: relative;
+            width: 100%;
+            height: 500px;
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+</head>
+<body>
+
+{% include 'menu.html' %}
+
+<div id="content" class="mt-3">
+    <h2 class="text-center mb-4">Chat Makeup<sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" title="Rates per minute using character set detection. Emote category counts both Unicode and YouTube style emote only messages."></i></sup></h2>
+    
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label for="groupSelect">Channel Group:</label>
+            <select id="groupSelect" class="form-select">
+                <option value="">All</option>
+                <option value="Hololive">Hololive</option>
+                <option value="Indie">Indie</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="monthSelect">Month:</label>
+            <input type="text" id="monthSelect" class="form-control">
+        </div>
+        <div class="col-md-4">
+            <label for="timezoneSelect">Timezone (UTC Offset):</label>
+            <input type="number" id="timezoneSelect" class="form-control" value="0">
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <button id="downloadCSV" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3">Download CSV</button>
+        <canvas id="streamingChart"></canvas>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#monthSelect').datepicker({
+        format: "yyyy-mm",
+        startView: "months", 
+        minViewMode: "months",
+        autoclose: true
+    }).on('changeDate', function() {
+        fetchData();
+    });
+
+    let ctx = document.getElementById('streamingChart').getContext('2d');
+    let chart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true, ticks: { color: "white" } },
+                y: { stacked: true, ticks: { color: "white" } }
+            },
+            plugins: {
+                tooltip: { enabled: true, mode: 'index' },
+                legend: { display: true, position: 'top' },
+                colorschemes: { scheme: 'tableau.Classic10' }
+            }
+        }
+    });
+
+    function fetchData() {
+        let group = document.getElementById('groupSelect').value;
+        let month = document.getElementById('monthSelect').value || new Date().toISOString().slice(0, 7);
+        let timezone = document.getElementById('timezoneSelect').value;
+
+        let url = `/api/get_group_chat_makeup?month=${month}&timezone=${timezone}`;
+        if (group) url += `&group=${encodeURIComponent(group)}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    console.error("API Error:", data.error);
+                    return;
+                }
+
+                let channels = data.data.map(d => ({
+                    name: d.channel_name,
+                    total: d.es_en_id_rate_per_minute + d.jp_rate_per_minute + d.kr_rate_per_minute + d.ru_rate_per_minute + d.emoji_rate_per_minute,
+                    rates: [d.es_en_id_rate_per_minute, d.jp_rate_per_minute, d.kr_rate_per_minute, d.ru_rate_per_minute, d.emoji_rate_per_minute]
+                }));
+
+                channels.sort((a, b) => b.total - a.total);
+
+                let labels = channels.map(d => d.name);
+                let datasets = [
+                    { label: 'EN/ES/ID/etc.', data: channels.map(d => d.rates[0]) },
+                    { label: 'JP', data: channels.map(d => d.rates[1]) },
+                    { label: 'KR', data: channels.map(d => d.rates[2]) },
+                    { label: 'RU', data: channels.map(d => d.rates[3]) },
+                    { label: 'Emote', data: channels.map(d => d.rates[4]) }
+                ];
+
+                chart.data.labels = labels;
+                chart.data.datasets = datasets;
+                chart.update();
+            })
+            .catch(error => console.error("Fetch Error:", error));
+    }
+
+    $('#monthSelect').val(new Date().toISOString().slice(0, 7));
+    fetchData();
+
+    $('#groupSelect, #timezoneSelect').on("change", fetchData);
+
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+
+</body>
+</html>

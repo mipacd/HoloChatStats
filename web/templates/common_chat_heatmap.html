@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Common Chat Heatmap</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Latest Plotly (V2.x) -->
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.24.1/plotly.min.js"></script>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Bootstrap Datepicker -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+
+    <style>
+        /* Make the container take full available space */
+        #heatmap-container {
+            width: 100%;
+            height: calc(100vh - 200px); /* Full viewport height minus margins */
+        }
+    </style>
+</head>
+<body>
+{% include 'menu.html' %}
+<div class="container mt-4">
+    <h2 class="text-center">Common Chat Heatmap</h2>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label for="groupSelect">Channel Group:</label>
+            <select id="groupSelect" class="form-select">
+                <option value="Hololive" selected="selected">Hololive</option>
+                <option value="Indie">Indie</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="monthSelect">Month:</label>
+            <input type="text" id="monthSelect" class="form-control">
+        </div>
+    </div>
+
+    <div id="heatmap-container"></div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        // Initialize Bootstrap Datepicker
+        $('#monthSelect').datepicker({
+            format: "yyyy-mm",
+            startView: "months", 
+            minViewMode: "months",
+            autoclose: true
+        }).on('changeDate', function() {
+            fetchData();
+        });
+
+        // Fetch data on page load and when selections change
+        $("#groupSelect").change(fetchData);
+        fetchData();
+    });
+
+    function fetchData() {
+        var group = $("#groupSelect").val();
+        var month = $("#monthSelect").val() || new Date().toISOString().slice(0, 7); // Default to current month
+
+        $.getJSON(`/api/get_group_common_chatters?channel_group=${group}&month=${month}`, function(data) {
+            if (data.error) {
+                $("#heatmap-container").html("<p class='text-danger'>No data available.</p>");
+                return;
+            }
+
+            createHeatmap(data.channels, data.matrix);
+        });
+    }
+
+    function createHeatmap(channels, matrix) {
+        var data = [{
+            z: matrix, // The matrix values for the heatmap
+            x: channels, // Columns (e.g., target channels)
+            y: channels, // Rows (e.g., source channels)
+            type: 'heatmap',
+            colorscale: 'Viridis',
+            colorbar: {
+                title: "Percentage"
+            }
+        }];
+
+        var layout = {
+            title: "Common Chat Percentages Between Channels",
+            xaxis: {
+                title: "Target Channels",
+                automargin: true,
+                tickangle: 45 // Rotate x-axis labels for better visibility
+            },
+            yaxis: {
+                title: "Source Channels",
+                automargin: true
+            },
+            margin: {
+                l: 100, // Left margin for long y-axis labels
+                r: 100, // Right margin
+                t: 50,  // Top margin
+                b: 50  // Bottom margin for rotated x-axis labels
+            }
+        };
+
+        // Responsive layout
+        var config = { responsive: true };
+
+        Plotly.newPlot("heatmap-container", data, layout, config);
+    }
+</script>
+</body>
+</html>

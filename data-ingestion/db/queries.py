@@ -73,6 +73,71 @@ def create_database_and_tables():
     release_db_connection(conn)
     logger.info("Database and tables are configured.")
 
+def create_indexes_and_views():
+    logger = get_logger()
+    conn = get_db_connection()
+
+    cursor = conn.cursor()
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_last_message_at ON user_data (last_message_at);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_user_id ON user_data (user_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_channel_id ON user_data (channel_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_id ON channels (channel_id);")
+
+    # Create group common chat percentage view
+    cursor.execute("""
+                   CREATE MATERIALIZED VIEW IF NOT EXISTS mv_common_chatters AS
+                        WITH user_activity AS (
+                            SELECT
+                                m.user_id,
+                                m.channel_id,
+                                c.channel_group,
+                                DATE_TRUNC('month', m.last_message_at) AS observed_month
+                            FROM user_data m
+                            JOIN channels c ON m.channel_id = c.channel_id
+                            WHERE m.last_message_at >= '2024-01-01'
+                            GROUP BY m.user_id, m.channel_id, c.channel_group, observed_month
+                        ),
+                        common_chatters AS (
+                            SELECT
+                                ua1.channel_id AS channel_a,
+                                ua2.channel_id AS channel_b,
+                                ua1.user_id,
+                                ua1.channel_group,
+                                ua1.observed_month
+                            FROM user_activity ua1
+                            JOIN user_activity ua2 
+                                ON ua1.user_id = ua2.user_id 
+                                AND ua1.channel_group = ua2.channel_group
+                                AND ua1.channel_id <> ua2.channel_id
+                                AND ua1.observed_month = ua2.observed_month
+                        ),
+                        user_counts AS (
+                            SELECT 
+                                channel_id, 
+                                observed_month, 
+                                COUNT(DISTINCT user_id) AS total_users
+                            FROM user_activity
+                            GROUP BY channel_id, observed_month
+                        )
+                        SELECT
+                            ca.channel_group,
+                            cg.observed_month,
+                            ca.channel_name AS channel_a,
+                            cb.channel_name AS channel_b,
+                            COUNT(DISTINCT cg.user_id)::DECIMAL / NULLIF(ua_count.total_users, 0) * 100 AS percentage_common_chatters
+                        FROM common_chatters cg
+                        JOIN channels ca ON cg.channel_a = ca.channel_id
+                        JOIN channels cb ON cg.channel_b = cb.channel_id
+                        JOIN user_counts ua_count 
+                            ON ca.channel_id = ua_count.channel_id 
+                            AND cg.observed_month = ua_count.observed_month
+                        GROUP BY ca.channel_group, cg.observed_month, ca.channel_name, cb.channel_name, ca.channel_id, ua_count.total_users;
+                """
+                   )
+    
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_common_chatters ON mv_common_chatters (channel_group, observed_month, channel_a, channel_b");
+
 # Insert video metadata into database
 def insert_video_metadata(channel_id, video_id, title, end_time, duration, has_chat_log=False):
     logger = get_logger()

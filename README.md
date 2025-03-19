@@ -2,7 +2,7 @@
 
 HoloChatStats is a platform for providing YouTube live chat language and user data, as well as streaming freqency data, for VTubers.
 
-This will serve as a replacement (v2) for the holochatstats.info site that has existed since January 2021 and as a replacement for HoloAutoClip (clip.holochatstats.info) that has existed since November 2020.
+This will serve as a replacement (v2) for the holochatstats.info site that launched in January 2021 and as a replacement for HoloAutoClip (clip.holochatstats.info) that launched in November 2020.
 
 ## Planned Features (subject to change)
 * Membership Information
@@ -28,18 +28,19 @@ This will serve as a replacement (v2) for the holochatstats.info site that has e
     * Detect the most humorous moments in a stream as indicated by chat
 * Machine learning derived insights (TBA) (NEW)
 * CSV Downloads (NEW)
-* API (depending on available hosting) (NEW)
+* Public API (depending on available hosting) (NEW)
+* Mobile App (dependant on public API) (NEW)
+* Containerization with Docker (NEW)
 * Support for every Hololive member and select indies
 
 ## Contributing 
-Contributions are welcome (backend/frontend/ML devs, translators, UI/UX, etc.)
+Contributions are welcome (backend/frontend/ML devs, translators/i18n experience, UI/UX, etc.)
 
 ## Support This Project
 
 If you enjoy this project, consider supporting its development:
 
--  [Donate on Ko-Fi](https://ko-fi.com/holochatstats)  
-  Your support helps keep this project alive and growing.
+-  [Donate on Ko-Fi](https://ko-fi.com/holochatstats)  Your support helps keep this project alive and growing.
 
 Looking to help in other ways?  
 - **Hosting sponsorships**: Interested in hosting this project? Let's collaborate!  
