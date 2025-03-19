@@ -6,7 +6,7 @@ from datetime import datetime
 from multiprocessing import get_context
 
 from db.connection import init_db_pool
-from db.queries import create_database_and_tables
+from db.queries import create_database_and_tables, create_indexes_and_views
 from config.settings import get_config
 from utils.logging_utils import get_logger
 from utils.helpers import setup_cache_dir
@@ -48,6 +48,7 @@ def main():
     logger.info("Starting chat log and metadata downloader...")
     init_db_pool()
     create_database_and_tables()
+    create_indexes_and_views()
     setup_cache_dir()
 
     # Initialize database queue

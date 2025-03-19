@@ -70,10 +70,12 @@
 		"Niko": "UCuI_opAVX6qbxZY-a-AxFuQ"
 		
 	},
-	"Nimi": "UCIfAvpeIWGHb0duCkMkmm2Q",
-	"Dooby": "UC6T7TJZbW6nO-qsc5coo8Pg",
-	"Mint": "UCcHHkJ98eSfa5aj0mdTwwLQ",
-	"Dokibird": "UComInW10MkHJs-_vi4rHQCQ",
-	"Sakuna": "UCrV1Hf5r8P148idjoSfrGEQ",
-	"Rica": "UCz4jhqrCfthF8NnldZeK_rw"
+	"Indie": {
+		"Nimi": "UCIfAvpeIWGHb0duCkMkmm2Q",
+		"Dooby": "UC6T7TJZbW6nO-qsc5coo8Pg",
+		"Mint": "UCcHHkJ98eSfa5aj0mdTwwLQ",
+		"Dokibird": "UComInW10MkHJs-_vi4rHQCQ",
+		"Sakuna": "UCrV1Hf5r8P148idjoSfrGEQ",
+		"Rica": "UCz4jhqrCfthF8NnldZeK_rw"
+	}
 }
