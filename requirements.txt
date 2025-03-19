@@ -1,0 +1,8 @@
+chat_downloader
+psycopg2
+pyyoutube
+emoji
+isodate
+regex
+requests
+urllib3
