@@ -136,7 +136,49 @@ def create_indexes_and_views():
                 """
                    )
     
-    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_common_chatters ON mv_common_chatters (channel_group, observed_month, channel_a, channel_b");
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_common_chatters ON mv_common_chatters (channel_group, observed_month, channel_a, channel_b);");
+
+    # Create membership data view
+    cursor.execute("""CREATE MATERIALIZED VIEW IF NOT EXISTS mv_membership_data AS
+    WITH latest_memberships AS (
+        SELECT DISTINCT ON (m.user_id, m.channel_id, DATE_TRUNC('month', m.last_message_at))
+            m.user_id,
+            m.channel_id,
+            DATE_TRUNC('month', m.last_message_at)::DATE AS observed_month,
+            m.membership_rank,
+            m.last_message_at
+        FROM user_data m
+        ORDER BY m.user_id, m.channel_id, DATE_TRUNC('month', m.last_message_at), m.last_message_at DESC
+    )
+    SELECT
+        c.channel_group,
+        c.channel_name,
+        lm.observed_month,
+        lm.membership_rank,
+        COUNT(lm.user_id) AS membership_count,
+        ROUND(
+            COUNT(lm.user_id)::DECIMAL / NULLIF(SUM(COUNT(lm.user_id)) OVER (PARTITION BY c.channel_id), 0) * 100, 2
+        ) AS percentage_total
+    FROM latest_memberships lm
+    JOIN channels c ON lm.channel_id = c.channel_id
+    GROUP BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank, c.channel_id
+    ORDER BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank;
+    """)
+
+    conn.commit()
+    release_db_connection(conn)
+    logger.info("Indexes and views are configured.")
+
+# Refresh materialized views
+def refresh_materialized_views():
+    logger = get_logger()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("REFRESH MATERIALIZED VIEW mv_common_chatters;")
+    cursor.execute("REFRESH MATERIALIZED VIEW mv_membership_data;")
+    conn.commit()
+    release_db_connection(conn)
+    logger.info("Materialized views refreshed.")
 
 # Insert video metadata into database
 def insert_video_metadata(channel_id, video_id, title, end_time, duration, has_chat_log=False):

@@ -1,25 +1,51 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from flask_babel import Babel, _
+from flask_caching import Cache
 import psycopg2
 import datetime
-import plotly
-import plotly.graph_objects as go
-import json
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = "holochatstats secret key"
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["BABEL_DEFAULT_LOCALE"] = "en"
+app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
+
+cache = Cache(app, config={"CACHE_TYPE": "simple"})
+
 DB_CONFIG = {
     "dbname": "youtube_data",
     "user": "postgres",
-    "password": "12345",  # Use environment variable instead
+    "password": "12345",
     "host": "localhost",
     "port": "5432"
 }
+LANGUAGES = {
+    'en': 'English',
+    'ja': '日本語',
+    'ko': '한국어'
+}
+
+def get_locale():
+    return session.get('language', 'en')
+
+babel = Babel(app)
+babel.init_app(app, locale_selector=get_locale)
 
 def get_db_connection():
     return psycopg2.connect(**DB_CONFIG)
 
+
 @app.route('/')
 def index():
-    return render_template("index.html")
+    return render_template("index.html", _=_, get_locale=get_locale)
+
+@app.route('/set_language/<language>')
+def set_language(language):
+    if language in ['en', 'ja', 'ko']:
+        session['language'] = language
+        print("Language stored in session:", session['language'])
+        return redirect(request.referrer or "/")
+    return "Invalid language", 400
 
 def streaming_hours_query(aggregation_function, group=None):
     group = request.args.get('group', None)
@@ -53,6 +79,7 @@ def streaming_hours_query(aggregation_function, group=None):
     return base_query, params
 
 @app.route('/api/get_group_total_streaming_hours', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
 def get_group_total_streaming_hours():
     query, params = streaming_hours_query('SUM')
     try:
@@ -66,6 +93,7 @@ def get_group_total_streaming_hours():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/get_group_avg_streaming_hours', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
 def get_group_avg_streaming_hours():
     query, params = streaming_hours_query('AVG')
     try:
@@ -79,6 +107,7 @@ def get_group_avg_streaming_hours():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/get_group_max_streaming_hours', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
 def get_group_max_streaming_hours():
     query, params = streaming_hours_query('MAX')
     try:
@@ -92,6 +121,7 @@ def get_group_max_streaming_hours():
         return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/api/get_group_chat_makeup', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
 def get_group_chat_makeup():
     """API to fetch chat makeup statistics per channel, with optional filtering."""
     group = request.args.get('group', None)  # "Hololive", "Indie", or None
@@ -177,6 +207,7 @@ def get_group_chat_makeup():
         return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/api/common_chatters', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
 def get_common_chatters():
     """API to get common chatters between two (channel, month) pairs using channel names."""
 
@@ -189,7 +220,7 @@ def get_common_chatters():
     timezone_interval = f"{timezone_offset} hours"
 
     if not (channel_a and month_a and channel_b and month_b):
-        return jsonify({"error": "Missing required parameters"}), 400
+        return jsonify({"error": _("Missing required parameters")}), 400
     
     month_a += "-01"
     month_b += "-01"
@@ -265,6 +296,7 @@ def get_common_chatters():
     return jsonify(data)
 
 @app.route('/api/get_group_common_chatters', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
 def get_group_common_chatters():
     """API to fetch common chatters between channels in a given group and month from `mv_common_chatters`."""
 
@@ -272,7 +304,7 @@ def get_group_common_chatters():
     month = request.args.get('month')  # Expected format: YYYY-MM
 
     if not channel_group or not month:
-        return jsonify({"error": "Missing required parameters"}), 400
+        return jsonify({"error": _("Missing required parameters")}), 400
 
     query = """
         SELECT 
@@ -287,34 +319,53 @@ def get_group_common_chatters():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(query, (channel_group, f"{month}-01"))
-
     results = cursor.fetchall()
     cursor.close()
     conn.close()
 
     if not results:
-        return jsonify({"error": "No data found"}), 404
+        return jsonify({"error": _("No data found")}), 404
 
     # Extract unique channels
-    channels = list(set([row[0] for row in results] + [row[1] for row in results]))
+    channels = list(set(row[0] for row in results) | set(row[1] for row in results))
     channels.sort()  # Alphabetical order
 
     # Create adjacency matrix
     matrix = [[0 for _ in range(len(channels))] for _ in range(len(channels))]
 
     for row in results:
-        i = channels.index(row[0])
-        j = channels.index(row[1])
-        matrix[i][j] = row[2]  # A->B Percentage
-        matrix[j][i] = row[2]  # B->A Percentage (Mirror)
+        i = channels.index(row[0])  # A
+        j = channels.index(row[1])  # B
+        matrix[i][j] = round(row[2], 2)  # A->B
 
     return jsonify({
         "channels": channels,
         "matrix": matrix
     })
 
+@app.route('/api/get_group_membership_data', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_group_membership_counts():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    channel_group = request.args.get('channel_group')
+    month = request.args.get('month')  # Expected format: YYYY-MM
+
+    if not channel_group or not month:
+        return jsonify({"error": _("Missing required parameters")}), 400
+
+    query = """SELECT channel_name, membership_rank, membership_count, percentage_total FROM mv_membership_data WHERE channel_group = %s AND observed_month = %s::DATE;"""
+
+    cursor.execute(query, (channel_group, f"{month}-01"))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return jsonify(results)
+            
 
 @app.route('/api/get_channel_names', methods=['GET'])
+@cache.cached(timeout=86400)
 def get_channel_names():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -325,6 +376,7 @@ def get_channel_names():
     return jsonify(channel_names)
 
 @app.route('/api/get_date_ranges', methods=['GET'])
+@cache.cached(timeout=86400)
 def get_date_ranges():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -337,33 +389,52 @@ def get_date_ranges():
     conn.close()
     return jsonify(date_range)
 
+@app.route('/api/get_number_of_chat_logs', methods=['GET'])
+@cache.cached(timeout=86400)
+def get_number_of_chat_logs():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) from videos WHERE has_chat_log = 't'")
+    num_chat_logs = cursor.fetchone()[0]
+    cursor.close()
+    conn.close()
+    return jsonify(num_chat_logs)
+
 @app.route('/streaming_hours')
 def streaming_hours_view():
-    return render_template('streaming_hours.html')
+    return render_template('streaming_hours.html', _=_, get_locale=get_locale)
 
 @app.route('/streaming_hours_avg')
 def streaming_hours_avg_view():
-    return render_template('streaming_hours_avg.html')
+    return render_template('streaming_hours_avg.html', _=_, get_locale=get_locale)
 
 @app.route('/streaming_hours_max')
 def streaming_hours_max_view():
-    return render_template('streaming_hours_max.html')
+    return render_template('streaming_hours_max.html', _=_, get_locale=get_locale)
 
 @app.route('/streaming_hours_diff')
 def streaming_hours_diff_view():
-    return render_template('streaming_hours_diff.html')
+    return render_template('streaming_hours_diff.html', _=_, get_locale=get_locale)
 
 @app.route('/chat_makeup')
 def chat_makeup_view():
-    return render_template('chat_makeup.html')
+    return render_template('chat_makeup.html', _=_, get_locale=get_locale)
 
 @app.route('/common_users')
 def common_users_view():
-    return render_template('common_users.html')
+    return render_template('common_users.html', _=_, get_locale=get_locale)
 
-@app.route('/common_chat_heatmap')
-def common_chat_heatmap_view():
-    return render_template('common_chat_heatmap.html')
+@app.route('/common_user_heatmap')
+def common_user_heatmap_view():
+    return render_template('common_user_heatmap.html', _=_, get_locale=get_locale)
+
+@app.route('/membership_counts')
+def membership_counts_view():
+    return render_template('membership_counts.html', _=_, get_locale=get_locale)
+
+@app.route('/membership_percentages')
+def membership_percentages_view():
+    return render_template('membership_percentages.html', _=_, get_locale=get_locale)
 
 if __name__ == '__main__':
     app.run(debug=True)

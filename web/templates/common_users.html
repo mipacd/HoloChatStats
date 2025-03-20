@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ get_locale() }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Common Users by Channel / Month</title>
+    <title>{{ _("Common Users by Channel / Month") }}</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
@@ -24,31 +24,31 @@
 
 <!-- Main Content -->
 <div id="content" class="mt-3">
-    <h2 class="text-center mb-4">Common Users by Channel / Month</h2>
+    <h2 class="text-center mb-4">{{ _("Common Users by Channel / Month") }}</h2>
 
     <div class="row mb-3">
         <div class="col-md-6">
-            <label for="channelASelect">Channel A:</label>
+            <label for="channelASelect">{{ _("Channel A:") }}</label>
             <select id="channelASelect" class="form-select"></select>
         </div>
         <div class="col-md-6">
-            <label for="monthAPicker">Month for A:</label>
+            <label for="monthAPicker">{{ _("Month for A:") }}</label>
             <input type="text" id="monthAPicker" class="form-control">
         </div>
     </div>
 
     <div class="row mb-3">
         <div class="col-md-6">
-            <label for="channelBSelect">Channel B:</label>
+            <label for="channelBSelect">{{ _("Channel B:") }}</label>
             <select id="channelBSelect" class="form-select"></select>
         </div>
         <div class="col-md-6">
-            <label for="monthBPicker">Month for B:</label>
+            <label for="monthBPicker">{{ _("Month for B:") }}</label>
             <input type="text" id="monthBPicker" class="form-control">
         </div>
     </div>
 
-    <button id="calculateButton" class="btn btn-primary mb-3">Calculate</button>
+    <button id="calculateButton" class="btn btn-primary mb-3">{{ _("Calculate") }}</button>
 
     <!-- Result Table -->
     <table id="resultTable" class="table table-striped result-table" style="display: none;">
@@ -62,7 +62,7 @@
                 <td></td>
             </tr>
             <tr id="rowNumCommonUsers">
-                <th>Number of common users:</th>
+                <th>{{ _("Number of common users:") }}</th>
                 <td></td>
             </tr>
         </tbody>
@@ -88,7 +88,7 @@ $(document).ready(function() {
 
     // Fetch channel names and populate dropdowns
     $.get('/api/get_channel_names', function(data) {
-        let options = '<option value="">Select Channel</option>';
+        let options = '<option value="">{{ _("Select Channel") }}</option>';
         data.forEach(channel => {
             options += `<option value="${channel}">${channel}</option>`;
         });
@@ -104,13 +104,13 @@ $(document).ready(function() {
         const monthB = $('#monthBPicker').val();
 
         if (!channelA || !monthA || !channelB || !monthB) {
-            alert("Please fill in all fields.");
+            alert("{{ _("Please fill in all fields.") }}");
             return;
         }
 
         $.get('/api/common_chatters', { channel_a: channelA, month_a: monthA, channel_b: channelB, month_b: monthB }, function(data) {
             if (Object.keys(data).length === 0) {
-                alert("No common users found for the selected criteria.");
+                alert("{{ _("No common users found for the selected criteria.") }}");
                 $('#resultTable').hide();
                 return;
             }
@@ -122,12 +122,12 @@ $(document).ready(function() {
             $('#rowPercentAToB td').text(percentAToB);
             $('#rowPercentBToA th').text(`Percent of ${channelB}'s chat in ${monthB} that participated in ${channelA}'s chat in ${monthA}:`);
             $('#rowPercentBToA td').text(percentBToA);
-            $('#rowNumCommonUsers th').text('Number of common users:');
+            $('#rowNumCommonUsers th').text('{{ _("Number of common users:") }}');
             $('#rowNumCommonUsers td').text(data.num_common_users);
 
             $('#resultTable').show();
         }).fail(function() {
-            alert("Error fetching data. Please try again later.");
+            alert("{{ _("Error fetching data. Please try again later.") }}");
             $('#resultTable').hide();
         });
     });

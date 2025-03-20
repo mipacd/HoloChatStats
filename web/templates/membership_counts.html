@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ _("Membership Counts") }}</title>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+    
+    <style>
+        .chart-container {
+            margin-top: 20px;
+            position: relative;
+            width: 100%;
+            height: 500px;
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        body {
+            background-color: #121212;
+            color: white;
+        }
+        .form-select, .form-control {
+            background-color: #222;
+            color: white;
+            border-color: #444;
+        }
+        .form-select option {
+            background-color: #222;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+{% include 'menu.html' %}
+
+<div id="content" class="mt-3">
+    <h2 class="text-center mb-4">{{ _("Membership Counts") }}<sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ _("Only counts members that participated in chat. Membership durations are based on available badges for each channel.") }}"></i></sup></h2>
+    
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label for="groupSelect">{{ _("Channel Group:") }}</label>
+            <select id="groupSelect" class="form-select">
+                <option value="Hololive">{{ _("Hololive") }}</option>
+                <option value="Indie">{{ _("Indie") }}</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="monthSelect">{{ _("Month:") }}</label>
+            <input type="text" id="monthSelect" class="form-control">
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <button id="downloadCSV" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3">{{ _("Download CSV") }}</button>
+        <canvas id="membershipChart"></canvas>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#monthSelect').datepicker({
+        format: "yyyy-mm",
+        startView: "months", 
+        minViewMode: "months",
+        autoclose: true
+    }).on('changeDate', function() {
+        fetchData();
+    });
+
+    let ctx = document.getElementById('membershipChart').getContext('2d');
+    let chart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { 
+                    stacked: true, 
+                    ticks: { color: "white" } 
+                },
+                y: { 
+                    stacked: true, 
+                    ticks: { color: "white" } 
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(tooltipItem) {
+                            let dataset = tooltipItem.dataset;
+                            let index = tooltipItem.dataIndex;
+                            let total = dataset.totalMemberships[index];
+
+                            let rankValues = dataset.tooltipData[index];
+                            let tooltipText = "";
+
+                            // Sort ranks numerically
+                            let sortedRanks = Object.entries(rankValues)
+                                .sort((a, b) => rankSortOrder(a[0]) - rankSortOrder(b[0]));
+
+                            sortedRanks.forEach(([label, count]) => {
+                                tooltipText += `${label}: ${count}\n`;
+                            });
+
+                            tooltipText += `\n{{ _("Total Members:") }} ${total}`;
+
+                            return tooltipText.trim().split("\n");
+                        }
+                    }
+                },
+                legend: { 
+                    display: true, 
+                    position: 'top',
+                    labels: { color: "white" }
+                }
+            }
+        }
+    });
+
+    function fetchData() {
+        let group = $('#groupSelect').val();
+        let month = $('#monthSelect').val() || new Date().toISOString().slice(0, 7);
+        let url = `/api/get_group_membership_data?month=${month}&channel_group=${encodeURIComponent(group)}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error("API Error:", data.error);
+                    return;
+                }
+
+                let processedData = processMembershipData(data);
+                chart.data.labels = processedData.labels;
+                chart.data.datasets = processedData.datasets;
+                chart.update();
+            })
+            .catch(error => console.error("Fetch Error:", error));
+    }
+
+    function processMembershipData(data) {
+        let groupedData = {};
+        data.forEach(d => {
+            if (d[1] === -1) return; // Ignore membership_rank = -1
+
+            let channel = d[0];
+            let membership_rank = d[1];
+            let count = d[2];
+
+            if (!(channel in groupedData)) {
+                groupedData[channel] = { total: 0, membership_counts: {} };
+            }
+
+            let label = formatMembershipLabel(membership_rank);
+            groupedData[channel].membership_counts[label] = count;
+            groupedData[channel].total += count;
+        });
+
+        let sortedChannels = Object.entries(groupedData)
+            .sort((a, b) => b[1].total - a[1].total)
+            .map(entry => entry[0]);
+
+        let labels = sortedChannels;
+        let rankLabels = Array.from(new Set(Object.values(groupedData).flatMap(c => Object.keys(c.membership_counts))))
+            .sort((a, b) => rankSortOrder(a) - rankSortOrder(b)); // Sort by membership rank (oldest at the bottom)
+
+        let datasets = rankLabels.map(rank => ({
+            label: rank,
+            data: labels.map(channel => groupedData[channel].membership_counts[rank] || 0),
+            totalMemberships: labels.map(channel => groupedData[channel].total || 0),
+            tooltipData: labels.map(channel => groupedData[channel].membership_counts),
+            stack: 'Stack 0'
+        }));
+
+        return { labels, datasets };
+    }
+
+    function formatMembershipLabel(rank) {
+        if (rank === 0) return "New Members";
+        if (rank < 12) return `${rank} Month${rank > 1 ? "s" : ""}`;
+        return `${Math.floor(rank / 12)} Year${rank >= 24 ? "s" : ""}`;
+    }
+
+    function rankSortOrder(label) {
+        if (label === "New Members") return 0;
+        if (label.includes("Month")) return parseInt(label.split(" ")[0]);
+        if (label.includes("Year")) return parseInt(label.split(" ")[0]) * 12;
+        return Infinity;
+    }
+
+    $('#monthSelect').val(new Date().toISOString().slice(0, 7));
+    fetchData();
+
+    $('#groupSelect').on("change", fetchData);
+
+    // Initialize Bootstrap Toooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+          return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+    $('#downloadCSV').on('click', function() {
+        let data = chart.data;
+        let csvContent = "data:text/csv;charset=utf-8,Channel,New Members,1 Months,2 Months,6 Months,1 Year,2 Years,3 Years,4 Years,5 Years\n"; // Add headers
+
+        for (let i = 0; i < data.labels.length; i++) {
+            csvContent += `${data.labels[i]}`;
+            for (let j = 0; j < data.datasets.length; j++) {
+                csvContent += `,${data.datasets[j].data[i]}`;
+            }
+            csvContent += `\n`;
+        }
+
+        var encodedUri = encodeURI(csvContent);
+        var link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "membership_counts.csv");
+
+        document.body.appendChild(link); // Required for FF
+        link.click();
+        document.body.removeChild(link);
+});
+});
+</script>
+
+</body>
+</html>
