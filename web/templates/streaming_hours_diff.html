@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ get_locale() }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Streaming Hour Change Since Previous Month</title>
+    <title>{{ _("Streaming Hour Change Since Previous Month") }}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
@@ -33,7 +33,7 @@
         }
         chart-container {
         margin-top: 20px;
-        position: relative; /* Add this to make absolute positioning work relative to .chart-container */
+        position: relative;
     }
 
     canvas {
@@ -50,30 +50,30 @@
 <!-- Main Content -->
 <div id="content" class="mt-3">
 
-        <h2 class="text-center mb-4">Streaming Hour Change Since Previous Month<sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" title="Archived, non-member streams from YouTube only."></i></sup></h2>
+        <h2 class="text-center mb-4">{{ _("Streaming Hour Change Since Previous Month") }}<sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ _("Archived, non-member streams from YouTube only.") }}"></i></sup></h2>
         
     
     <div class="row mb-3">
         <div class="col-md-4">
-            <label for="groupSelect">Channel Group:</label>
+            <label for="groupSelect">{{ _("Channel Group:") }}</label>
             <select id="groupSelect" class="form-select">
-                <option value="">All</option>
-                <option value="Hololive">Hololive</option>
-                <option value="Indie">Indie</option>
+                <option value="">{{ _("All") }}</option>
+                <option value="Hololive">{{ _("Hololive") }}</option>
+                <option value="Indie">{{ _("Indie") }}</option>
             </select>
         </div>
         <div class="col-md-4">
-            <label for="monthSelect">Month:</label>
+            <label for="monthSelect">{{ _("Month:") }}</label>
             <input type="text" id="monthSelect" class="form-control">
         </div>
         <div class="col-md-4">
-            <label for="timezoneSelect">Timezone (UTC Offset):</label>
+            <label for="timezoneSelect">{{ _("Timezone (UTC Offset):") }}</label>
             <input type="number" id="timezoneSelect" class="form-control" value="0">
         </div>
     </div>
 
     <div class="chart-container">
-        <button id="downloadCSV" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3">Download CSV</button>
+        <button id="downloadCSV" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3">{{ _("Download CSV") }}</button>
         <canvas id="streamingChart"></canvas>
     </div>
 </div>

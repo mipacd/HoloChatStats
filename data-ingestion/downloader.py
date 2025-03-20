@@ -6,7 +6,7 @@ from datetime import datetime
 from multiprocessing import get_context
 
 from db.connection import init_db_pool
-from db.queries import create_database_and_tables, create_indexes_and_views
+from db.queries import create_database_and_tables, create_indexes_and_views, refresh_materialized_views
 from config.settings import get_config
 from utils.logging_utils import get_logger
 from utils.helpers import setup_cache_dir
@@ -75,6 +75,8 @@ def main():
         # Stop database worker process
         queue.put(None)
         db_worker_process.join()
+
+    refresh_materialized_views()
 
     logger.info("All chat logs downloaded and processed.")
 

@@ -4,24 +4,34 @@
         <button id="menu-toggle">☰</button>
         <span id="site-name">HoloChatStats</span>
     </div>
+    <div class="language-selector">
+        <label for="languageSelect">{{ _("Language") }}:</label>
+        <select id="languageSelect" class="form-select">
+            <option value="en" {% if get_locale() == 'en' %}selected{% endif %}>English</option>
+            <option value="ja" {% if get_locale() == 'ja' %}selected{% endif %}>日本語</option>
+            <option value="ko" {% if get_locale() == 'ko' %}selected{% endif %}>한국어</option>
+        </select>
+    </div>    
     <ul>
-        <li><a href="/">Home</a></li>
+        <li><a href="/">{{ _("Home") }}</a></li>
         <li>
-            <div class="collapsible-header" onclick="toggleCollapsible(this)">Users and Memberships ▼</div>
+            <div class="collapsible-header" onclick="toggleCollapsible(this)">{{ _("Users and Memberships") }} ▼</div>
             <ul class="collapsible-content">
-                <li><a href="/common_chat_heatmap">Common User Heatmap</a></li>
-                <li><a href="/common_users">Common Users by Channel / Month</a></li>
+                <li><a href="/common_user_heatmap">{{ _("Common User Heatmap") }}</a></li>
+                <li><a href="/common_users">{{ _("Common Users by Channel / Month") }}</a></li>
+                <li><a href="/membership_counts">{{ _("Membership Counts") }}</a></li>
+                <li><a href="/membership_percentages">{{ _("Membership Percentages") }}</a></li>
             </ul>
-            <div class="collapsible-header" onclick="toggleCollapsible(this)">Language Stats ▼</div>
+            <div class="collapsible-header" onclick="toggleCollapsible(this)">{{ _("Language Stats") }} ▼</div>
             <ul class="collapsible-content">
-                <li><a href="/chat_makeup">Chat Makeup</a></li>
+                <li><a href="/chat_makeup">{{ _("Chat Makeup") }}</a></li>
             </ul>
-            <div class="collapsible-header" onclick="toggleCollapsible(this)">Streaming Hours ▼</div>
+            <div class="collapsible-header" onclick="toggleCollapsible(this)">{{ _("Streaming Hours") }} ▼</div>
             <ul class="collapsible-content">
-                <li><a href="/streaming_hours">Total Streaming Hours</a></li>
-                <li><a href="/streaming_hours_avg">Average Streaming Hours</a></li>
-                <li><a href="/streaming_hours_max">Longest Stream Duration</a></li>
-                <li><a href="/streaming_hours_diff">Streaming Hour Change</a></li>
+                <li><a href="/streaming_hours">{{ _("Total Streaming Hours") }}</a></li>
+                <li><a href="/streaming_hours_avg">{{ _("Average Streaming Hours") }}</a></li>
+                <li><a href="/streaming_hours_max">{{ _("Longest Stream Duration") }}</a></li>
+                <li><a href="/streaming_hours_diff">{{ _("Streaming Hour Change") }}</a></li>
             </ul>
         </li>
     </ul>
@@ -201,10 +211,26 @@
                 window.dispatchEvent(new Event('resize'));
             }, 300);
         });
+
+        // Get the select element by its ID
+        const languageSelect = document.getElementById("languageSelect");
+
+        // Verify that the element exists
+        if (languageSelect) {
+            // Add the event listener for the 'change' event
+            languageSelect.addEventListener("change", function () {
+                const selectedLanguage = languageSelect.value;
+                console.log(`Selected language: ${selectedLanguage}`);
+                window.location.href = `/set_language/${selectedLanguage}`; // Redirect to language route
+            });
+        } else {
+            console.error("Element with ID 'languageSelect' not found!");
+        }
     });
     function toggleCollapsible(element) {
     const content = element.nextElementSibling;
     content.style.display = content.style.display === 'block' ? 'none' : 'block';
     element.textContent = element.textContent.includes('▼') ? element.textContent.replace('▼', '▲') : element.textContent.replace('▲', '▼');
+
 }
 </script>

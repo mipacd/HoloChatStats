@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ get_locale() }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Common Chat Heatmap</title>
+    <title>{{ _("Common User Heatmap") }}</title>
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -30,23 +30,26 @@
 <body>
 {% include 'menu.html' %}
 <div class="container mt-4">
-    <h2 class="text-center">Common Chat Heatmap</h2>
+    <h2 class="text-center">{{ _("Common User Heatmap") }}</h2>
 
     <div class="row mb-3">
         <div class="col-md-4">
-            <label for="groupSelect">Channel Group:</label>
+            <label for="groupSelect">{{ _("Channel Group:") }}</label>
             <select id="groupSelect" class="form-select">
-                <option value="Hololive" selected="selected">Hololive</option>
-                <option value="Indie">Indie</option>
+                <option value="Hololive" selected="selected">{{ _("Hololive") }}</option>
+                <option value="Indie">{{ _("Indie") }}</option>
             </select>
         </div>
         <div class="col-md-4">
-            <label for="monthSelect">Month:</label>
+            <label for="monthSelect">{{ _("Month:") }}</label>
             <input type="text" id="monthSelect" class="form-control">
         </div>
     </div>
-
-    <div id="heatmap-container"></div>
+    <div class="chart-container">
+        <button id="downloadCSV" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3">{{ _("Download CSV") }}</button>
+    <br/>
+        <div id="heatmap-container"></div>
+    </div>
 </div>
 
 <script>
@@ -65,6 +68,8 @@
         $("#groupSelect").change(fetchData);
         fetchData();
     });
+
+    $('#monthSelect').val(new Date().toISOString().slice(0, 7)); // Default to current month
 
     function fetchData() {
         var group = $("#groupSelect").val();
@@ -88,19 +93,19 @@
             type: 'heatmap',
             colorscale: 'Viridis',
             colorbar: {
-                title: "Percentage"
+                title: "{{ _(Percentage) }}"
             }
         }];
 
         var layout = {
-            title: "Common Chat Percentages Between Channels",
+            title: "{{ _("Common Chat Percentages Between Channels") }}",
             xaxis: {
-                title: "Target Channels",
+                title: "{{ _("Target Channels") }}",
                 automargin: true,
                 tickangle: 45 // Rotate x-axis labels for better visibility
             },
             yaxis: {
-                title: "Source Channels",
+                title: "{{ _("Source Channels") }}",
                 automargin: true
             },
             margin: {
@@ -116,6 +121,38 @@
 
         Plotly.newPlot("heatmap-container", data, layout, config);
     }
+
+    // Download CSV button
+    $("#downloadCSV").click(function() {
+        // Get the heatmap data from the plotly object
+        var plotlyData = document.getElementById("heatmap-container").data[0];
+        var matrix = plotlyData.z;
+
+        var csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Channel,";
+        for (var i = 0; i < plotlyData.x.length; i++) {
+            csvContent += plotlyData.x[i] + ",";
+        }
+        csvContent += "\n";
+
+        for (var i = 0; i < plotlyData.y.length; i++) {
+            csvContent += plotlyData.y[i] + ",";
+            for (var j = 0; j < plotlyData.x.length; j++) {
+                csvContent += matrix[i][j] + ",";
+            }
+            csvContent += "\n";
+        }
+
+        var encodedUri = encodeURI(csvContent);
+        var link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "common_user_heatmap.csv");
+
+        document.body.appendChild(link); // Required for FF
+        link.click();
+        document.body.removeChild(link);
+    });
+        
 </script>
 </body>
 </html>

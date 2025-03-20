@@ -1,0 +1,227 @@
+# Korean translations for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-03-20 16:03-0400\n"
+"PO-Revision-Date: 2025-03-20 16:03-0400\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ko\n"
+"Language-Team: ko <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: server.py:203 server.py:286 server.py:333
+msgid "Missing required parameters"
+msgstr "필수 매개변수가 누락되었습니다"
+
+#: server.py:306
+msgid "No data found"
+msgstr "데이터를 찾을 수 없습니다"
+
+#: templates/chat_makeup.html:6 templates/chat_makeup.html:33
+#: templates/menu.html:27
+msgid "Chat Makeup"
+msgstr "채팅 구성"
+
+#: templates/chat_makeup.html:35
+msgid ""
+"Rates per minute using character set detection. Emote category counts "
+"both Unicode and YouTube style emote-only messages."
+msgstr "문자 세트 감지를 사용한 분당 비율. 이모티콘 카테고리는 유니코드 및 유튜브 스타일의 이모티콘 전용 메시지를 포함합니다."
+
+#: templates/chat_makeup.html:41 templates/common_chat_heatmap.html:37
+#: templates/membership_counts.html:52 templates/membership_percentages.html:36
+#: templates/streaming_hours.html:58 templates/streaming_hours_avg.html:58
+#: templates/streaming_hours_diff.html:58 templates/streaming_hours_max.html:58
+msgid "Channel Group:"
+msgstr "채널 그룹:"
+
+#: templates/chat_makeup.html:43 templates/streaming_hours.html:60
+#: templates/streaming_hours_avg.html:60 templates/streaming_hours_diff.html:60
+#: templates/streaming_hours_max.html:60
+msgid "All"
+msgstr "전체"
+
+#: templates/chat_makeup.html:44 templates/common_chat_heatmap.html:39
+#: templates/membership_counts.html:54 templates/membership_percentages.html:38
+#: templates/streaming_hours.html:61 templates/streaming_hours_avg.html:61
+#: templates/streaming_hours_diff.html:61 templates/streaming_hours_max.html:61
+msgid "Hololive"
+msgstr "홀로라이브"
+
+#: templates/chat_makeup.html:45 templates/common_chat_heatmap.html:40
+#: templates/membership_counts.html:55 templates/membership_percentages.html:39
+#: templates/streaming_hours.html:62 templates/streaming_hours_avg.html:62
+#: templates/streaming_hours_diff.html:62 templates/streaming_hours_max.html:62
+msgid "Indie"
+msgstr "인디"
+
+#: templates/chat_makeup.html:49 templates/common_chat_heatmap.html:44
+#: templates/membership_counts.html:59 templates/membership_percentages.html:43
+#: templates/streaming_hours.html:66 templates/streaming_hours_avg.html:66
+#: templates/streaming_hours_diff.html:66 templates/streaming_hours_max.html:66
+msgid "Month:"
+msgstr "월:"
+
+#: templates/chat_makeup.html:53 templates/streaming_hours.html:70
+#: templates/streaming_hours_avg.html:70 templates/streaming_hours_diff.html:70
+#: templates/streaming_hours_max.html:70
+msgid "Timezone (UTC Offset):"
+msgstr "시간대 (UTC 오프셋):"
+
+#: templates/chat_makeup.html:59 templates/common_chat_heatmap.html:49
+#: templates/membership_counts.html:65 templates/membership_percentages.html:49
+#: templates/streaming_hours.html:76 templates/streaming_hours_avg.html:76
+#: templates/streaming_hours_diff.html:76 templates/streaming_hours_max.html:76
+msgid "Download CSV"
+msgstr "CSV 다운로드"
+
+#: templates/common_chat_heatmap.html:6 templates/common_chat_heatmap.html:33
+msgid "Common Chat Heatmap"
+msgstr "공통 사용자 히트맵"
+
+#: templates/common_chat_heatmap.html:101
+msgid "Common Chat Percentages Between Channels"
+msgstr "채널 간 공통 사용자 비율"
+
+#: templates/common_chat_heatmap.html:103
+msgid "Target Channels"
+msgstr "대상 채널"
+
+#: templates/common_chat_heatmap.html:108
+msgid "Source Channels"
+msgstr "소스 채널"
+
+#: templates/common_users.html:6 templates/common_users.html:27
+#: templates/menu.html:21
+msgid "Common Users by Channel / Month"
+msgstr "채널 / 월별 공통 사용자"
+
+#: templates/common_users.html:31
+msgid "Channel A:"
+msgstr "채널 A:"
+
+#: templates/common_users.html:35
+msgid "Month for A:"
+msgstr "A의 월:"
+
+#: templates/common_users.html:42
+msgid "Channel B:"
+msgstr "채널 B:"
+
+#: templates/common_users.html:46
+msgid "Month for B:"
+msgstr "B의 월:"
+
+#: templates/common_users.html:51
+msgid "Calculate"
+msgstr "계산"
+
+#: templates/common_users.html:65 templates/common_users.html:125
+msgid "Number of common users:"
+msgstr "공통 사용자 수:"
+
+#: templates/common_users.html:91
+msgid "Select Channel"
+msgstr "채널 선택"
+
+#: templates/common_users.html:107
+msgid "Please fill in all fields."
+msgstr "모든 항목을 입력하세요."
+
+#: templates/common_users.html:113
+msgid "No common users found for the selected criteria."
+msgstr "선택한 기준에 대한 공통 사용자를 찾을 수 없습니다."
+
+#: templates/common_users.html:130
+msgid "Error fetching data. Please try again later."
+msgstr "데이터를 가져오는 중 오류가 발생했습니다. 나중에 다시 시도하세요."
+
+#: templates/index.html:6 templates/index.html:36
+msgid "Welcome to the HoloChatStats v2 Beta Test!"
+msgstr "HoloChatStats v2 베타 테스트에 오신 것을 환영합니다!"
+
+#: templates/index.html:37
+msgid "Since this is a beta, data may be incomplete or inaccurate."
+msgstr "이것은 베타 버전이므로 데이터가 불완전하거나 부정확할 수 있습니다."
+
+#: templates/index.html:40
+msgid "View on GitHub"
+msgstr "GitHub에서 보기"
+
+#: templates/index.html:67
+msgid "Current Date Ranges Available (UTC):"
+msgstr "현재 사용 가능한 날짜 범위 (UTC):"
+
+#: templates/index.html:68
+msgid "Start:"
+msgstr "시작:"
+
+#: templates/index.html:69
+msgid "End:"
+msgstr "종료:"
+
+#: templates/membership_counts.html:6 templates/membership_counts.html:48
+#: templates/menu.html:22
+msgid "Membership Counts"
+msgstr "멤버십 수"
+
+#: templates/membership_counts.html:117
+msgid "Total Members:"
+msgstr "총 멤버 수:"
+
+#: templates/membership_percentages.html:124
+msgid "Membership Percentage"
+msgstr "멤버십 비율"
+
+#: templates/menu.html:8
+msgid "Language"
+msgstr "언어"
+
+#: templates/menu.html:16
+msgid "Home"
+msgstr "홈"
+
+#: templates/menu.html:18
+msgid "Users and Memberships"
+msgstr "사용자 및 멤버십"
+
+#: templates/menu.html:29
+msgid "Streaming Hours"
+msgstr "스트리밍 시간"
+
+#: templates/streaming_hours.html:6 templates/streaming_hours.html:53
+msgid "Total Streaming Hours"
+msgstr "총 스트리밍 시간"
+
+msgid "Language Stats"
+msgstr "언어 통계"
+
+msgid "Average Streaming Hours"
+msgstr "평균 스트리밍 시간"
+
+msgid "Longest Stream Duration"
+msgstr "최장 스트리밍 시간"
+
+msgid "Streaming Hour Change"
+msgstr "스트리밍 시간 변화"
+
+msgid "Number of Chat Logs Processed:"
+msgstr "처리된 채팅 로그 수:"
+
+msgid "Common User Heatmap"
+msgstr "공통 사용자 히트맵"
+
+msgid "Membership Percentages"
+msgstr "멤버십 비율"
+
+msgid "Streaming Hour Change Since Previous Month"
+msgstr "전월 대비 스트리밍 시간 변화"
