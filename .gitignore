@@ -6,3 +6,4 @@ config.ini
 *.pyc
 youtube-cookies.txt
 data-ingestion/youtube_cookies.txt
+*.sql
