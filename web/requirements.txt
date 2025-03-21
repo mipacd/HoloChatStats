@@ -1,0 +1,5 @@
+Flask
+Flask-Babel
+Flask-Caching
+psycopg2
+gunicorn
