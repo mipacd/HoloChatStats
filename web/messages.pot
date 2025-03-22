@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-03-20 16:03-0400\n"
+"POT-Creation-Date: 2025-03-22 19:10-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,16 +17,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:203 server.py:286 server.py:333
+#: server.py:277 server.py:368 server.py:416 server.py:440
 msgid "Missing required parameters"
 msgstr ""
 
-#: server.py:306
+#: server.py:388
 msgid "No data found"
 msgstr ""
 
 #: templates/chat_makeup.html:6 templates/chat_makeup.html:33
-#: templates/menu.html:27
+#: templates/menu.html:28
 msgid "Chat Makeup"
 msgstr ""
 
@@ -36,37 +36,41 @@ msgid ""
 "both Unicode and YouTube style emote-only messages."
 msgstr ""
 
-#: templates/chat_makeup.html:41 templates/common_chat_heatmap.html:37
-#: templates/membership_counts.html:52 templates/membership_percentages.html:36
-#: templates/streaming_hours.html:58 templates/streaming_hours_avg.html:58
-#: templates/streaming_hours_diff.html:58 templates/streaming_hours_max.html:58
+#: templates/chat_makeup.html:41 templates/common_user_heatmap.html:37
+#: templates/membership_change.html:41 templates/membership_counts.html:52
+#: templates/membership_percentages.html:36 templates/streaming_hours.html:58
+#: templates/streaming_hours_avg.html:58 templates/streaming_hours_diff.html:58
+#: templates/streaming_hours_max.html:58
 msgid "Channel Group:"
 msgstr ""
 
-#: templates/chat_makeup.html:43 templates/streaming_hours.html:60
-#: templates/streaming_hours_avg.html:60 templates/streaming_hours_diff.html:60
-#: templates/streaming_hours_max.html:60
+#: templates/chat_makeup.html:43 templates/membership_change.html:43
+#: templates/streaming_hours.html:60 templates/streaming_hours_avg.html:60
+#: templates/streaming_hours_diff.html:60 templates/streaming_hours_max.html:60
 msgid "All"
 msgstr ""
 
-#: templates/chat_makeup.html:44 templates/common_chat_heatmap.html:39
-#: templates/membership_counts.html:54 templates/membership_percentages.html:38
-#: templates/streaming_hours.html:61 templates/streaming_hours_avg.html:61
-#: templates/streaming_hours_diff.html:61 templates/streaming_hours_max.html:61
+#: templates/chat_makeup.html:44 templates/common_user_heatmap.html:39
+#: templates/membership_change.html:44 templates/membership_counts.html:54
+#: templates/membership_percentages.html:38 templates/streaming_hours.html:61
+#: templates/streaming_hours_avg.html:61 templates/streaming_hours_diff.html:61
+#: templates/streaming_hours_max.html:61
 msgid "Hololive"
 msgstr ""
 
-#: templates/chat_makeup.html:45 templates/common_chat_heatmap.html:40
-#: templates/membership_counts.html:55 templates/membership_percentages.html:39
-#: templates/streaming_hours.html:62 templates/streaming_hours_avg.html:62
-#: templates/streaming_hours_diff.html:62 templates/streaming_hours_max.html:62
+#: templates/chat_makeup.html:45 templates/common_user_heatmap.html:40
+#: templates/membership_change.html:45 templates/membership_counts.html:55
+#: templates/membership_percentages.html:39 templates/streaming_hours.html:62
+#: templates/streaming_hours_avg.html:62 templates/streaming_hours_diff.html:62
+#: templates/streaming_hours_max.html:62
 msgid "Indie"
 msgstr ""
 
-#: templates/chat_makeup.html:49 templates/common_chat_heatmap.html:44
-#: templates/membership_counts.html:59 templates/membership_percentages.html:43
-#: templates/streaming_hours.html:66 templates/streaming_hours_avg.html:66
-#: templates/streaming_hours_diff.html:66 templates/streaming_hours_max.html:66
+#: templates/chat_makeup.html:49 templates/common_user_heatmap.html:44
+#: templates/membership_change.html:49 templates/membership_counts.html:59
+#: templates/membership_percentages.html:43 templates/streaming_hours.html:66
+#: templates/streaming_hours_avg.html:66 templates/streaming_hours_diff.html:66
+#: templates/streaming_hours_max.html:66
 msgid "Month:"
 msgstr ""
 
@@ -76,26 +80,28 @@ msgstr ""
 msgid "Timezone (UTC Offset):"
 msgstr ""
 
-#: templates/chat_makeup.html:59 templates/common_chat_heatmap.html:49
-#: templates/membership_counts.html:65 templates/membership_percentages.html:49
-#: templates/streaming_hours.html:76 templates/streaming_hours_avg.html:76
-#: templates/streaming_hours_diff.html:76 templates/streaming_hours_max.html:76
+#: templates/chat_makeup.html:59 templates/common_user_heatmap.html:49
+#: templates/membership_change.html:55 templates/membership_counts.html:65
+#: templates/membership_percentages.html:49 templates/streaming_hours.html:76
+#: templates/streaming_hours_avg.html:76 templates/streaming_hours_diff.html:76
+#: templates/streaming_hours_max.html:76
 msgid "Download CSV"
 msgstr ""
 
-#: templates/common_chat_heatmap.html:6 templates/common_chat_heatmap.html:33
-msgid "Common Chat Heatmap"
+#: templates/common_user_heatmap.html:6 templates/common_user_heatmap.html:33
+#: templates/menu.html:20
+msgid "Common User Heatmap"
 msgstr ""
 
-#: templates/common_chat_heatmap.html:101
+#: templates/common_user_heatmap.html:101
 msgid "Common Chat Percentages Between Channels"
 msgstr ""
 
-#: templates/common_chat_heatmap.html:103
+#: templates/common_user_heatmap.html:103
 msgid "Target Channels"
 msgstr ""
 
-#: templates/common_chat_heatmap.html:108
+#: templates/common_user_heatmap.html:108
 msgid "Source Channels"
 msgstr ""
 
@@ -176,16 +182,35 @@ msgstr ""
 msgid "Error fetching date ranges."
 msgstr ""
 
-#: templates/index.html:85
-msgid "Number of Chat Logs Processed: "
+#: templates/index.html:82
+msgid "Number of Chat Logs Processed:"
 msgstr ""
 
-#: templates/index.html:89
+#: templates/index.html:90
 msgid "Unable to fetch chat log count at this time."
 msgstr ""
 
-#: templates/index.html:94
+#: templates/index.html:95
 msgid "Error fetching chat log count."
+msgstr ""
+
+#: templates/membership_change.html:6 templates/membership_change.html:34
+#: templates/menu.html:24
+msgid "Membership Gain / Loss"
+msgstr ""
+
+#: templates/membership_change.html:36
+msgid ""
+"Determined using the last recorded message for each user between the "
+"specified month and the previous month."
+msgstr ""
+
+#: templates/membership_change.html:132
+msgid "Gains"
+msgstr ""
+
+#: templates/membership_change.html:139
+msgid "Losses"
 msgstr ""
 
 #: templates/membership_counts.html:6 templates/membership_counts.html:48
@@ -227,34 +252,30 @@ msgstr ""
 msgid "Users and Memberships"
 msgstr ""
 
-#: templates/menu.html:20
-msgid "Common User Heatmap"
-msgstr ""
-
-#: templates/menu.html:25
+#: templates/menu.html:26
 msgid "Language Stats"
 msgstr ""
 
-#: templates/menu.html:29
+#: templates/menu.html:30
 msgid "Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:31 templates/streaming_hours.html:6
+#: templates/menu.html:32 templates/streaming_hours.html:6
 #: templates/streaming_hours.html:53
 msgid "Total Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:32 templates/streaming_hours_avg.html:6
+#: templates/menu.html:33 templates/streaming_hours_avg.html:6
 #: templates/streaming_hours_avg.html:53
 msgid "Average Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:33 templates/streaming_hours_max.html:6
+#: templates/menu.html:34 templates/streaming_hours_max.html:6
 #: templates/streaming_hours_max.html:53
 msgid "Longest Stream Duration"
 msgstr ""
 
-#: templates/menu.html:34
+#: templates/menu.html:35
 msgid "Streaming Hour Change"
 msgstr ""
 

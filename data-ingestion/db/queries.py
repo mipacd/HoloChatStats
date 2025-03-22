@@ -44,7 +44,7 @@ def create_database_and_tables():
         CREATE TABLE IF NOT EXISTS user_data (
             user_id TEXT,
             channel_id TEXT,
-            last_message_at TIMESTAMP WITH TIME ZONE NOT NULL, -- ✅ Store exact UTC time
+            last_message_at TIMESTAMP WITH TIME ZONE NOT NULL,
             video_id TEXT,
             membership_rank INT NOT NULL,
             jp_count INT DEFAULT 0,
@@ -79,10 +79,11 @@ def create_indexes_and_views():
 
     cursor = conn.cursor()
 
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_last_message_at ON user_data (last_message_at);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_user_id_last_message_at ON user_data (user_id, last_message_at);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_user_id ON user_data (user_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_channel_id ON user_data (channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_id ON channels (channel_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_month ON user_data (DATE_TRUNC('month', last_message_at));")
 
     # Create group common chat percentage view
     cursor.execute("""
@@ -293,8 +294,8 @@ def is_metadata_processed(video_id):
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT EXISTS (SELECT 1 FROM videos WHERE video_id = %s)", (video_id,))
-        result = cursor.fetchone()  # ✅ This will always return a row (True/False)
-        return result[0]  # ✅ Returns True if exists, False otherwise
+        result = cursor.fetchone()
+        return result[0]
     except psycopg2.DatabaseError as e:
         logger.error(f"Database error in is_chat_log_processed: {e}")
         return False
@@ -311,8 +312,8 @@ def is_chat_log_processed(video_id):
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT EXISTS (SELECT 1 FROM user_data WHERE video_id = %s)", (video_id,))
-        result = cursor.fetchone()  # ✅ This will always return a row (True/False)
-        return result[0]  # ✅ Returns True if exists, False otherwise
+        result = cursor.fetchone()
+        return result[0]
     except psycopg2.DatabaseError as e:
         logger.error(f"Database error in is_chat_log_processed: {e}")
         return False

@@ -226,5 +226,18 @@ msgstr "メンバーシップ割合"
 msgid "Streaming Hour Change Since Previous Month"
 msgstr "前月からの配信時間の変化"
 
+msgid "Membership Gain / Loss"
+msgstr "メンバーシップ増減"
 
+msgid ""
+"Determined using the last recorded message for each user between the "
+"specified month and the previous month."
+msgstr ""
+"指定された月と前月の各ユーザーの最後の記録されたメッセージに基づいて決定されます。"
+
+msgid "Gains"
+msgstr "増加"
+
+msgid "Losses"
+msgstr "減少"
 
