@@ -20,7 +20,7 @@ This will serve as a replacement (v2) for the holochatstats.info site that launc
     * Total monthly streaming hours
     * Longest stream duration for each month
     * Average stream duration
-    * Streaming hour chnage since previous month
+    * Streaming hour change since previous month
 * User Specific Information
     * Query a specific user name or YT channel id to fetch membership and chat frequency by channel (NEW)
 * Automated Daily Updates (NEW)

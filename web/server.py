@@ -3,26 +3,55 @@ from flask_babel import Babel, _
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_caching import Cache
 from datetime import datetime, timedelta
+import configparser
+import os
 import psycopg2
 import logging
+import sys
+
+def get_config(key1, key2):
+    """
+    Reads a value from config.ini.
+
+    Args:
+        key1 (str): Section name in config.ini.
+        key2 (str): Option name in config.ini.
+
+    Returns:
+        str: Value associated with key1 and key2 in config.ini.
+
+    Raises:
+        FileNotFoundError: If config.ini is not found.
+        KeyError: If key1 or key2 are not found in config.ini.
+    """
+    config = configparser.ConfigParser()
+    caller_script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    ini_file = os.path.join(caller_script_dir, 'config.ini')
+    if not config.read(ini_file):
+        raise FileNotFoundError("config.ini not found.")
+    try:
+        return config[key1][key2]
+    except KeyError as e:
+        raise KeyError(f"Key not found in config.ini: {e}")
 
 app = Flask(__name__)
 # Setup session key and babel configuration
-app.config["SECRET_KEY"] = "holochatstats secret key"
+app.config["SECRET_KEY"] = get_config("Settings", "SecretKey")
 app.config["SESSION_TYPE"] = "filesystem"
 app.config["BABEL_DEFAULT_LOCALE"] = "en"
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
+app.config["GA_ID"] = get_config("Settings", "GoogleAnalyticsID")
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 cache = Cache(app, config={"CACHE_TYPE": "simple"})
 
 DB_CONFIG = {
-    "dbname": "youtube_data",
-    "user": "postgres",
-    "password": "12345",
-    "host": "localhost",
-    "port": "5432"
+    "dbname": get_config("Database", "DBName"),
+    "user": get_config("Database", "DBUser"),
+    "password": get_config("Database", "DBPass"),
+    "host": get_config("Database", "DBHost"),
+    "port": get_config("Database", "DBPort")
 }
 LANGUAGES = {
     'en': 'English',
@@ -53,6 +82,10 @@ babel.init_app(app, locale_selector=get_locale)
 
 def get_db_connection():
     return psycopg2.connect(**DB_CONFIG)
+
+@app.context_processor
+def inject_ga_id():
+    return { "GA_ID" : app.config.get("GA_ID", "") }
 
 
 @app.route('/')
@@ -264,37 +297,45 @@ def get_common_chatters():
                 ua2.channel_id AS channel_b,
                 ua1.observed_month AS month_a,
                 ua2.observed_month AS month_b,
-                COUNT(DISTINCT ua1.user_id) AS shared_users
+                COUNT(DISTINCT ua1.user_id) AS shared_users,
+                -- Calculate dynamic percentages for A -> B and B -> A
+                100.0 * COUNT(DISTINCT ua1.user_id) / NULLIF(
+                    (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = ua1.channel_id AND observed_month = ua1.observed_month),
+                    0
+                ) AS percent_A_to_B,
+                100.0 * COUNT(DISTINCT ua1.user_id) / NULLIF(
+                    (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = ua2.channel_id AND observed_month = ua2.observed_month),
+                    0
+                ) AS percent_B_to_A
             FROM user_activity ua1
             JOIN user_activity ua2 
                 ON ua1.user_id = ua2.user_id
                 AND (ua1.channel_id <> ua2.channel_id OR ua1.observed_month <> ua2.observed_month)
             GROUP BY ua1.channel_id, ua2.channel_id, ua1.observed_month, ua2.observed_month
         )
-        SELECT
-            ca.channel_name AS channel_a,
-            cb.channel_name AS channel_b,
-            cg.month_a AS month_a,
-            cg.month_b AS month_b,
-            cg.shared_users AS num_common_users,
-            100.0 * cg.shared_users / NULLIF(
-                (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = cg.channel_a AND observed_month = cg.month_a),
-                0
-            ) AS percent_A_to_B,
-            100.0 * cg.shared_users / NULLIF(
-                (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = cg.channel_b AND observed_month = cg.month_b),
-                0
-            ) AS percent_B_to_A
+        SELECT 
+        ca.channel_name AS channel_a,
+        cb.channel_name AS channel_b,
+        cg.month_a AS month_a,
+        cg.month_b AS month_b,
+        cg.shared_users AS num_common_users,
+        100.0 * cg.shared_users / NULLIF( (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = cg.channel_a AND observed_month = cg.month_a), 0 ) AS percent_A_to_B,
+        100.0 * cg.shared_users / NULLIF( (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = cg.channel_b AND observed_month = cg.month_b), 0 ) AS percent_B_to_A
         FROM common_chatters cg
         JOIN channels ca ON cg.channel_a = ca.channel_id
-        JOIN channels cb ON cg.channel_b = cb.channel_id;
+        JOIN channels cb ON cg.channel_b = cb.channel_id
+        WHERE ca.channel_name = %s AND cb.channel_name = %s;
+
     """
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute(query, (
-        timezone_interval, channel_a, month_a, month_a, channel_b, month_b, month_b
+        timezone_interval,
+        channel_a, month_a, month_a,
+        channel_b, month_b, month_b,
+        channel_a, channel_b  # Added parameters for the WHERE clause
     ))
 
     results = cursor.fetchall()
@@ -308,8 +349,8 @@ def get_common_chatters():
             "month_a": results[0][2].strftime('%Y-%m'),
             "month_b": results[0][3].strftime('%Y-%m'),
             "num_common_users": results[0][4],
-            "percent_A_to_B": round(results[0][6], 2) if results[0][6] is not None else None,
-            "percent_B_to_A": round(results[0][5], 2) if results[0][5] is not None else None
+            "percent_A_to_B": round(results[0][5], 2) if results[0][5] is not None else None,
+            "percent_B_to_A": round(results[0][6], 2) if results[0][6] is not None else None
         }
     else:
         data = {}
