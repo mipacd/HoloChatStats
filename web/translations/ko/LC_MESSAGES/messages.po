@@ -225,3 +225,18 @@ msgstr "멤버십 비율"
 
 msgid "Streaming Hour Change Since Previous Month"
 msgstr "전월 대비 스트리밍 시간 변화"
+
+msgid "Membership Gain / Loss"
+msgstr "멤버십 증감"
+
+msgid ""
+"Determined using the last recorded message for each user between the "
+"specified month and the previous month."
+msgstr ""
+"지정된 월과 이전 월 사이의 각 사용자의 마지막 기록된 메시지를 기준으로 결정됩니다."
+
+msgid "Gains"
+msgstr "증가"
+
+msgid "Losses"
+msgstr "감소"

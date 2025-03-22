@@ -298,7 +298,6 @@ def get_common_chatters():
                 ua1.observed_month AS month_a,
                 ua2.observed_month AS month_b,
                 COUNT(DISTINCT ua1.user_id) AS shared_users,
-                -- Calculate dynamic percentages for A -> B and B -> A
                 100.0 * COUNT(DISTINCT ua1.user_id) / NULLIF(
                     (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = ua1.channel_id AND observed_month = ua1.observed_month),
                     0
@@ -424,6 +423,95 @@ def get_group_membership_counts():
     conn.close()
 
     return jsonify(results)
+
+@app.route('/api/get_group_membership_changes', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_group_membership_changes():
+    """API to fetch membership gains, losses, and differential by group and month."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    channel_group = request.args.get('channel_group')
+    month = request.args.get('month')  # Expected format: YYYY-MM
+    
+
+    # Validate required parameters
+    if not channel_group or not month:
+        return jsonify({"error": _("Missing required parameters")}), 400
+
+    # SQL query
+    query = """
+        WITH membership_changes AS (
+            SELECT
+                m.user_id,
+                m.channel_id,
+                DATE_TRUNC('month', m.last_message_at)::DATE AS observed_month,
+                m.membership_rank,
+                LAG(m.membership_rank) OVER (
+                    PARTITION BY m.user_id, m.channel_id
+                    ORDER BY m.last_message_at
+                ) AS previous_membership_rank
+            FROM user_data m
+            JOIN channels c ON m.channel_id = c.channel_id
+            WHERE c.channel_group = %s
+              AND DATE_TRUNC('month', m.last_message_at) = %s::DATE
+        ),
+        gains AS (
+            SELECT
+                mc.user_id,
+                mc.channel_id,
+                mc.observed_month
+            FROM membership_changes mc
+            WHERE mc.previous_membership_rank = -1
+              AND mc.membership_rank > -1
+        ),
+        expirations AS (
+            SELECT
+                mc.user_id,
+                mc.channel_id,
+                mc.observed_month
+            FROM membership_changes mc
+            WHERE mc.previous_membership_rank > -1
+              AND mc.membership_rank = -1
+        )
+        SELECT
+            c.channel_name,
+            g.observed_month,
+            COUNT(DISTINCT g.user_id) AS gains_count,
+            COUNT(DISTINCT e.user_id) AS losses_count,
+            (COUNT(DISTINCT g.user_id) - COUNT(DISTINCT e.user_id)) AS differential
+        FROM channels c
+        LEFT JOIN gains g ON g.channel_id = c.channel_id
+        LEFT JOIN expirations e ON e.channel_id = c.channel_id
+        WHERE g.observed_month = %s::DATE OR e.observed_month = %s::DATE
+        GROUP BY c.channel_name, g.observed_month
+        ORDER BY differential DESC;
+    """
+    
+    try:
+        # Execute the query with the provided parameters
+        cursor.execute(query, (channel_group, f"{month}-01", f"{month}-01", f"{month}-01"))
+        results = cursor.fetchall()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+    # Format the results as JSON
+    response_data = [
+        {
+            "channel_name": row[0],
+            "observed_month": row[1].strftime('%Y-%m'),
+            "gains_count": row[2],
+            "losses_count": row[3],
+            "differential": row[4]
+        }
+        for row in results
+    ]
+
+    return jsonify(response_data)
+
 
 @app.route('/api/get_group_streaming_hours_diff', methods=['GET'])
 @cache.cached(timeout=86400, query_string=True)
@@ -576,6 +664,10 @@ def membership_counts_view():
 @app.route('/membership_percentages')
 def membership_percentages_view():
     return render_template('membership_percentages.html', _=_, get_locale=get_locale)
+
+@app.route('/membership_change')
+def membership_expirations_view():
+    return render_template('membership_change.html', _=_, get_locale=get_locale)
 
 if __name__ == '__main__':
     app.run(debug=True)
