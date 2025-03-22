@@ -1,14 +1,19 @@
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_babel import Babel, _
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_caching import Cache
+from datetime import datetime, timedelta
 import psycopg2
-import datetime
+import logging
 
 app = Flask(__name__)
+# Setup session key and babel configuration
 app.config["SECRET_KEY"] = "holochatstats secret key"
 app.config["SESSION_TYPE"] = "filesystem"
 app.config["BABEL_DEFAULT_LOCALE"] = "en"
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 cache = Cache(app, config={"CACHE_TYPE": "simple"})
 
@@ -25,6 +30,21 @@ LANGUAGES = {
     'ko': '한국어'
 }
 
+# Setup logging
+def setup_logging():
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    app.logger.addHandler(handler)
+
+setup_logging()
+
+# Access logging
+@app.before_request
+def before_request():
+    real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
+    app.logger.info(f"Request from {real_ip} to {request.path}")
+
 def get_locale():
     return session.get('language', 'en')
 
@@ -39,6 +59,7 @@ def get_db_connection():
 def index():
     return render_template("index.html", _=_, get_locale=get_locale)
 
+# Language selection
 @app.route('/set_language/<language>')
 def set_language(language):
     if language in ['en', 'ja', 'ko']:
@@ -49,7 +70,7 @@ def set_language(language):
 
 def streaming_hours_query(aggregation_function, group=None):
     group = request.args.get('group', None)
-    month = request.args.get('month', datetime.datetime.utcnow().strftime('%Y-%m'))
+    month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))
     timezone_offset = int(request.args.get('timezone', 0))
     month_start = f"{month}-01"
 
@@ -125,11 +146,11 @@ def get_group_max_streaming_hours():
 def get_group_chat_makeup():
     """API to fetch chat makeup statistics per channel, with optional filtering."""
     group = request.args.get('group', None)  # "Hololive", "Indie", or None
-    month = request.args.get('month', datetime.datetime.utcnow().strftime('%Y-%m'))  # Default: current month
+    month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))  # Default: current month
     timezone_offset = int(request.args.get('timezone', 0))  # Default: UTC (0)
 
     # Convert 'YYYY-MM' to 'YYYY-MM-01' and the end of that month ('YYYY-MM-01')
-    start_month = datetime.datetime.strptime(month + "-01", '%Y-%m-%d').strftime('%Y-%m-01')
+    start_month = datetime.strptime(month + "-01", '%Y-%m-%d').strftime('%Y-%m-01')
 
     # Calculate time zone offset for INTERVAL
     timezone_interval = f"{timezone_offset} hours"
@@ -287,8 +308,8 @@ def get_common_chatters():
             "month_a": results[0][2].strftime('%Y-%m'),
             "month_b": results[0][3].strftime('%Y-%m'),
             "num_common_users": results[0][4],
-            "percent_A_to_B": round(results[0][5], 2) if results[0][5] is not None else None,
-            "percent_B_to_A": round(results[0][6], 2) if results[0][6] is not None else None
+            "percent_A_to_B": round(results[0][6], 2) if results[0][6] is not None else None,
+            "percent_B_to_A": round(results[0][5], 2) if results[0][5] is not None else None
         }
     else:
         data = {}
@@ -310,7 +331,7 @@ def get_group_common_chatters():
         SELECT 
             channel_a, 
             channel_b, 
-            percentage_common_chatters
+            percent_a_to_b
         FROM mv_common_chatters
         WHERE channel_group = %s 
           AND observed_month = %s::DATE;
@@ -362,6 +383,85 @@ def get_group_membership_counts():
     conn.close()
 
     return jsonify(results)
+
+@app.route('/api/get_group_streaming_hours_diff', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_group_streaming_hours_diff():
+    """API to fetch the change in streaming hours since the previous month for a given group and timezone."""
+
+    # Get request parameters
+    month = request.args.get('month')  # Expected format: YYYY-MM
+    timezone_offset = request.args.get('timezone', '0')  # Default to UTC
+    channel_group = request.args.get('group', None)
+
+    if not month:
+        return jsonify({"success": False, "error": "Missing required parameter: month"}), 400
+
+    try:
+        # Convert month into correct format
+        month_date = datetime.strptime(month, "%Y-%m")
+        prev_month_date = (month_date.replace(day=1) - timedelta(days=1)).replace(day=1)
+    except ValueError:
+        return jsonify({"success": False, "error": "Invalid month format. Use YYYY-MM."}), 400
+
+    # SQL Query
+    query = """
+        WITH monthly_streaming AS (
+            SELECT
+                c.channel_name,
+                DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC' + INTERVAL %s) AS observed_month,
+                SUM(EXTRACT(EPOCH FROM v.duration)) / 3600 AS total_streaming_hours
+            FROM videos v
+            JOIN channels c ON v.channel_id = c.channel_id
+            {group_filter}
+            GROUP BY c.channel_name, observed_month
+        )
+        SELECT
+            m1.channel_name,
+            m1.observed_month,
+            m1.total_streaming_hours,
+            COALESCE((m1.total_streaming_hours - m2.total_streaming_hours), 0) AS change_from_previous_month
+        FROM monthly_streaming m1
+        LEFT JOIN monthly_streaming m2
+            ON m1.channel_name = m2.channel_name AND m1.observed_month = m2.observed_month + INTERVAL '1 month'
+        WHERE m1.observed_month = %s
+        ORDER BY m1.channel_name;
+    """
+
+    # Apply channel group filtering if provided
+    group_filter = ""
+    params = [f"{timezone_offset} hours"]
+    if channel_group:
+        group_filter = "WHERE c.channel_group = %s"
+        params.append(channel_group)
+
+    params.append(f"{month_date.strftime('%Y-%m-01')}")
+
+    # Replace placeholder with actual SQL filter
+    query = query.format(group_filter=group_filter)
+
+    # Execute the query
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(query, tuple(params))
+    results = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    # Format the response
+    data = [
+        {
+            "channel": row[0],
+            "month": row[1].strftime('%Y-%m'),
+            "hours": round(row[2], 2) if row[2] is not None else 0,
+            "change": round(row[3], 2)
+        }
+        for row in results
+    ]
+
+    return jsonify({"success": True, "data": data})
             
 
 @app.route('/api/get_channel_names', methods=['GET'])

@@ -10,7 +10,7 @@ from db.queries import create_database_and_tables, create_indexes_and_views, ref
 from config.settings import get_config
 from utils.logging_utils import get_logger
 from utils.helpers import setup_cache_dir
-from cacheutil.cache_manager import process_cache_dir
+from cacheutil.cache_manager import process_cache_dir, gzip_uncompressed_chat_logs
 from workers.chat_downloader import download_chat_log
 from workers.db_worker import db_worker
 from workers.metadata_fetcher import get_metadata_for_date_range
@@ -34,9 +34,6 @@ if get_config("Settings", "TestMode") == "True":
     os.environ['REQUESTS_CA_BUNDLE'] = os.path.join(caller_script_dir, 'mitmproxy-ca-cert.pem')
     os.environ['SSL_CERT_FILE'] = os.path.join(caller_script_dir, 'mitmproxy-ca-cert.pem')
 
-#download_queue = []
-#DB_POOL = None
-
 def main():
     args = parse_args()
     YEAR = args.year
@@ -49,6 +46,7 @@ def main():
     init_db_pool()
     create_database_and_tables()
     create_indexes_and_views()
+    gzip_uncompressed_chat_logs()
     setup_cache_dir()
 
     # Initialize database queue

@@ -114,7 +114,7 @@
             let month = document.getElementById('monthSelect').value || new Date().toISOString().slice(0, 7);
             let timezone = document.getElementById('timezoneSelect').value;
 
-            let url = `/api/get_group_diff_streaming_hours?month=${month}&timezone=${timezone}`;
+            let url = `/api/get_group_streaming_hours_diff?month=${month}&timezone=${timezone}`;
             if (group) url += `&group=${encodeURIComponent(group)}`;
 
             fetch(url)
@@ -125,8 +125,10 @@
                         return;
                     }
 
+                    let sortedData = data.data.sort((a, b) => b.change - a.change);
+
                     let labels = data.data.map(d => d.channel);
-                    let values = data.data.map(d => d.hours);
+                    let values = data.data.map(d => d.change);
 
                     chart.data.labels = labels;
                     chart.data.datasets[0].data = values;
