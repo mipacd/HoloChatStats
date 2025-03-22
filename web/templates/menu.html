@@ -195,7 +195,13 @@
     padding-left: 20px;
 }
 </style>
-
+<script aysnc src="https://www.googletagmanager.com/gtag/js?id={{ GA_ID }}"></script>
+<script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){ dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', '{{ GA_ID }}');
+</script>
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const sidebar = document.getElementById("sidebar");
