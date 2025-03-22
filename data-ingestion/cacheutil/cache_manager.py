@@ -3,9 +3,11 @@ from psycopg2.extras import execute_values
 from datetime import timezone
 import json
 import datetime
+import gzip
 import os
 import psycopg2
 import sys
+import shutil
 from utils.logging_utils import get_logger
 from config.settings import get_config
 from utils.feature_analysis import has_humor, get_feature_timestamps, update_feature_timestamps
@@ -18,10 +20,10 @@ def insert_chat_log_from_cache(channel_id, video_id):
     logger = get_logger()
     logger.info(f"Inserting chat log for {video_id} into database.")
 
-    chat_log_path = os.path.join(get_config("Settings", "CacheDir"), "chat_logs", f"{video_id}.jsonl")
+    chat_log_path = os.path.join(get_config("Settings", "CacheDir"), "chat_logs", f"{video_id}.jsonl.gz")
     chat_log = []
 
-    with open(chat_log_path, "r", encoding="utf-8") as f:
+    with gzip.open(chat_log_path, "rt", encoding="utf-8") as f:
         for line in f:
             chat_log.append(json.loads(line.strip()))
 
@@ -170,8 +172,8 @@ def write_metadata_to_cache(channel_id, video_id, title, end_time, duration):
 
 # Write chat log to cache. Overwrite if it already exists.
 def write_chat_log_to_cache(channel_id, video_id, chat_log):
-    chat_log_path = os.path.join(get_config("Settings", "CacheDir"), "chat_logs", f"{video_id}.jsonl")
-    with open(chat_log_path, "w", encoding="utf-8") as f:
+    chat_log_path = os.path.join(get_config("Settings", "CacheDir"), "chat_logs", f"{video_id}.jsonl.gz")
+    with gzip.open(chat_log_path, "wt", encoding="utf-8") as f:
         for message in chat_log:
             f.write(json.dumps(message, ensure_ascii=False) + "\n")
 
@@ -209,7 +211,7 @@ def process_cache_dir(download_queue):
 
             # Check each video in the metadata file
             for video_id, video_info in data.items():
-                chat_log_path = os.path.join(chat_log_dir, f"{video_id}.jsonl")
+                chat_log_path = os.path.join(chat_log_dir, f"{video_id}.jsonl.gz")
 
                 chat_log_exists = os.path.exists(chat_log_path) and os.path.getsize(chat_log_path) > 0
                 metadata_in_db = is_metadata_processed(video_id)
@@ -293,3 +295,15 @@ def load_channels():
     release_db_connection(conn)
 
     return channels
+
+def gzip_uncompressed_chat_logs():
+    chat_log_dir = os.path.join(get_config("Settings", "CacheDir"), "chat_logs")
+    logger = get_logger()
+    for filename in os.listdir(chat_log_dir):
+        file_path = os.path.join(chat_log_dir, filename)
+        if filename.endswith(".jsonl"):
+            gzipped_path = file_path + ".gz"
+            with open(file_path, "rb") as f_in, gzip.open(gzipped_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+            os.remove(file_path)
+            logger.info(f"Gzipped uncompressed chat log: {filename}")

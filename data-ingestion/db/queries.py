@@ -95,7 +95,6 @@ def create_indexes_and_views():
                                 DATE_TRUNC('month', m.last_message_at) AS observed_month
                             FROM user_data m
                             JOIN channels c ON m.channel_id = c.channel_id
-                            WHERE m.last_message_at >= '2024-01-01'
                             GROUP BY m.user_id, m.channel_id, c.channel_group, observed_month
                         ),
                         common_chatters AS (
@@ -125,14 +124,20 @@ def create_indexes_and_views():
                             cg.observed_month,
                             ca.channel_name AS channel_a,
                             cb.channel_name AS channel_b,
-                            COUNT(DISTINCT cg.user_id)::DECIMAL / NULLIF(ua_count.total_users, 0) * 100 AS percentage_common_chatters
+                            COUNT(DISTINCT cg.user_id) AS num_common_users,
+                            100.0 * COUNT(DISTINCT cg.user_id) / NULLIF(ua_count.total_users, 0) AS percent_A_to_B
                         FROM common_chatters cg
                         JOIN channels ca ON cg.channel_a = ca.channel_id
                         JOIN channels cb ON cg.channel_b = cb.channel_id
                         JOIN user_counts ua_count 
                             ON ca.channel_id = ua_count.channel_id 
                             AND cg.observed_month = ua_count.observed_month
-                        GROUP BY ca.channel_group, cg.observed_month, ca.channel_name, cb.channel_name, ca.channel_id, ua_count.total_users;
+                        JOIN user_counts ub_count
+                            ON cb.channel_id = ub_count.channel_id
+                            AND cg.observed_month = ub_count.observed_month
+                        GROUP BY ca.channel_group, cg.observed_month, ca.channel_name, cb.channel_name, ua_count.total_users, ub_count.total_users
+                        ORDER BY ca.channel_group, cg.observed_month DESC, num_common_users DESC;
+
                 """
                    )
     
@@ -140,29 +145,33 @@ def create_indexes_and_views():
 
     # Create membership data view
     cursor.execute("""CREATE MATERIALIZED VIEW IF NOT EXISTS mv_membership_data AS
-    WITH latest_memberships AS (
-        SELECT DISTINCT ON (m.user_id, m.channel_id, DATE_TRUNC('month', m.last_message_at))
-            m.user_id,
-            m.channel_id,
-            DATE_TRUNC('month', m.last_message_at)::DATE AS observed_month,
-            m.membership_rank,
-            m.last_message_at
-        FROM user_data m
-        ORDER BY m.user_id, m.channel_id, DATE_TRUNC('month', m.last_message_at), m.last_message_at DESC
-    )
-    SELECT
-        c.channel_group,
-        c.channel_name,
-        lm.observed_month,
-        lm.membership_rank,
-        COUNT(lm.user_id) AS membership_count,
-        ROUND(
-            COUNT(lm.user_id)::DECIMAL / NULLIF(SUM(COUNT(lm.user_id)) OVER (PARTITION BY c.channel_id), 0) * 100, 2
-        ) AS percentage_total
-    FROM latest_memberships lm
-    JOIN channels c ON lm.channel_id = c.channel_id
-    GROUP BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank, c.channel_id
-    ORDER BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank;
+                        WITH latest_memberships AS (
+                            SELECT 
+                                m.user_id,
+                                m.channel_id,
+                                DATE_TRUNC('month', m.last_message_at)::DATE AS observed_month,
+                                m.membership_rank,
+                                m.last_message_at,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY m.user_id, m.channel_id, DATE_TRUNC('month', m.last_message_at) 
+                                    ORDER BY m.last_message_at DESC
+                                ) AS row_num
+                            FROM user_data m
+                        )
+                        SELECT
+                            c.channel_group,
+                            c.channel_name,
+                            lm.observed_month,
+                            lm.membership_rank,
+                            COUNT(lm.user_id) AS membership_count,
+                            ROUND(
+                                COUNT(lm.user_id)::DECIMAL / NULLIF(SUM(COUNT(*)) OVER (PARTITION BY c.channel_name, lm.observed_month), 0) * 100, 2
+                            ) AS percentage_total
+                            FROM latest_memberships lm
+                            JOIN channels c ON lm.channel_id = c.channel_id
+                            WHERE lm.row_num = 1  -- Keep only the latest membership observation per user/channel/month
+                            GROUP BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank
+                            ORDER BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank;
     """)
 
     conn.commit()
