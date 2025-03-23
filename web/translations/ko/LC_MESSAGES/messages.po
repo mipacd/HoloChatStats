@@ -240,3 +240,27 @@ msgstr "증가"
 
 msgid "Losses"
 msgstr "감소"
+
+msgid "Chat Leaderboards"
+msgstr "채팅 리더보드"
+
+msgid "Channel:"
+msgstr "채널:"
+
+msgid "Get Leaderboard"
+msgstr "리더보드 가져오기"
+
+msgid "Username"
+msgstr "사용자 이름"
+
+msgid "Message Count"
+msgstr "메시지 수"
+
+msgid "Select Channel"
+msgstr "채널 선택"
+
+msgid "No data available for the selected criteria."
+msgstr "선택한 기준에 대한 데이터가 없습니다."
+
+msgid "Number of common members:"
+msgstr "공통 멤버 수:"

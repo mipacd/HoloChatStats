@@ -84,6 +84,9 @@ def create_indexes_and_views():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_channel_id ON user_data (channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_id ON channels (channel_id);")
 
+    cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mv_common_chatters;")
+    cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mv_membership_data;")
+
     # Create group common chat percentage view
     cursor.execute("""
                    CREATE MATERIALIZED VIEW IF NOT EXISTS mv_common_chatters AS
