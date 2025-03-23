@@ -1,8 +1,7 @@
 from collections import defaultdict
 from psycopg2.extras import execute_values
-from datetime import timezone
+from datetime import timezone, datetime
 import json
-import datetime
 import gzip
 import os
 import psycopg2

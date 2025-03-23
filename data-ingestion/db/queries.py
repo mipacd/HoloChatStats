@@ -83,7 +83,6 @@ def create_indexes_and_views():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_user_id ON user_data (user_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_channel_id ON user_data (channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_id ON channels (channel_id);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_month ON user_data (DATE_TRUNC('month', last_message_at));")
 
     # Create group common chat percentage view
     cursor.execute("""
