@@ -53,6 +53,9 @@
 
     <div class="chart-container">
         <button id="downloadCSV" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3">{{ _("Download CSV") }}</button>
+        <div id="chartSpinner" class="spinner-border text-primary position-absolute top-50 start-50" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
         <canvas id="membershipChart"></canvas>
     </div>
 </div>
@@ -109,11 +112,14 @@
             let url = `/api/get_group_membership_changes?month=${month}`;
             if (group) url += `&channel_group=${encodeURIComponent(group)}`;
 
+            $("#chartSpinner").show();
+
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
                         console.error("API Error:", data.error);
+                        $("#chartSpinner").hide();
                         return;
                     }
 
@@ -144,6 +150,8 @@
                         }
                     ];
                     chart.update();
+
+                    $("#chartSpinner").hide();
                 })
                 .catch(error => console.error("Fetch Error:", error));
         }
