@@ -241,3 +241,29 @@ msgstr "増加"
 msgid "Losses"
 msgstr "減少"
 
+msgid "Chat Leaderboards"
+msgstr "チャットリーダーボード"
+
+msgid "Channel:"
+msgstr "チャンネル:"
+
+msgid "Get Leaderboard"
+msgstr "リーダーボードを取得"
+
+msgid "Username"
+msgstr "ユーザー名"
+
+msgid "Message Count"
+msgstr "メッセージ数"
+
+msgid "Select Channel"
+msgstr "チャンネルを選択"
+
+msgid "No data available for the selected criteria."
+msgstr "選択した条件に該当するデータがありません。"
+
+msgid "Number of common members:"
+msgstr "共通メンバーの数:"
+
+
+

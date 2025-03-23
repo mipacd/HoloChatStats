@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ _("Chat Leaderboards") }}</title>
+    
+    <!-- jQuery & Bootstrap -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Bootstrap Datepicker -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+
+    <style>
+        .leaderboard-container {
+            max-width: 600px;
+            margin: 20px auto;
+        }
+        .leaderboard-table {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+{% include 'menu.html' %}
+
+<!-- Main Content -->
+<div id="content" class="mt-3 leaderboard-container">
+    <h2 class="text-center mb-4">{{ _("Chat Leaderboards") }}</h2>
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="channelSelect">{{ _("Channel:") }}</label>
+            <select id="channelSelect" class="form-select"></select>
+        </div>
+        <div class="col-md-6">
+            <label for="monthPicker">{{ _("Month:") }}</label>
+            <input type="text" id="monthPicker" class="form-control">
+        </div>
+    </div>
+
+    <button id="fetchLeaderboard" class="btn btn-primary mb-3">{{ _("Get Leaderboard") }}</button>
+
+    <!-- Leaderboard Table -->
+    <table id="leaderboardTable" class="table table-striped leaderboard-table" style="display: none;">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>{{ _("Username") }}</th>
+                <th>{{ _("Message Count") }}</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Initialize Bootstrap Datepicker
+    $('#monthPicker').datepicker({
+        format: "yyyy-mm",
+        startView: "months", 
+        minViewMode: "months",
+        autoclose: true
+    });
+
+    // Fetch available channels and populate dropdown
+    $.get('/api/get_channel_names', function(data) {
+        let options = '<option value="">{{ _("Select Channel") }}</option>';
+        data.forEach(channel => {
+            options += `<option value="${channel}">${channel}</option>`;
+        });
+        $('#channelSelect').html(options);
+    });
+
+    // Fetch leaderboard data
+    $('#fetchLeaderboard').on('click', function() {
+        const channel_name = $('#channelSelect').val();
+        const month = $('#monthPicker').val();
+
+        if (!channel_name || !month) {
+            alert("{{ _("Please fill in all fields.") }}");
+            return;
+        }
+
+        $.get('/api/get_chat_leaderboard', { channel_name: channel_name, month: month }, function(data) {
+            if (data.length === 0) {
+                alert("{{ _("No data available for the selected criteria.") }}");
+                $('#leaderboardTable').hide();
+                return;
+            }
+
+            let tbody = "";
+            data.forEach((user, index) => {
+                tbody += `<tr>
+                    <td>${index + 1}</td>
+                    <td>${user.user_name}</td>
+                    <td>${user.message_count}</td>
+                </tr>`;
+            });
+
+            $('#leaderboardTable tbody').html(tbody);
+            $('#leaderboardTable').show();
+        }).fail(function() {
+            alert("{{ _("Error fetching data. Please try again later.") }}");
+            $('#leaderboardTable').hide();
+        });
+    });
+});
+</script>
+
+</body>
+</html>

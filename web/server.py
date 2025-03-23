@@ -25,7 +25,7 @@ def get_config(key1, key2):
         KeyError: If key1 or key2 are not found in config.ini.
     """
     config = configparser.ConfigParser()
-    caller_script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    caller_script_dir = os.path.dirname(os.path.abspath(__name__))
     ini_file = os.path.join(caller_script_dir, 'config.ini')
     if not config.read(ini_file):
         raise FileNotFoundError("config.ini not found.")
@@ -40,6 +40,7 @@ app.config["SECRET_KEY"] = get_config("Settings", "SecretKey")
 app.config["SESSION_TYPE"] = "filesystem"
 app.config["BABEL_DEFAULT_LOCALE"] = "en"
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
+app.config["JSON_AS_ASCII"] = False
 app.config["GA_ID"] = get_config("Settings", "GoogleAnalyticsID")
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
@@ -51,7 +52,8 @@ DB_CONFIG = {
     "user": get_config("Database", "DBUser"),
     "password": get_config("Database", "DBPass"),
     "host": get_config("Database", "DBHost"),
-    "port": get_config("Database", "DBPort")
+    "port": get_config("Database", "DBPort"),
+    "client_encoding": "UTF8"
 }
 LANGUAGES = {
     'en': 'English',
@@ -120,13 +122,8 @@ def streaming_hours_query(aggregation_function, group=None):
     params = [f"{timezone_offset} hour", f"{timezone_offset} hour", month_start]
 
     if group and group != "All":
-        if group == "Indie":
-            base_query += " AND c.channel_group IS NULL"
-        else:
             base_query += " AND c.channel_group = %s"
             params.append(group)
-    elif group == "All":
-        base_query += " AND (c.channel_group = 'Hololive' OR c.channel_group IS NULL)"
 
     base_query += " GROUP BY c.channel_name, month ORDER BY hours DESC"
 
@@ -263,7 +260,7 @@ def get_group_chat_makeup():
 @app.route('/api/common_chatters', methods=['GET'])
 @cache.cached(timeout=86400, query_string=True)
 def get_common_chatters():
-    """API to get common chatters between two (channel, month) pairs using channel names."""
+    """API to get common chatters and common members between two (channel, month) pairs using channel names."""
 
     channel_a = request.args.get('channel_a')
     month_a = request.args.get('month_a')  # YYYY-MM format
@@ -275,7 +272,7 @@ def get_common_chatters():
 
     if not (channel_a and month_a and channel_b and month_b):
         return jsonify({"error": _("Missing required parameters")}), 400
-    
+
     month_a += "-01"
     month_b += "-01"
 
@@ -297,34 +294,71 @@ def get_common_chatters():
                 ua2.channel_id AS channel_b,
                 ua1.observed_month AS month_a,
                 ua2.observed_month AS month_b,
-                COUNT(DISTINCT ua1.user_id) AS shared_users,
-                100.0 * COUNT(DISTINCT ua1.user_id) / NULLIF(
-                    (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = ua1.channel_id AND observed_month = ua1.observed_month),
-                    0
-                ) AS percent_A_to_B,
-                100.0 * COUNT(DISTINCT ua1.user_id) / NULLIF(
-                    (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = ua2.channel_id AND observed_month = ua2.observed_month),
-                    0
-                ) AS percent_B_to_A
+                COUNT(DISTINCT ua1.user_id) AS shared_users
             FROM user_activity ua1
             JOIN user_activity ua2 
                 ON ua1.user_id = ua2.user_id
-                AND (ua1.channel_id <> ua2.channel_id OR ua1.observed_month <> ua2.observed_month)
+                AND ua1.channel_id <> ua2.channel_id
+                AND ua1.observed_month <= ua2.observed_month
             GROUP BY ua1.channel_id, ua2.channel_id, ua1.observed_month, ua2.observed_month
+        ),
+        user_counts AS (
+            SELECT 
+                channel_id, 
+                observed_month, 
+                COUNT(DISTINCT user_id) AS total_users
+            FROM user_activity
+            GROUP BY channel_id, observed_month
+        ),
+        common_members AS (
+            SELECT
+                m1.channel_id AS channel_a,
+                m2.channel_id AS channel_b,
+                DATE_TRUNC('month', m1.last_message_at AT TIME ZONE 'UTC' + INTERVAL %s) AS observed_month_a,
+                DATE_TRUNC('month', m2.last_message_at AT TIME ZONE 'UTC' + INTERVAL %s) AS observed_month_b,
+                COUNT(DISTINCT m1.user_id) AS shared_members
+            FROM user_data m1
+            JOIN user_data m2 
+                ON m1.user_id = m2.user_id
+                AND m1.channel_id <> m2.channel_id
+            JOIN channels ca ON m1.channel_id = ca.channel_id
+            JOIN channels cb ON m2.channel_id = cb.channel_id
+            WHERE ca.channel_name = %s
+              AND cb.channel_name = %s
+              AND m1.membership_rank >= 0
+              AND m2.membership_rank >= 0
+              AND DATE_TRUNC('month', m1.last_message_at AT TIME ZONE 'UTC' + INTERVAL %s) = %s::DATE
+              AND DATE_TRUNC('month', m2.last_message_at AT TIME ZONE 'UTC' + INTERVAL %s) = %s::DATE
+            GROUP BY m1.channel_id, m2.channel_id, observed_month_a, observed_month_b
+        ),
+        member_counts AS (
+            SELECT
+                channel_id,
+                DATE_TRUNC('month', last_message_at AT TIME ZONE 'UTC' + INTERVAL %s) AS observed_month,
+                COUNT(DISTINCT user_id) AS total_members
+            FROM user_data
+            WHERE membership_rank >= 0
+            GROUP BY channel_id, observed_month
         )
         SELECT 
-        ca.channel_name AS channel_a,
-        cb.channel_name AS channel_b,
-        cg.month_a AS month_a,
-        cg.month_b AS month_b,
-        cg.shared_users AS num_common_users,
-        100.0 * cg.shared_users / NULLIF( (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = cg.channel_a AND observed_month = cg.month_a), 0 ) AS percent_A_to_B,
-        100.0 * cg.shared_users / NULLIF( (SELECT COUNT(DISTINCT user_id) FROM user_activity WHERE channel_id = cg.channel_b AND observed_month = cg.month_b), 0 ) AS percent_B_to_A
+            ca.channel_name AS channel_a,
+            cb.channel_name AS channel_b,
+            cg.month_a AS month_a,
+            cg.month_b AS month_b,
+            cg.shared_users AS num_common_users,
+            100.0 * cg.shared_users / NULLIF(ua_count.total_users, 0) AS percent_A_to_B_users,
+            100.0 * cg.shared_users / NULLIF(ub_count.total_users, 0) AS percent_B_to_A_users,
+            COALESCE(cm.shared_members, 0) AS num_common_members,
+            100.0 * COALESCE(cm.shared_members, 0) / NULLIF(ma_count.total_members, 0) AS percent_A_to_B_members,
+            100.0 * COALESCE(cm.shared_members, 0) / NULLIF(mb_count.total_members, 0) AS percent_B_to_A_members
         FROM common_chatters cg
         JOIN channels ca ON cg.channel_a = ca.channel_id
         JOIN channels cb ON cg.channel_b = cb.channel_id
-        WHERE ca.channel_name = %s AND cb.channel_name = %s;
-
+        JOIN user_counts ua_count ON ua_count.channel_id = cg.channel_a AND ua_count.observed_month = cg.month_a
+        JOIN user_counts ub_count ON ub_count.channel_id = cg.channel_b AND ub_count.observed_month = cg.month_b
+        LEFT JOIN common_members cm ON cm.channel_a = ca.channel_id AND cm.channel_b = cb.channel_id
+        LEFT JOIN member_counts ma_count ON ma_count.channel_id = ca.channel_id AND ma_count.observed_month = cg.month_a
+        LEFT JOIN member_counts mb_count ON mb_count.channel_id = cb.channel_id AND mb_count.observed_month = cg.month_b;
     """
 
     conn = get_db_connection()
@@ -334,7 +368,11 @@ def get_common_chatters():
         timezone_interval,
         channel_a, month_a, month_a,
         channel_b, month_b, month_b,
-        channel_a, channel_b  # Added parameters for the WHERE clause
+        timezone_interval, timezone_interval,
+        channel_a, channel_b,
+        timezone_interval, month_a,
+        timezone_interval, month_b,
+        timezone_interval
     ))
 
     results = cursor.fetchall()
@@ -348,13 +386,19 @@ def get_common_chatters():
             "month_a": results[0][2].strftime('%Y-%m'),
             "month_b": results[0][3].strftime('%Y-%m'),
             "num_common_users": results[0][4],
-            "percent_A_to_B": round(results[0][5], 2) if results[0][5] is not None else None,
-            "percent_B_to_A": round(results[0][6], 2) if results[0][6] is not None else None
+            "percent_A_to_B_users": round(results[0][5], 2) if results[0][5] is not None else None,
+            "percent_B_to_A_users": round(results[0][6], 2) if results[0][6] is not None else None,
+            "num_common_members": results[0][7],
+            "percent_A_to_B_members": round(results[0][8], 2) if results[0][8] is not None else None,
+            "percent_B_to_A_members": round(results[0][9], 2) if results[0][9] is not None else None
         }
     else:
         data = {}
 
     return jsonify(data)
+
+
+
 
 @app.route('/api/get_group_common_chatters', methods=['GET'])
 @cache.cached(timeout=86400, query_string=True)
@@ -591,6 +635,58 @@ def get_group_streaming_hours_diff():
     ]
 
     return jsonify({"success": True, "data": data})
+
+@app.route('/api/get_chat_leaderboard', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_chat_leaderboard():
+    """API to fetch the top 10 chatters for a given channel and month."""
+
+    channel_name = request.args.get('channel_name')
+    month = request.args.get('month')  # Expected format: YYYY-MM
+
+    if not channel_name or not month:
+        return jsonify({"error": _("Missing required parameters")}), 400
+
+    # Convert to first day of the month for DATE comparison
+    month_start = f"{month}-01"
+
+    query = """
+        WITH chat_counts AS (
+            SELECT 
+                ud.user_id, 
+                u.username AS user_name, 
+                SUM(ud.total_message_count) AS message_count
+            FROM user_data ud
+            JOIN channels c ON ud.channel_id = c.channel_id
+            JOIN users u ON ud.user_id = u.user_id
+            WHERE c.channel_name = %s
+              AND ud.last_message_at >= %s::DATE
+              AND ud.last_message_at < (%s::DATE + INTERVAL '1 month')
+            GROUP BY ud.user_id, u.username
+        )
+        SELECT user_name, message_count
+        FROM chat_counts
+        ORDER BY message_count DESC
+        LIMIT 10;
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, (channel_name, month_start, month_start))
+    
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    if not results:
+        return jsonify({"error": _("No data found")}), 404
+
+    return jsonify([
+        {"user_name": row[0], "message_count": row[1]}
+        for row in results
+    ])
+
+
             
 
 @app.route('/api/get_channel_names', methods=['GET'])
@@ -668,6 +764,10 @@ def membership_percentages_view():
 @app.route('/membership_change')
 def membership_expirations_view():
     return render_template('membership_change.html', _=_, get_locale=get_locale)
+
+@app.route('/chat_leaderboards')
+def chat_leaderboard_view():
+    return render_template('chat_leaderboards.html', _=_, get_locale=get_locale)
 
 if __name__ == '__main__':
     app.run(debug=True)

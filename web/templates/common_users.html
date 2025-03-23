@@ -65,6 +65,18 @@
                 <th>{{ _("Number of common users:") }}</th>
                 <td></td>
             </tr>
+            <tr id="rowPercentAToBMembers">
+                <th>Percent of [Channel A's] members in [A month year] that are also members of [Channel B's] chat in [B month year]:</th>
+                <td></td>
+            </tr>
+            <tr id="rowPercentBToAMembers">
+                <th>Percent of [Channel B's] members in [B month year] that are also members of [Channel A's] chat in [A month year]:</th>
+                <td></td>
+            </tr>
+            <tr id="rowNumCommonMembers">
+                <th>{{ _("Number of common members:") }}</th>
+                <td></td>
+            </tr>
         </tbody>
     </table>
 
@@ -114,9 +126,10 @@ $(document).ready(function() {
                 $('#resultTable').hide();
                 return;
             }
-
-            const percentAToB = data.percent_A_to_B ? `${data.percent_A_to_B}%` : "N/A";
-            const percentBToA = data.percent_B_to_A ? `${data.percent_B_to_A}%` : "N/A";
+            const percentAToB = data.percent_A_to_B_users ? `${data.percent_A_to_B_users}%` : "N/A";
+            const percentBToA = data.percent_B_to_A_users ? `${data.percent_B_to_A_users}%` : "N/A";
+            const percentAToBMembers = data.percent_A_to_B_members ? `${data.percent_A_to_B_members}%` : "N/A";
+            const percentBToAMembers = data.percent_B_to_A_members ? `${data.percent_B_to_A_members}%` : "N/A";
 
             $('#rowPercentAToB th').text(`Percent of ${channelA}'s chat in ${monthA} that participated in ${channelB}'s chat in ${monthB}:`);
             $('#rowPercentAToB td').text(percentAToB);
@@ -124,6 +137,14 @@ $(document).ready(function() {
             $('#rowPercentBToA td').text(percentBToA);
             $('#rowNumCommonUsers th').text('{{ _("Number of common users:") }}');
             $('#rowNumCommonUsers td').text(data.num_common_users);
+
+            $('#rowPercentAToBMembers th').text(`Percent of ${channelA}'s members in ${monthA} that are also members of ${channelB}'s chat in ${monthB}:`);
+            $('#rowPercentAToBMembers td').text(percentAToBMembers);
+            $('#rowPercentBToAMembers th').text(`Percent of ${channelB}'s members in ${monthB} that are also members of ${channelA}'s chat in ${monthA}:`);
+            $('#rowPercentBToAMembers td').text(percentBToAMembers);
+
+            $('#rowNumCommonMembers th').text('{{ _("Number of common members:") }}');
+            $('#rowNumCommonMembers td').text(data.num_common_members);
 
             $('#resultTable').show();
         }).fail(function() {
