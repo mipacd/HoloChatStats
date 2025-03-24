@@ -15,6 +15,20 @@
             background-color: #1a1a1a;
             color: white;
         }
+
+        /* Responsive Sidebar Adjustments */
+        @media (min-width: 992px) { /* Large screens */
+            #content {
+                margin-left: 280px; /* Adjust based on sidebar width */
+            }
+        }
+        
+        @media (max-width: 991px) { /* Laptops & tablets */
+            #content {
+                margin-left: 0 !important;
+            }
+        }
+
         .hero {
             background-color: #2c3e50;
             padding: 60px 20px;
@@ -22,9 +36,11 @@
             text-align: center;
             margin-bottom: 30px;
         }
+
         .social-buttons .btn {
             margin: 5px;
         }
+
         .info-box {
             background-color: #2a2a2a;
             padding: 20px;
@@ -32,28 +48,39 @@
             box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
             margin-bottom: 20px;
         }
+
+        /* Ensuring spacing for smaller screens */
+        .container {
+            max-width: 100%;
+            padding: 15px;
+        }
     </style>
 </head>
 <body>
 
 {% include 'menu.html' %}
 
-<!-- Hero Section -->
-<div class="container mt-5">
-    <div class="hero">
-        <h1 class="mb-3">{{ _("Welcome to the HoloChatStats v2 Beta Test!") }}</h1>
-        <p class="lead">{{ _("Explore statistics and insights for Hololive and Indie VTuber chats.") }}</p>
-        
-        <div class="social-buttons">
-            <a href="https://github.com/mipacd/HoloChatStats" target="_blank" class="btn btn-light">
-                <i class="bi bi-github"></i> {{ _("GitHub") }}
-            </a>
-            <a href="https://twitter.com/HoloChatStat" target="_blank" class="btn btn-primary">
-                <i class="bi bi-twitter"></i> {{ _("Twitter/X") }}
-            </a>
-            <a href="https://bsky.app/profile/holochatstats.info" target="_blank" class="btn btn-info">
-                <i class="bi bi-cloud"></i> {{ _("BlueSky") }}
-            </a>
+<!-- Main Content -->
+<div id="content" class="container mt-5">
+    <!-- Hero Section -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="hero">
+                <h1 class="mb-3">{{ _("Welcome to the HoloChatStats v2 Beta Test!") }}</h1>
+                <p class="lead">{{ _("Explore statistics and insights for Hololive and Indie VTuber chats.") }}</p>
+                
+                <div class="social-buttons">
+                    <a href="https://github.com/mipacd/HoloChatStats" target="_blank" class="btn btn-light">
+                        <i class="bi bi-github"></i> {{ _("GitHub") }}
+                    </a>
+                    <a href="https://twitter.com/HoloChatStat" target="_blank" class="btn btn-primary">
+                        <i class="bi bi-twitter"></i> {{ _("Twitter/X") }}
+                    </a>
+                    <a href="https://bsky.app/profile/holochatstats.info" target="_blank" class="btn btn-info">
+                        <i class="bi bi-cloud"></i> {{ _("BlueSky") }}
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -115,8 +142,8 @@ $(document).ready(function() {
         $('#chatLogCountContainer').html(`<p class="text-danger">{{ _("Error fetching chat log count.") }}</p>`);
     });
 
-     // Fetch latest updates (you can replace this with an actual API)
-     $.get('/api/get_latest_updates', function(data) {
+    // Fetch latest updates
+    $.get('/api/get_latest_updates', function(data) {
         if (data && data.length > 0) {
             let updates = "";
             data.forEach(update => {
@@ -129,7 +156,6 @@ $(document).ready(function() {
     }).fail(function() {
         $('#newsContainer').html(`<p class="text-danger">{{ _("Error fetching updates.") }}</p>`);
     });
-
 });
 </script>
 
