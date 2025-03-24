@@ -8,7 +8,6 @@ import configparser
 import os
 import psycopg2
 import logging
-import sys
 
 def get_config(key1, key2):
     """
@@ -129,6 +128,40 @@ def streaming_hours_query(aggregation_function, group=None):
     base_query += " GROUP BY c.channel_name, month ORDER BY hours DESC"
 
     return base_query, params
+
+from flask import request, jsonify
+
+@app.route('/api/get_monthly_streaming_hours', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_monthly_streaming_hours():
+    """API to fetch total streaming hours per month for a given channel."""
+
+    channel_name = request.args.get('channel')
+
+    if not channel_name:
+        return jsonify({"error": _("Missing required parameters")}), 400
+
+    query = """
+        SELECT 
+            DATE_TRUNC('month', v.end_time)::DATE AS month, 
+            ROUND(CAST(SUM(EXTRACT(EPOCH FROM v.duration)) / 3600 AS NUMERIC), 2) AS total_streaming_hours
+        FROM videos v
+        JOIN channels c ON v.channel_id = c.channel_id
+        WHERE c.channel_name = %s
+        GROUP BY month
+        ORDER BY month;
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, (channel_name,))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Convert results into JSON format
+    return jsonify([{"month": row[0].strftime('%Y-%m'), "total_streaming_hours": row[1]} for row in results])
+
 
 @app.route('/api/get_group_total_streaming_hours', methods=['GET'])
 @cache.cached(timeout=86400, query_string=True)
@@ -759,6 +792,175 @@ def get_user_changes():
 
     return jsonify(filtered_results)
 
+@app.route('/api/get_exclusive_chat_users', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_exclusive_chat_users():
+    """API to fetch the percentage of exclusive chat users for a given channel per month."""
+
+    channel_name = request.args.get('channel')
+
+    if not channel_name:
+        return jsonify({"error": _("Missing required parameters")}), 400
+
+    query = """
+        WITH user_activity AS (
+            SELECT
+                ud.user_id,
+                ud.channel_id,
+                DATE_TRUNC('month', ud.last_message_at) AS activity_month
+            FROM user_data ud
+            JOIN channels c ON ud.channel_id = c.channel_id
+        ),
+        group_users AS (
+            SELECT
+                ua.user_id,
+                ua.channel_id,
+                ua.activity_month,
+                c.channel_group
+            FROM user_activity ua
+            JOIN channels c ON ua.channel_id = c.channel_id
+        ),
+        channel_specific_users AS (
+            SELECT
+                gu.user_id,
+                gu.activity_month,
+                gu.channel_id
+            FROM group_users gu
+            WHERE gu.channel_id = (
+                SELECT channel_id FROM channels WHERE channel_name = %s
+            )
+        ),
+        exclusive_users AS (
+            SELECT
+                csu.activity_month,
+                COUNT(DISTINCT csu.user_id) AS exclusive_users_count
+            FROM channel_specific_users csu
+            LEFT JOIN group_users gu
+                ON csu.user_id = gu.user_id
+                AND gu.channel_id <> csu.channel_id
+                AND gu.channel_group = (
+                    SELECT channel_group FROM channels WHERE channel_name = %s
+                )
+            WHERE gu.user_id IS NULL
+            GROUP BY csu.activity_month
+        ),
+        total_users_per_month AS (
+            SELECT
+                activity_month,
+                COUNT(DISTINCT user_id) AS total_users_count
+            FROM channel_specific_users
+            GROUP BY activity_month
+        )
+        SELECT
+            tu.activity_month,
+            ROUND((eu.exclusive_users_count::NUMERIC / tu.total_users_count) * 100, 2) AS exclusive_percent
+        FROM total_users_per_month tu
+        JOIN exclusive_users eu
+            ON tu.activity_month = eu.activity_month
+        ORDER BY tu.activity_month;
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, (channel_name, channel_name))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Convert results into JSON format
+    return jsonify([
+        {"month": row[0].strftime('%Y-%m'), "percent": row[1]}
+        for row in results
+    ])
+
+@app.route('/api/get_message_type_percents', methods=['GET'])
+def get_message_type_percents():
+    """API to fetch the percentage of a channel's monthly messages for a specified language
+       and calculate message rate (language-specific messages/minute) based on video durations with chat logs."""
+
+    # Get query parameters
+    channel_name = request.args.get('channel')
+    language = request.args.get('language').upper()
+
+    # Validate parameters
+    if not channel_name or not language:
+        return jsonify({"error": _("Missing required parameters")}), 400
+
+    if language not in ["EN", "JP", "KR", "RU"]:
+        return jsonify({"error": _("Invalid language parameter. Must be one of: EN, JP, KR, RU.")}), 400
+
+    # Map language codes to database columns
+    language_column_map = {
+        "EN": "es_en_id_count",
+        "JP": "jp_count",
+        "KR": "kr_count",
+        "RU": "ru_count"
+    }
+
+    # Get the appropriate column for the language
+    language_column = language_column_map[language]
+
+    query = f"""
+        WITH monthly_data AS (
+            SELECT
+                DATE_TRUNC('month', ud.last_message_at) AS activity_month,
+                SUM(ud.{language_column}) AS language_message_count,
+                SUM(ud.total_message_count - ud.emoji_count) AS total_message_count
+            FROM user_data ud
+            JOIN channels c ON ud.channel_id = c.channel_id
+            WHERE c.channel_name = %s
+            GROUP BY activity_month
+        ),
+        video_durations AS (
+            SELECT
+                DATE_TRUNC('month', v.end_time) AS activity_month,
+                SUM(EXTRACT(EPOCH FROM v.duration) / 60) AS total_minutes
+            FROM videos v
+            JOIN channels c ON v.channel_id = c.channel_id
+            WHERE c.channel_name = %s AND v.has_chat_log = 't'
+            GROUP BY activity_month
+        )
+        SELECT
+            md.activity_month,
+            ROUND((md.language_message_count::NUMERIC / NULLIF(md.total_message_count, 0)) * 100, 2) AS language_percent,
+            ROUND(CAST(md.language_message_count::NUMERIC / NULLIF(vd.total_minutes, 0) AS NUMERIC), 2) AS language_message_rate
+        FROM monthly_data md
+        LEFT JOIN video_durations vd
+        ON md.activity_month = vd.activity_month
+        ORDER BY md.activity_month;
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, (channel_name, channel_name))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Convert results into JSON format
+    return jsonify([
+        {"month": row[0].strftime('%Y-%m'), "percent": row[1], "message_rate": row[2]}
+        for row in results
+    ])
+
+@app.route('/api/get_latest_updates', methods=['GET'])
+def get_latest_updates():
+    """API to fetch the latest updates from news.txt for the front-end."""
+    try:
+        news_list = []
+        with open("news.txt", "r") as file:
+            for line in file:
+                # Parse lines formatted as [date]: [text]
+                if ": " in line:
+                    date, message = line.split(": ", 1)
+                    news_list.append({"date": date.strip(), "message": message.strip()})
+
+        return jsonify(news_list)
+    except FileNotFoundError:
+        return jsonify([])  # Return an empty list if news.txt is not found
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/api/get_channel_names', methods=['GET'])
 @cache.cached(timeout=86400)
@@ -843,6 +1045,18 @@ def chat_leaderboard_view():
 @app.route('/user_change')
 def user_changes_view():
     return render_template('user_change.html', _=_, get_locale=get_locale)
+
+@app.route('/monthly_streaming_hours')
+def monthly_streaming_hours_view():
+    return render_template('monthly_streaming_hours.html', _=_, get_locale=get_locale)
+
+@app.route('/exclusive_chat')
+def exclusive_chat_users_view():
+    return render_template('exclusive_chat.html', _=_, get_locale=get_locale)
+
+@app.route('/message_types')
+def message_types_view():
+    return render_template('message_types.html', _=_, get_locale=get_locale)
 
 if __name__ == '__main__':
     app.run(debug=True)

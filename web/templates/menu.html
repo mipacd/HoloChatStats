@@ -17,10 +17,11 @@
         <li>
             <div class="collapsible-header" onclick="toggleCollapsible(this)">{{ _("Users and Memberships") }} ▼</div>
             <ul class="collapsible-content">
-                <li><a href="/common_user_heatmap">{{ _("Common User Heatmap") }}</a></li>
+                <!--<li><a href="/common_user_heatmap">{{ _("Common User Heatmap") }}</a></li>-->
                 <li><a href="/common_users">{{ _("Common Users by Channel / Month") }}</a></li>
                 <li><a href="/user_change">{{ _("Active User Gain / Loss") }}</a></li>
                 <li><a href="/chat_leaderboards">{{ _("Chat Leaderboards") }}</a></li>
+                <li><a href="/exclusive_chat">{{ _("Exclusive Chat Users") }}</a></li>
                 <li><a href="/membership_counts">{{ _("Membership Counts") }}</a></li>
                 <li><a href="/membership_percentages">{{ _("Membership Percentages") }}</a></li>
                 <li><a href="/membership_change">{{ _("Membership Gain / Loss") }}</a></li>
@@ -28,6 +29,7 @@
             <div class="collapsible-header" onclick="toggleCollapsible(this)">{{ _("Language Stats") }} ▼</div>
             <ul class="collapsible-content">
                 <li><a href="/chat_makeup">{{ _("Chat Makeup") }}</a></li>
+                <li><a href="/message_types">{{ _("Message Percentages and Rates by Language") }}</a></li>
             </ul>
             <div class="collapsible-header" onclick="toggleCollapsible(this)">{{ _("Streaming Hours") }} ▼</div>
             <ul class="collapsible-content">
@@ -35,6 +37,7 @@
                 <li><a href="/streaming_hours_avg">{{ _("Average Streaming Hours") }}</a></li>
                 <li><a href="/streaming_hours_max">{{ _("Longest Stream Duration") }}</a></li>
                 <li><a href="/streaming_hours_diff">{{ _("Streaming Hour Change") }}</a></li>
+                <li><a href="/monthly_streaming_hours">{{ _("Monthly Streaming Hours") }}</a></li>
             </ul>
         </li>
     </ul>

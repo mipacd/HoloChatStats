@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-03-23 21:46-0400\n"
+"POT-Creation-Date: 2025-03-24 16:16-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,13 +17,17 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:275 server.py:413 server.py:461 server.py:485 server.py:649
-#: server.py:699
+#: server.py:142 server.py:308 server.py:446 server.py:494 server.py:518
+#: server.py:682 server.py:732 server.py:803 server.py:887
 msgid "Missing required parameters"
 msgstr ""
 
-#: server.py:433 server.py:683
+#: server.py:466 server.py:716
 msgid "No data found"
+msgstr ""
+
+#: server.py:890
+msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
 #: templates/chat_leaderboards.html:6 templates/chat_leaderboards.html:33
@@ -31,7 +35,8 @@ msgstr ""
 msgid "Chat Leaderboards"
 msgstr ""
 
-#: templates/chat_leaderboards.html:37
+#: templates/chat_leaderboards.html:37 templates/exclusive_chat.html:39
+#: templates/message_types.html:39 templates/monthly_streaming_hours.html:39
 msgid "Channel:"
 msgstr ""
 
@@ -57,6 +62,8 @@ msgid "Message Count"
 msgstr ""
 
 #: templates/chat_leaderboards.html:73 templates/common_users.html:103
+#: templates/exclusive_chat.html:41 templates/message_types.html:41
+#: templates/monthly_streaming_hours.html:41
 msgid "Select Channel"
 msgstr ""
 
@@ -73,7 +80,7 @@ msgid "Error fetching data. Please try again later."
 msgstr ""
 
 #: templates/chat_makeup.html:6 templates/chat_makeup.html:33
-#: templates/menu.html:30
+#: templates/menu.html:31
 msgid "Chat Makeup"
 msgstr ""
 
@@ -182,52 +189,104 @@ msgstr ""
 msgid "No common users found for the selected criteria."
 msgstr ""
 
-#: templates/index.html:6 templates/index.html:36
+#: templates/exclusive_chat.html:6 templates/exclusive_chat.html:32
+#: templates/menu.html:24
+msgid "Exclusive Chat Users"
+msgstr ""
+
+#: templates/exclusive_chat.html:34
+msgid ""
+"Percentage of chat users exclusive to this channel each month, within the"
+" same group (e.g. Hololive, Indie)."
+msgstr ""
+
+#: templates/exclusive_chat.html:82 templates/message_types.html:92
+#: templates/monthly_streaming_hours.html:82
+msgid "Month"
+msgstr ""
+
+#: templates/exclusive_chat.html:86 templates/exclusive_chat.html:142
+msgid "Exclusive Users (%)"
+msgstr ""
+
+#: templates/exclusive_chat.html:116 templates/monthly_streaming_hours.html:116
+msgid "Please select a channel."
+msgstr ""
+
+#: templates/index.html:6 templates/index.html:44
 msgid "Welcome to the HoloChatStats v2 Beta Test!"
 msgstr ""
 
-#: templates/index.html:37
-msgid "Since this is a beta, data may be incomplete or inaccurate."
+#: templates/index.html:45
+msgid "Explore statistics and insights for Hololive and Indie VTuber chats."
 msgstr ""
 
-#: templates/index.html:40
-msgid "View on GitHub"
+#: templates/index.html:49
+msgid "GitHub"
+msgstr ""
+
+#: templates/index.html:52
+msgid "Twitter/X"
+msgstr ""
+
+#: templates/index.html:55
+msgid "BlueSky"
+msgstr ""
+
+#: templates/index.html:65
+msgid "Data Coverage"
 msgstr ""
 
 #: templates/index.html:67
-msgid "Current Date Ranges Available (UTC):"
+msgid "Loading date ranges..."
 msgstr ""
 
-#: templates/index.html:68
-msgid "Start:"
-msgstr ""
-
-#: templates/index.html:69
-msgid "End:"
-msgstr ""
-
-#: templates/index.html:73
-msgid "Unable to fetch date ranges at this time."
+#: templates/index.html:70
+msgid "Loading chat log count..."
 msgstr ""
 
 #: templates/index.html:78
+msgid "Latest Updates"
+msgstr ""
+
+#: templates/index.html:80 templates/index.html:127
+msgid "No updates available."
+msgstr ""
+
+#: templates/index.html:97
+msgid "Start:"
+msgstr ""
+
+#: templates/index.html:98
+msgid "End:"
+msgstr ""
+
+#: templates/index.html:101
+msgid "Unable to fetch date ranges."
+msgstr ""
+
+#: templates/index.html:104
 msgid "Error fetching date ranges."
 msgstr ""
 
-#: templates/index.html:82
+#: templates/index.html:110
 msgid "Number of Chat Logs Processed:"
 msgstr ""
 
-#: templates/index.html:90
-msgid "Unable to fetch chat log count at this time."
+#: templates/index.html:112
+msgid "Unable to fetch chat log count."
 msgstr ""
 
-#: templates/index.html:95
+#: templates/index.html:115
 msgid "Error fetching chat log count."
 msgstr ""
 
+#: templates/index.html:130
+msgid "Error fetching updates."
+msgstr ""
+
 #: templates/membership_change.html:6 templates/membership_change.html:34
-#: templates/menu.html:26
+#: templates/menu.html:27
 msgid "Membership Gain / Loss"
 msgstr ""
 
@@ -246,7 +305,7 @@ msgid "Losses"
 msgstr ""
 
 #: templates/membership_counts.html:6 templates/membership_counts.html:48
-#: templates/menu.html:24
+#: templates/menu.html:25
 msgid "Membership Counts"
 msgstr ""
 
@@ -260,7 +319,7 @@ msgstr ""
 msgid "Total Members:"
 msgstr ""
 
-#: templates/membership_percentages.html:32 templates/menu.html:25
+#: templates/membership_percentages.html:32 templates/menu.html:26
 msgid "Membership Percentages"
 msgstr ""
 
@@ -288,31 +347,84 @@ msgstr ""
 msgid "Active User Gain / Loss"
 msgstr ""
 
-#: templates/menu.html:28
+#: templates/menu.html:29
 msgid "Language Stats"
 msgstr ""
 
-#: templates/menu.html:32
+#: templates/menu.html:32 templates/message_types.html:6
+#: templates/message_types.html:32
+msgid "Message Percentages and Rates by Language"
+msgstr ""
+
+#: templates/menu.html:34 templates/monthly_streaming_hours.html:86
+#: templates/monthly_streaming_hours.html:142
 msgid "Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:34 templates/streaming_hours.html:6
+#: templates/menu.html:36 templates/streaming_hours.html:6
 #: templates/streaming_hours.html:53
 msgid "Total Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:35 templates/streaming_hours_avg.html:6
+#: templates/menu.html:37 templates/streaming_hours_avg.html:6
 #: templates/streaming_hours_avg.html:53
 msgid "Average Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:36 templates/streaming_hours_max.html:6
+#: templates/menu.html:38 templates/streaming_hours_max.html:6
 #: templates/streaming_hours_max.html:53
 msgid "Longest Stream Duration"
 msgstr ""
 
-#: templates/menu.html:37
+#: templates/menu.html:39
 msgid "Streaming Hour Change"
+msgstr ""
+
+#: templates/menu.html:40 templates/monthly_streaming_hours.html:6
+#: templates/monthly_streaming_hours.html:32
+msgid "Monthly Streaming Hours"
+msgstr ""
+
+#: templates/message_types.html:34
+msgid ""
+"Emote messages are excluded from the total count. Total duration is "
+"computed using only streams with available chat logs."
+msgstr ""
+
+#: templates/message_types.html:45
+msgid "Language:"
+msgstr ""
+
+#: templates/message_types.html:47
+msgid "English (or none of others)"
+msgstr ""
+
+#: templates/message_types.html:48
+msgid "Japanese"
+msgstr ""
+
+#: templates/message_types.html:49
+msgid "Korean"
+msgstr ""
+
+#: templates/message_types.html:50
+msgid "Russian"
+msgstr ""
+
+#: templates/message_types.html:98 templates/message_types.html:164
+msgid "Percentage"
+msgstr ""
+
+#: templates/message_types.html:104 templates/message_types.html:172
+msgid "Rate (messages/min)"
+msgstr ""
+
+#: templates/message_types.html:137
+msgid "Please select both a channel and a language."
+msgstr ""
+
+#: templates/monthly_streaming_hours.html:34
+msgid "Only counts public archived streams from YouTube."
 msgstr ""
 
 #: templates/streaming_hours.html:53 templates/streaming_hours_avg.html:53
