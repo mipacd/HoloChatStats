@@ -279,4 +279,61 @@ msgstr "獲得したユーザー"
 msgid "Users Lost"
 msgstr "失ったユーザー"
 
+msgid "Monthly Streaming Hours"
+msgstr "月間ストリーミング時間"
 
+msgid ""
+"Emote messages are excluded from the total count. Total duration is "
+"computed using only streams with available chat logs."
+msgstr "絵文字メッセージは総数に含まれません。総ストリーム時間は、チャットログが利用可能なストリームのみを使用して計算されます。"
+
+msgid "Language:"
+msgstr "言語："
+
+msgid "English (or none of others)"
+msgstr "英語（またはその他なし）"
+
+msgid "Japanese"
+msgstr "日本語"
+
+msgid "Korean"
+msgstr "韓国語"
+
+msgid "Russian"
+msgstr "ロシア語"
+
+msgid "Percentage"
+msgstr "割合"
+
+msgid "Rate (messages/min)"
+msgstr "レート（メッセージ/分）"
+
+msgid "Please select both a channel and a language."
+msgstr "チャンネルと言語を両方選択してください。"
+
+msgid "Only counts public archived streams from YouTube."
+msgstr "YouTubeの公開アーカイブストリームのみをカウントします。"
+
+msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
+msgstr "無効な言語パラメーターです。EN、JP、KR、RUのいずれかである必要があります。"
+
+msgid "Active User Gain / Loss"
+msgstr "アクティブユーザーの増減"
+
+msgid "Exclusive Chat Users"
+msgstr "独占チャットユーザー"
+
+msgid "Message Percentages and Rates by Language"
+msgstr "言語別のメッセージ割合とレート"
+
+msgid "Monthly Streaming Hours"
+msgstr "月間ストリーミング時間"
+
+msgid "Explore statistics and insights for Hololive and Indie VTuber chats."
+msgstr "ホロライブおよびインディーVTuberのチャット統計と洞察を探索してください。"
+
+msgid "Data Coverage"
+msgstr "データ範囲"
+
+msgid "Latest Updates"
+msgstr "最新の更新情報"

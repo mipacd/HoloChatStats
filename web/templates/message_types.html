@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ _("Message Percentages and Rates by Language") }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <style>
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .chart-container {
+            margin-top: 20px;
+            position: relative;
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+</head>
+<body>
+
+{% include 'menu.html' %}
+
+<!-- Main Content -->
+<div id="content" class="mt-3">
+    <h2 class="text-center mb-4">{{ _("Message Percentages and Rates by Language") }}
+        <sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" 
+        title="{{ _("Emote messages are excluded from the total count. Total duration is computed using only streams with available chat logs.") }}"></i></sup>
+    </h2>
+    
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="channelSelect">{{ _("Channel:") }}</label>
+            <select id="channelSelect" class="form-select">
+                <option value="">{{ _("Select Channel") }}</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label for="languageSelection">{{ _("Language:") }}</label>
+            <select id="languageSelection" class="form-select">
+                <option value="EN">{{ _("English (or none of others)") }}</option>
+                <option value="JP">{{ _("Japanese") }}</option>
+                <option value="KR">{{ _("Korean") }}</option>
+                <option value="RU">{{ _("Russian") }}</option>
+            </select>            
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <div id="chartSpinner" class="spinner-border text-primary position-absolute top-50 start-50" role="status" style="display: none;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <canvas id="messageChart"></canvas>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function()  {
+        // Initialize Chart.js for line chart with two Y-axes
+        let ctx = document.getElementById('messageChart').getContext('2d');
+        let chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                let value = context.raw;
+                                let suffix = context.dataset.yAxisID === 'y' ? '%' : ' messages/min';
+                                return `${label}: ${value}${suffix}`;
+                            }
+                        }
+                    },
+                    legend: {
+                        labels: {
+                            color: "white"
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: '{{ _("Month") }}', color: "white" },
+                        ticks: { color: "white" }
+                    },
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        title: { display: true, text: '{{ _("Percentage") }}', color: "white" },
+                        ticks: { color: "white", beginAtZero: true }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        title: { display: true, text: '{{ _("Rate (messages/min)") }}', color: "white" },
+                        ticks: { color: "white", beginAtZero: true },
+                        grid: { drawOnChartArea: false } // Prevents overlap with left Y-axis
+                    }
+                }
+            }
+        });
+
+        // Fetch channel names
+        function fetchChannels() {
+            let url = '/api/get_channel_names';
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    let channelSelect = document.getElementById('channelSelect');
+                    data.forEach(channel => {
+                        let option = document.createElement('option');
+                        option.value = channel;
+                        option.text = channel;
+                        channelSelect.appendChild(option);
+                    });
+                })
+                .catch(error => console.error("Error fetching channel names:", error));
+        }
+
+        // Fetch data and update chart
+        function fetchData() {
+            let channelName = document.getElementById('channelSelect').value;
+            let language = $("#languageSelection").val();
+
+            if (!channelName || !language) {
+                // Hide spinner if no channel or language is selected
+                $("#chartSpinner").hide();
+                alert('{{ _("Please select both a channel and a language.") }}');
+                return;
+            }
+
+            let url = `/api/get_message_type_percents?channel=${encodeURIComponent(channelName)}&language=${encodeURIComponent(language)}`;
+            
+            // Show spinner only when data is loading
+            $("#chartSpinner").show();
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        console.error("No data available for the selected channel and language.");
+                        $("#chartSpinner").hide();
+                        return;
+                    }
+
+                    // Prepare data for the line chart
+                    let labels = data.map(d => d.month);
+                    let percentages = data.map(d => d.percent);
+                    let rates = data.map(d => d.message_rate);
+
+                    // Update chart datasets
+                    chart.data.labels = labels;
+                    chart.data.datasets = [
+                        {
+                            label: '{{ _("Percentage") }}',
+                            data: percentages,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: '{{ _("Rate (messages/min)") }}',
+                            data: rates,
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 2,
+                            yAxisID: 'y1'
+                        }
+                    ];
+                    chart.update();
+
+                    // Hide spinner after data is loaded
+                    $("#chartSpinner").hide();
+                })
+                .catch(error => {
+                    console.error("Fetch Error:", error);
+                    $("#chartSpinner").hide();
+                });
+}
+
+
+        // Initialize page
+        fetchChannels();
+        $('#channelSelect, #languageSelection').on("change", fetchData);
+
+        // Initialize Bootstrap tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+
+</body>
+</html>

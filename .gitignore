@@ -7,3 +7,4 @@ config.ini
 youtube-cookies.txt
 data-ingestion/youtube_cookies.txt
 *.sql
+news.txt
