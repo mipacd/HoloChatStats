@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ _("Active User Gains / Losses") }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+    <style>
+        .form-group {
+            margin-bottom: 10px;
+        }
+        .chart-container {
+            margin-top: 20px;
+            position: relative;
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+</head>
+<body>
+
+{% include 'menu.html' %}
+
+<!-- Main Content -->
+<div id="content" class="mt-3">
+    <h2 class="text-center mb-4">{{ _("Active User Gains / Losses") }}
+        <sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" 
+        title="{{ _("Determined by users who met a 5 message threshold in one month but not in the other. Channels that didn't stream in either month are not included.") }}"></i></sup>
+    </h2>
+    
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="groupSelect">{{ _("Channel Group:") }}</label>
+            <select id="groupSelect" class="form-select">
+                <option value="">{{ _("All") }}</option>
+                <option value="Hololive" selected="selected">{{ _("Hololive") }}</option>
+                <option value="Indie">{{ _("Indie") }}</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label for="monthSelect">{{ _("Month:") }}</label>
+            <input type="text" id="monthSelect" class="form-control">
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <button id="downloadCSV" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3">{{ _("Download CSV") }}</button>
+        <div id="chartSpinner" class="spinner-border text-primary position-absolute top-50 start-50" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <canvas id="userChangeChart"></canvas>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        // Initialize Bootstrap Datepicker for month selection
+        $('#monthSelect').datepicker({
+            format: "yyyy-mm",
+            startView: "months", 
+            minViewMode: "months",
+            autoclose: true
+        }).on('changeDate', function() {
+            fetchData();
+        });
+
+        // Initialize Chart.js for stacked bar chart
+        let ctx = document.getElementById('userChangeChart').getContext('2d');
+        let chart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                let value = context.raw;
+                                return `${label}: ${value}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: { color: "white" }
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: { color: "white", beginAtZero: true }
+                    }
+                }
+            }
+        });
+
+        // Fetch data and update chart
+        function fetchData() {
+            let group = document.getElementById('groupSelect').value;
+            let month = document.getElementById('monthSelect').value || new Date().toISOString().slice(0, 7);
+
+            let url = `/api/get_user_changes?month=${month}`;
+            if (group) url += `&group=${encodeURIComponent(group)}`;
+
+            $("#chartSpinner").show();
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || data.length === 0) {
+                        console.error("No data available for the selected criteria.");
+                        $("#chartSpinner").hide();
+                        return;
+                    }
+
+                    // Sort data by net change (users_gained - users_lost) descending
+                    data.sort((a, b) => (b.users_gained - b.users_lost) - (a.users_gained - a.users_lost));
+
+                    // Prepare data for the bar chart
+                    let labels = data.map(d => d.channel);
+                    let gains = data.map(d => d.users_gained);
+                    let losses = data.map(d => d.users_lost);
+
+                    // Update chart datasets
+                    chart.data.labels = labels;
+                    chart.data.datasets = [
+                        {
+                            label: '{{ _("Users Gained") }}',
+                            data: gains,
+                            backgroundColor: 'rgba(75, 192, 192, 0.7)', // Green for gains
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '{{ _("Users Lost") }}',
+                            data: losses.map(value => value * -1), // Negative for stacked losses
+                            backgroundColor: 'rgba(255, 99, 132, 0.7)', // Red for losses
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        }
+                    ];
+                    chart.update();
+
+                    $("#chartSpinner").hide();
+                })
+                .catch(error => {
+                    console.error("Fetch Error:", error);
+                    $("#chartSpinner").hide();
+                });
+        }
+
+        // Auto-load current month
+        $('#monthSelect').val(new Date().toISOString().slice(0, 7));
+        fetchData();
+
+        $('#groupSelect').on("change", fetchData);
+
+        // Enable CSV Download
+        $('#downloadCSV').on('click', function() {
+            let data = chart.data;
+            let csvContent = "data:text/csv;charset=utf-8,Channel,Users Gained,Users Lost,Net Change\n";
+
+            for (let i = 0; i < data.labels.length; i++) {
+                let gains = data.datasets[0].data[i];
+                let losses = Math.abs(data.datasets[1].data[i]);
+                let netChange = gains - losses;
+                csvContent += `${data.labels[i]},${gains},${losses},${netChange}\n`;
+            }
+
+            var encodedUri = encodeURI(csvContent);
+            var link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "user_changes.csv");
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        // Initialize Bootstrap tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
+
+</body>
+</html>

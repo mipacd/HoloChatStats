@@ -264,3 +264,18 @@ msgstr "선택한 기준에 대한 데이터가 없습니다."
 
 msgid "Number of common members:"
 msgstr "공통 멤버 수:"
+
+msgid "Active User Gains / Losses"
+msgstr "활동 사용자 증감"
+
+msgid ""
+"Determined by users who met a 5 message threshold in one month but not in"
+" the other. Channels that didn't stream in either month are not included."
+msgstr "한 달 동안 5개의 메시지 임계값을 충족했지만 다른 달에는 충족하지 않은 사용자에 의해 결정됩니다. 두 달 모두 스트리밍하지 않은 채널은 포함되지 않습니다."
+
+msgid "Users Gained"
+msgstr "획득한 사용자"
+
+msgid "Users Lost"
+msgstr "잃은 사용자"
+

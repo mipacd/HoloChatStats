@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-03-23 16:33-0400\n"
+"POT-Creation-Date: 2025-03-23 21:46-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,16 +17,17 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:274 server.py:412 server.py:460 server.py:484 server.py:648
+#: server.py:275 server.py:413 server.py:461 server.py:485 server.py:649
+#: server.py:699
 msgid "Missing required parameters"
 msgstr ""
 
-#: server.py:432 server.py:682
+#: server.py:433 server.py:683
 msgid "No data found"
 msgstr ""
 
 #: templates/chat_leaderboards.html:6 templates/chat_leaderboards.html:33
-#: templates/menu.html:22
+#: templates/menu.html:23
 msgid "Chat Leaderboards"
 msgstr ""
 
@@ -39,6 +40,7 @@ msgstr ""
 #: templates/membership_counts.html:59 templates/membership_percentages.html:43
 #: templates/streaming_hours.html:66 templates/streaming_hours_avg.html:66
 #: templates/streaming_hours_diff.html:66 templates/streaming_hours_max.html:66
+#: templates/user_change.html:49
 msgid "Month:"
 msgstr ""
 
@@ -71,7 +73,7 @@ msgid "Error fetching data. Please try again later."
 msgstr ""
 
 #: templates/chat_makeup.html:6 templates/chat_makeup.html:33
-#: templates/menu.html:29
+#: templates/menu.html:30
 msgid "Chat Makeup"
 msgstr ""
 
@@ -85,13 +87,14 @@ msgstr ""
 #: templates/membership_change.html:41 templates/membership_counts.html:52
 #: templates/membership_percentages.html:36 templates/streaming_hours.html:58
 #: templates/streaming_hours_avg.html:58 templates/streaming_hours_diff.html:58
-#: templates/streaming_hours_max.html:58
+#: templates/streaming_hours_max.html:58 templates/user_change.html:41
 msgid "Channel Group:"
 msgstr ""
 
 #: templates/chat_makeup.html:43 templates/membership_change.html:43
 #: templates/streaming_hours.html:60 templates/streaming_hours_avg.html:60
 #: templates/streaming_hours_diff.html:60 templates/streaming_hours_max.html:60
+#: templates/user_change.html:43
 msgid "All"
 msgstr ""
 
@@ -99,7 +102,7 @@ msgstr ""
 #: templates/membership_change.html:44 templates/membership_counts.html:54
 #: templates/membership_percentages.html:38 templates/streaming_hours.html:61
 #: templates/streaming_hours_avg.html:61 templates/streaming_hours_diff.html:61
-#: templates/streaming_hours_max.html:61
+#: templates/streaming_hours_max.html:61 templates/user_change.html:44
 msgid "Hololive"
 msgstr ""
 
@@ -107,7 +110,7 @@ msgstr ""
 #: templates/membership_change.html:45 templates/membership_counts.html:55
 #: templates/membership_percentages.html:39 templates/streaming_hours.html:62
 #: templates/streaming_hours_avg.html:62 templates/streaming_hours_diff.html:62
-#: templates/streaming_hours_max.html:62
+#: templates/streaming_hours_max.html:62 templates/user_change.html:45
 msgid "Indie"
 msgstr ""
 
@@ -121,7 +124,7 @@ msgstr ""
 #: templates/membership_change.html:55 templates/membership_counts.html:65
 #: templates/membership_percentages.html:49 templates/streaming_hours.html:76
 #: templates/streaming_hours_avg.html:76 templates/streaming_hours_diff.html:76
-#: templates/streaming_hours_max.html:76
+#: templates/streaming_hours_max.html:76 templates/user_change.html:55
 msgid "Download CSV"
 msgstr ""
 
@@ -224,7 +227,7 @@ msgid "Error fetching chat log count."
 msgstr ""
 
 #: templates/membership_change.html:6 templates/membership_change.html:34
-#: templates/menu.html:25
+#: templates/menu.html:26
 msgid "Membership Gain / Loss"
 msgstr ""
 
@@ -243,7 +246,7 @@ msgid "Losses"
 msgstr ""
 
 #: templates/membership_counts.html:6 templates/membership_counts.html:48
-#: templates/menu.html:23
+#: templates/menu.html:24
 msgid "Membership Counts"
 msgstr ""
 
@@ -257,7 +260,7 @@ msgstr ""
 msgid "Total Members:"
 msgstr ""
 
-#: templates/membership_percentages.html:32 templates/menu.html:24
+#: templates/membership_percentages.html:32 templates/menu.html:25
 msgid "Membership Percentages"
 msgstr ""
 
@@ -281,30 +284,34 @@ msgstr ""
 msgid "Users and Memberships"
 msgstr ""
 
-#: templates/menu.html:27
+#: templates/menu.html:22
+msgid "Active User Gain / Loss"
+msgstr ""
+
+#: templates/menu.html:28
 msgid "Language Stats"
 msgstr ""
 
-#: templates/menu.html:31
+#: templates/menu.html:32
 msgid "Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:33 templates/streaming_hours.html:6
+#: templates/menu.html:34 templates/streaming_hours.html:6
 #: templates/streaming_hours.html:53
 msgid "Total Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:34 templates/streaming_hours_avg.html:6
+#: templates/menu.html:35 templates/streaming_hours_avg.html:6
 #: templates/streaming_hours_avg.html:53
 msgid "Average Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:35 templates/streaming_hours_max.html:6
+#: templates/menu.html:36 templates/streaming_hours_max.html:6
 #: templates/streaming_hours_max.html:53
 msgid "Longest Stream Duration"
 msgstr ""
 
-#: templates/menu.html:36
+#: templates/menu.html:37
 msgid "Streaming Hour Change"
 msgstr ""
 
@@ -315,5 +322,23 @@ msgstr ""
 
 #: templates/streaming_hours_diff.html:6 templates/streaming_hours_diff.html:53
 msgid "Streaming Hour Change Since Previous Month"
+msgstr ""
+
+#: templates/user_change.html:6 templates/user_change.html:34
+msgid "Active User Gains / Losses"
+msgstr ""
+
+#: templates/user_change.html:36
+msgid ""
+"Determined by users who met a 5 message threshold in one month but not in"
+" the other. Channels that didn't stream in either month are not included."
+msgstr ""
+
+#: templates/user_change.html:138
+msgid "Users Gained"
+msgstr ""
+
+#: templates/user_change.html:145
+msgid "Users Lost"
 msgstr ""
 
