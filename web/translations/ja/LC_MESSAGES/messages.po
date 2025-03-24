@@ -265,5 +265,18 @@ msgstr "選択した条件に該当するデータがありません。"
 msgid "Number of common members:"
 msgstr "共通メンバーの数:"
 
+msgid "Active User Gains / Losses"
+msgstr "アクティブユーザーの増減"
+
+msgid ""
+"Determined by users who met a 5 message threshold in one month but not in"
+" the other. Channels that didn't stream in either month are not included."
+msgstr "1か月で5メッセージの閾値を満たし、もう1か月で満たさなかったユーザーで決定されます。どちらの月でも配信されなかったチャンネルは含まれません。"
+
+msgid "Users Gained"
+msgstr "獲得したユーザー"
+
+msgid "Users Lost"
+msgstr "失ったユーザー"
 
 

@@ -86,6 +86,7 @@ def create_indexes_and_views():
 
     cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mv_common_chatters;")
     cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mv_membership_data;")
+    cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mv_user_monthly_activity;")
 
     # Create group common chat percentage view
     cursor.execute("""
@@ -176,6 +177,19 @@ def create_indexes_and_views():
                             GROUP BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank
                             ORDER BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank;
     """)
+
+    cursor.execute("""CREATE MATERIALIZED VIEW mv_user_monthly_activity AS
+            SELECT
+                user_id,
+                channel_id,
+                DATE_TRUNC('month', last_message_at) AS observed_month,
+                SUM(total_message_count) AS monthly_message_count
+            FROM user_data
+            GROUP BY user_id, channel_id, observed_month;
+            """
+        )
+    
+    cursor.execute("CREATE INDEX idx_mv_user_monthly_activity ON mv_user_monthly_activity (observed_month, channel_id);")
 
     conn.commit()
     release_db_connection(conn)

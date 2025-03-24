@@ -3,6 +3,7 @@ from flask_babel import Babel, _
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_caching import Cache
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 import configparser
 import os
 import psycopg2
@@ -686,8 +687,78 @@ def get_chat_leaderboard():
         for row in results
     ])
 
+@app.route('/api/get_user_changes', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_user_changes():
+    """API to fetch user gains and losses per channel in a given group and month."""
 
-            
+    channel_group = request.args.get('group')
+    month = request.args.get('month')  # YYYY-MM format
+
+    if not (channel_group and month):
+        return jsonify({"error": _("Missing required parameters")}), 400
+
+    # Compute start dates
+    current_month_start = f"{month}-01"
+    previous_month_start = (datetime.strptime(month, "%Y-%m") - relativedelta(months=1)).strftime("%Y-%m-01")
+
+    query = """
+        WITH current_month_users AS (
+            SELECT user_id, channel_id
+            FROM mv_user_monthly_activity
+            WHERE observed_month = %s::DATE AND monthly_message_count >= 5
+        ),
+        previous_month_users AS (
+            SELECT user_id, channel_id
+            FROM mv_user_monthly_activity
+            WHERE observed_month = %s::DATE AND monthly_message_count >= 5
+        ),
+        users_gained AS (
+            SELECT user_id, channel_id
+            FROM current_month_users
+            EXCEPT
+            SELECT user_id, channel_id
+            FROM previous_month_users
+        ),
+        users_lost AS (
+            SELECT user_id, channel_id
+            FROM previous_month_users
+            EXCEPT
+            SELECT user_id, channel_id
+            FROM current_month_users
+        )
+        SELECT
+            c.channel_name,
+            (SELECT COUNT(*) FROM users_gained WHERE channel_id = c.channel_id) AS users_gained,
+            (SELECT COUNT(*) FROM users_lost WHERE channel_id = c.channel_id) AS users_lost,
+            (SELECT COUNT(*) FROM users_gained WHERE channel_id = c.channel_id) -
+            (SELECT COUNT(*) FROM users_lost WHERE channel_id = c.channel_id) AS net_change
+        FROM channels c
+        WHERE c.channel_group = %s
+        ORDER BY net_change DESC;
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, (current_month_start, previous_month_start, channel_group))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Filter out channels where there is no data for one or both months
+    filtered_results = [
+        {
+            "channel": row[0],
+            "users_gained": row[1],
+            "users_lost": row[2],
+            "net_change": row[3]
+        }
+        for row in results
+        if row[1] > 0 and row[2] > 0  # Exclude channels with no data for either month
+    ]
+
+    return jsonify(filtered_results)
+
 
 @app.route('/api/get_channel_names', methods=['GET'])
 @cache.cached(timeout=86400)
@@ -768,6 +839,10 @@ def membership_expirations_view():
 @app.route('/chat_leaderboards')
 def chat_leaderboard_view():
     return render_template('chat_leaderboards.html', _=_, get_locale=get_locale)
+
+@app.route('/user_change')
+def user_changes_view():
+    return render_template('user_change.html', _=_, get_locale=get_locale)
 
 if __name__ == '__main__':
     app.run(debug=True)
