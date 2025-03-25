@@ -44,6 +44,7 @@ def create_database_and_tables():
         CREATE TABLE IF NOT EXISTS user_data (
             user_id TEXT,
             channel_id TEXT,
+            first_message_at TIMESTAMP WITH TIME ZONE NOT NULL,
             last_message_at TIMESTAMP WITH TIME ZONE NOT NULL,
             video_id TEXT,
             membership_rank INT NOT NULL,
@@ -173,7 +174,7 @@ def create_indexes_and_views():
                             ) AS percentage_total
                             FROM latest_memberships lm
                             JOIN channels c ON lm.channel_id = c.channel_id
-                            WHERE lm.row_num = 1  -- Keep only the latest membership observation per user/channel/month
+                            WHERE lm.row_num = 1
                             GROUP BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank
                             ORDER BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank;
     """)

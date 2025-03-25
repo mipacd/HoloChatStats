@@ -338,3 +338,88 @@ msgstr "데이터 범위"
 msgid "Latest Updates"
 msgstr "최신 업데이트"
 
+msgid "Channel Clusters by Common Users"
+msgstr "공통 사용자 기반 채널 클러스터"
+
+msgid "Channel Clustering"
+msgstr "채널 클러스터링"
+
+msgid ""
+"Determined by common chat users using cosine similarity and Louvain "
+"community detection. Channels must meet a similarity threshold with at "
+"least one other channel to appear. Click and drag to zoom. Double click "
+"to reset."
+msgstr "코사인 유사도와 Louvain 커뮤니티 탐지를 사용하여 공통 채팅 사용자에 따라 클러스터를 결정합니다. 표시되려면 최소한 다른 채널과 유사도 임계값을 충족해야 합니다. 클릭하여 드래그로 확대하고, 더블 클릭으로 초기화합니다."
+
+msgid "Select Month:"
+msgstr "월 선택:"
+
+msgid "YYYY-MM"
+msgstr "YYYY-MM"
+
+msgid "Load Clustering Graph"
+msgstr "클러스터링 그래프 로드"
+
+msgid "Loading..."
+msgstr "로딩 중..."
+
+msgid "Please select a month."
+msgstr "월을 선택하세요."
+
+msgid "Failed to load clustering graph."
+msgstr "클러스터링 그래프를 로드하지 못했습니다."
+
+msgid "Common Members by Channel / Month"
+msgstr "채널/월별 공통 멤버"
+
+msgid "Channel A:"
+msgstr "채널 A:"
+
+msgid "Month for A:"
+msgstr "채널 A의 월:"
+
+msgid "Channel B:"
+msgstr "채널 B:"
+
+msgid "Month for B:"
+msgstr "채널 B의 월:"
+
+msgid "Calculate"
+msgstr "계산"
+
+msgid ""
+"Percent of Channel A's members in Month A that are also members of "
+"Channel B in Month B:"
+msgstr "월 A의 채널 A 멤버 중 월 B의 채널 B 멤버인 비율:"
+
+msgid ""
+"Percent of Channel B's members in Month B that are also members of "
+"Channel A in Month A:"
+msgstr "월 B의 채널 B 멤버 중 월 A의 채널 A 멤버인 비율:"
+
+msgid "Number of common members:"
+msgstr "공통 멤버 수:"
+
+msgid "No common members found for the selected criteria."
+msgstr "선택한 조건에 대한 공통 멤버를 찾을 수 없습니다."
+
+msgid "Funniest Timestamps"
+msgstr "가장 웃긴 타임스탬프"
+
+msgid "Fetch Funniest Moments"
+msgstr "가장 웃긴 순간 가져오기"
+
+
+msgid ""
+"Determined using the highest concentration of humerous reactions by chat "
+"for each stream.<br><br>"
+"Each link opens YouTube in a new window.<br><br>"
+"CSV Download contains timestamps in HH:MM:SS format for use with yt-dlp, "
+"ffmpeg, etc. for clipping."
+msgstr ""
+"각 스트림에서 채팅에서 가장 웃긴 반응이 집중된 타임스탬프를 사용하여 결정됩니다.<br><br>"
+"각 링크는 YouTube에서 새 창으로 열립니다.<br><br>"
+"CSV 다운로드에는 yt-dlp, ffmpeg 등에서 클리핑에 사용할 수 있는 HH:MM:SS 형식의 타임스탬프가 포함되어 있습니다."
+
+
+
