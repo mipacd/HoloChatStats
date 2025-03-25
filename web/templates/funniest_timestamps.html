@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ _("Funniest Timestamps") }}</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css">
+
+  <style>
+    body {
+      background-color: #1a1a1a;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden; /* Prevents page scrolling */
+    }
+    .container {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      padding-top: 20px;
+    }
+    .video-grid-container {
+      flex-grow: 1;
+      overflow-y: auto; /* Enables scrolling */
+      padding: 10px;
+      background-color: #2a2a2a;
+      border-radius: 8px;
+      margin-bottom: 20px; /* Adds padding at the bottom */
+    }
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); /* Adjusts to screen size */
+      gap: 15px;
+      padding-bottom: 10px; /* Bottom spacing inside the grid */
+    }
+    .video-card {
+      text-align: center;
+      background-color: #333;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+      transition: transform 0.2s ease-in-out;
+    }
+    .video-card:hover {
+      transform: scale(1.05);
+    }
+    .video-card img {
+      width: 100%;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .video-card h6 {
+      color: white;
+      font-size: 0.9rem;
+      margin-top: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .top-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 768px) {
+      .video-grid-container {
+        margin-left: 0; /* Ensures no overlap with sidebars */
+        margin-right: 0; /* Side padding adjusts for small screens */
+      }
+      .video-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Further adjusts grid for smaller screens */
+      }
+    }
+  </style>
+</head>
+<body>
+{% include 'menu.html' %}
+<div class="container">
+  <h2 class="text-center">{{ _("Funniest Timestamps") }}<sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
+    title="{{ _("Determined using the highest concentration of humerous reactions by chat for each stream.<br><br>
+    Each link opens YouTube in a new window.<br><br>CSV Download contains timestamps in HH:MM:SS format for use with yt-dlp, ffmpeg, etc. for clipping.") }}"></i></sup></h2>
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <label for="channelSelect">{{ _("Channel:") }}</label>
+      <select id="channelSelect" class="form-select">
+        <option value="">{{ _("Select Channel") }}</option>
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label for="monthPicker">{{ _("Month:") }}</label>
+      <input type="text" id="monthPicker" class="form-control">
+    </div>
+  </div>
+  <div class="top-buttons">
+    <button id="fetchButton" class="btn btn-primary">{{ _("Fetch Funniest Moments") }}</button>
+    <button id="downloadCSV" class="btn btn-sm btn-success">{{ _("Download CSV") }}</button>
+  </div>
+  <div class="video-grid-container">
+    <div id="videoGrid" class="video-grid"></div>
+  </div>
+</div>
+<script>
+  $(document).ready(function() {
+    $('#monthPicker').datepicker({
+      format: "yyyy-mm",
+      startView: "months",
+      minViewMode: "months",
+      autoclose: true
+    });
+
+
+    $.get('/api/get_channel_names', function(data) {
+      let options = '<option value="">{{ _("Select Channel") }}</option>';
+      data.forEach(channel => {
+        options += `<option value="${channel}">${channel}</option>`;
+      });
+      $('#channelSelect').html(options);
+    });
+
+    $('#fetchButton').on('click', function() {
+      const channel = $('#channelSelect').val();
+      const month = $('#monthPicker').val();
+      if (!channel || !month) {
+        alert("{{ _("Please select a channel and a month.") }}");
+        return;
+      }
+
+      $.get(`/api/get_funniest_timestamps?channel=${channel}&month=${month}`, function(data) {
+        if (!data || data.length === 0) {
+          $('#videoGrid').html("<p class='text-danger text-center'>{{ _("No data available.") }}</p>");
+          return;
+        }
+        let html = "";
+        data.forEach(video => {
+          const title = video.title;
+          const videoId = video.video_id;
+          const timestamp = video.timestamp;
+          const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}&t=${timestamp}s`;
+          const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+          html += `
+            <div class="video-card">
+              <img src="${thumbnailUrl}" onclick="window.open('${youtubeUrl}', '_blank')" alt="Thumbnail">
+              <h6 title="${title}">${title}</h6>
+            </div>
+          `;
+        });
+        $('#videoGrid').html(html);
+      }).fail(function() {
+        alert("{{ _("Error fetching data. Please try again later.") }}");
+      });
+    });
+
+
+
+// Download CSV button
+$('#downloadCSV').on('click', function() {
+  const channel = $('#channelSelect').val();
+  const month = $('#monthPicker').val();
+
+  if (!channel || !month) {
+    alert("{{ _("Please select a channel and a month before downloading.") }}");
+    return;
+  }
+
+  $.get(`/api/get_funniest_timestamps?channel=${channel}&month=${month}`, function(data) {
+    if (!data || data.length === 0) {
+      alert("{{ _("No data available for export.") }}");
+      return;
+    }
+
+    // Build CSV content properly
+    let csvContent = "Title,URL,Timestamp\n"; // No need to include `data:text/csv;charset=utf-8` here
+    data.forEach(video => {
+      const title = `"${video.title.replace(/"/g, '""')}"`; // Escape quotes in title
+      const videoId = video.video_id;
+      const timestamp = video.timestamp;
+      const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}&t=${timestamp}s`;
+      const hhmmss = new Date(timestamp * 1000).toISOString().substr(11, 8); // Format timestamp as hh:mm:ss
+
+      // Add each row
+      csvContent += `${title},${youtubeUrl},${hhmmss}\n`;
+    });
+
+    // Use Blob to generate the download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob); // Create URL for the blob
+    link.setAttribute("href", url);
+    link.setAttribute("download", "funniest_moments.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url); // Revoke the URL for cleanup
+  }).fail(function() {
+    alert("{{ _("Error fetching data. Please try again later.") }}");
+  });
+});
+
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+</script>
+</body>
+</html>

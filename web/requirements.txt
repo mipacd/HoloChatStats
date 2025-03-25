@@ -3,3 +3,4 @@ Flask-Babel
 Flask-Caching
 psycopg2
 gunicorn
+python-dateutil

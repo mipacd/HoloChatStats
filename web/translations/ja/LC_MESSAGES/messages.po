@@ -337,3 +337,85 @@ msgstr "データ範囲"
 
 msgid "Latest Updates"
 msgstr "最新の更新情報"
+
+msgid "Channel Clusters by Common Users"
+msgstr "共通ユーザーによるチャンネルクラスタ"
+
+msgid "Channel Clustering"
+msgstr "チャンネルクラスタリング"
+
+msgid ""
+"Determined by common chat users using cosine similarity and Louvain "
+"community detection. Channels must meet a similarity threshold with at "
+"least one other channel to appear. Click and drag to zoom. Double click "
+"to reset."
+msgstr "コサイン類似性とLouvainコミュニティ検出を使用して、共通のチャットユーザーに基づきクラスタを決定します。表示されるには、他のチャンネルとの類似性閾値を満たす必要があります。クリック＆ドラッグでズーム、ダブルクリックでリセットします。"
+
+msgid "Select Month:"
+msgstr "月を選択:"
+
+msgid "YYYY-MM"
+msgstr "YYYY-MM"
+
+msgid "Load Clustering Graph"
+msgstr "クラスタリンググラフを読み込む"
+
+msgid "Loading..."
+msgstr "読み込み中..."
+
+msgid "Please select a month."
+msgstr "月を選択してください。"
+
+msgid "Failed to load clustering graph."
+msgstr "クラスタリンググラフの読み込みに失敗しました。"
+
+msgid "Common Members by Channel / Month"
+msgstr "チャンネル/月ごとの共通メンバー"
+
+msgid "Channel A:"
+msgstr "チャンネルA:"
+
+msgid "Month for A:"
+msgstr "チャンネルAの月:"
+
+msgid "Channel B:"
+msgstr "チャンネルB:"
+
+msgid "Month for B:"
+msgstr "チャンネルBの月:"
+
+msgid "Calculate"
+msgstr "計算"
+
+msgid ""
+"Percent of Channel A's members in Month A that are also members of "
+"Channel B in Month B:"
+msgstr "月AのチャンネルAのメンバーの中で、月BのチャンネルBのメンバーでもある割合:"
+
+msgid ""
+"Percent of Channel B's members in Month B that are also members of "
+"Channel A in Month A:"
+msgstr "月BのチャンネルBのメンバーの中で、月AのチャンネルAのメンバーでもある割合:"
+
+msgid "Number of common members:"
+msgstr "共通メンバーの数:"
+
+msgid "No common members found for the selected criteria."
+msgstr "選択された条件では共通メンバーが見つかりませんでした。"
+
+msgid "Funniest Timestamps"
+msgstr "最も面白いタイムスタンプ"
+
+msgid "Fetch Funniest Moments"
+msgstr "最も面白い瞬間を取得する"
+
+msgid ""
+"Determined using the highest concentration of humerous reactions by chat "
+"for each stream.<br><br>"
+"Each link opens YouTube in a new window.<br><br>"
+"CSV Download contains timestamps in HH:MM:SS format for use with yt-dlp, "
+"ffmpeg, etc. for clipping."
+msgstr ""
+"各配信でチャット内の最も面白い反応が集中したタイムスタンプを使用して決定されます。<br><br>"
+"各リンクはYouTubeで新しいウィンドウで開きます。<br><br>"
+"CSVダウンロードには、yt-dlp、ffmpegなどでクリッピングに使用できるHH:MM:SS形式のタイムスタンプが含まれています。"
