@@ -96,6 +96,9 @@
                 <div id="chatLogCountContainer">
                     <p class="text-muted">{{ _("Loading chat log count...") }}</p>
                 </div>
+                <div id="visitorCountContainer">
+                    <p class="text-muted">{{ _("Loading visitor count...") }}</p>
+                </div>
             </div>
         </div>
 
@@ -140,6 +143,17 @@ $(document).ready(function() {
         }
     }).fail(function() {
         $('#chatLogCountContainer').html(`<p class="text-danger">{{ _("Error fetching chat log count.") }}</p>`);
+    });
+
+    // Fetch visitor count
+    $.get('/api/visitor_count', function(data) {
+        if (data) {
+            $('#visitorCountContainer').html(`<p><strong>{{ _("Visitor Count in the Past Year:") }}</strong> ${data.count}</p>`);
+        } else {
+            $('#visitorCountContainer').html(`<p class="text-danger">{{ _("Unable to fetch visitor count.") }}</p>`);
+        }
+    }).fail(function() {
+        $('#visitorCountContainer').html(`<p class="text-danger">{{ _("Error fetching visitor count.") }}</p>`);
     });
 
     // Fetch latest updates

@@ -49,10 +49,6 @@
             <label for="monthSelect">{{ _("Month:") }}</label>
             <input type="text" id="monthSelect" class="form-control">
         </div>
-        <div class="col-md-4">
-            <label for="timezoneSelect">{{ _("Timezone (UTC Offset):") }}</label>
-            <input type="number" id="timezoneSelect" class="form-control" value="0">
-        </div>
     </div>
 
     <div class="chart-container">
@@ -85,7 +81,7 @@ $(document).ready(function() {
             },
             plugins: {
                 tooltip: { enabled: true, mode: 'index' },
-                legend: { display: true, position: 'top' },
+                legend: { display: true, position: 'top', labels: { color: "white" } },
                 colorschemes: { scheme: 'tableau.Classic10' }
             }
         }
@@ -94,9 +90,8 @@ $(document).ready(function() {
     function fetchData() {
         let group = document.getElementById('groupSelect').value;
         let month = document.getElementById('monthSelect').value || new Date().toISOString().slice(0, 7);
-        let timezone = document.getElementById('timezoneSelect').value;
 
-        let url = `/api/get_group_chat_makeup?month=${month}&timezone=${timezone}`;
+        let url = `/api/get_group_chat_makeup?month=${month}`;
         if (group) url += `&group=${encodeURIComponent(group)}`;
 
         fetch(url)
@@ -133,8 +128,6 @@ $(document).ready(function() {
 
     $('#monthSelect').val(new Date().toISOString().slice(0, 7));
     fetchData();
-
-    $('#groupSelect, #timezoneSelect').on("change", fetchData);
 
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {

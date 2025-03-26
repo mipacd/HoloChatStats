@@ -11,11 +11,12 @@ import logging
 import pandas as pd
 import networkx as nx
 from sklearn.metrics.pairwise import cosine_similarity
-from matplotlib import pyplot as plt
 import community.community_louvain as community_louvain
 import plotly.graph_objects as go
 from plotly.utils import PlotlyJSONEncoder
 import json
+from google.analytics.data_v1beta import BetaAnalyticsDataClient
+from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Metric
 
 def get_config(key1, key2):
     """
@@ -51,6 +52,8 @@ app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_AS_ASCII"] = False
 app.config["GA_ID"] = get_config("Settings", "GoogleAnalyticsID")
 
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = get_config("API", "GAAPIKeyFile")
+
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 cache = Cache(app, config={"CACHE_TYPE": "simple"})
@@ -78,11 +81,44 @@ def setup_logging():
 
 setup_logging()
 
-# Access logging
+def get_google_analytics_visitors():
+    """Fetch visitor count from Google Analytics"""
+    count = 0
+    client = BetaAnalyticsDataClient()
+    request = RunReportRequest(
+        property=f"properties/{ get_config('API', 'GAOldHCSPropertyID') }",
+        date_ranges=[DateRange(start_date="365daysAgo", end_date="today")],
+        metrics=[Metric(name="activeUsers")],
+    )
+    response = client.run_report(request)
+
+    count += int(response.rows[0].metric_values[0].value)
+
+    request = RunReportRequest(
+        property=f"properties/ { get_config('API', 'GANewHCSPropertyID') }",
+        date_ranges=[DateRange(start_date="365daysAgo", end_date="today")],
+        metrics=[Metric(name="activeUsers")],
+    )
+    response = client.run_report(request)
+
+    count += int(response.rows[0].metric_values[0].value)
+    
+    return count
+
+@app.route('/api/visitor_count')
+@cache.cached(timeout=3600)
+def visitor_count():
+    count = get_google_analytics_visitors()
+    return jsonify({'count': count})
+
+# Access logging and detect language
 @app.before_request
 def before_request():
     real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
     app.logger.info(f"Request from {real_ip} to {request.path}")
+    if 'language' not in session:
+        user_lang = request.headers.get('Accept-Language', 'en').split(',')[0][:2]
+        session['language'] = user_lang if user_lang in ['en', 'ja', 'ko'] else 'en'
 
 def get_locale():
     return session.get('language', 'en')
@@ -138,6 +174,7 @@ def streaming_hours_query(aggregation_function, group=None):
     return base_query, params
 
 @app.route('/api/channel_clustering', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
 def channel_clustering():
     try:
         # Get the filter month from request arguments
