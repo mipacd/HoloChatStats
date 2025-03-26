@@ -85,69 +85,6 @@ def create_indexes_and_views():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_channel_id ON user_data (channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_id ON channels (channel_id);")
 
-    cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mv_common_chatters;")
-    cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mv_membership_data;")
-    cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mv_user_monthly_activity;")
-
-    # Create group common chat percentage view
-    cursor.execute("""
-                   CREATE MATERIALIZED VIEW IF NOT EXISTS mv_common_chatters AS
-                        WITH user_activity AS (
-                            SELECT
-                                m.user_id,
-                                m.channel_id,
-                                c.channel_group,
-                                DATE_TRUNC('month', m.last_message_at) AS observed_month
-                            FROM user_data m
-                            JOIN channels c ON m.channel_id = c.channel_id
-                            GROUP BY m.user_id, m.channel_id, c.channel_group, observed_month
-                        ),
-                        common_chatters AS (
-                            SELECT
-                                ua1.channel_id AS channel_a,
-                                ua2.channel_id AS channel_b,
-                                ua1.user_id,
-                                ua1.channel_group,
-                                ua1.observed_month
-                            FROM user_activity ua1
-                            JOIN user_activity ua2 
-                                ON ua1.user_id = ua2.user_id 
-                                AND ua1.channel_group = ua2.channel_group
-                                AND ua1.channel_id <> ua2.channel_id
-                                AND ua1.observed_month = ua2.observed_month
-                        ),
-                        user_counts AS (
-                            SELECT 
-                                channel_id, 
-                                observed_month, 
-                                COUNT(DISTINCT user_id) AS total_users
-                            FROM user_activity
-                            GROUP BY channel_id, observed_month
-                        )
-                        SELECT
-                            ca.channel_group,
-                            cg.observed_month,
-                            ca.channel_name AS channel_a,
-                            cb.channel_name AS channel_b,
-                            COUNT(DISTINCT cg.user_id) AS num_common_users,
-                            100.0 * COUNT(DISTINCT cg.user_id) / NULLIF(ua_count.total_users, 0) AS percent_A_to_B
-                        FROM common_chatters cg
-                        JOIN channels ca ON cg.channel_a = ca.channel_id
-                        JOIN channels cb ON cg.channel_b = cb.channel_id
-                        JOIN user_counts ua_count 
-                            ON ca.channel_id = ua_count.channel_id 
-                            AND cg.observed_month = ua_count.observed_month
-                        JOIN user_counts ub_count
-                            ON cb.channel_id = ub_count.channel_id
-                            AND cg.observed_month = ub_count.observed_month
-                        GROUP BY ca.channel_group, cg.observed_month, ca.channel_name, cb.channel_name, ua_count.total_users, ub_count.total_users
-                        ORDER BY ca.channel_group, cg.observed_month DESC, num_common_users DESC;
-
-                """
-                   )
-    
-    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_common_chatters ON mv_common_chatters (channel_group, observed_month, channel_a, channel_b);");
-
     # Create membership data view
     cursor.execute("""CREATE MATERIALIZED VIEW IF NOT EXISTS mv_membership_data AS
                         WITH latest_memberships AS (
@@ -179,7 +116,7 @@ def create_indexes_and_views():
                             ORDER BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank;
     """)
 
-    cursor.execute("""CREATE MATERIALIZED VIEW mv_user_monthly_activity AS
+    cursor.execute("""CREATE MATERIALIZED VIEW IF NOT EXISTS mv_user_monthly_activity AS
             SELECT
                 user_id,
                 channel_id,
@@ -190,7 +127,7 @@ def create_indexes_and_views():
             """
         )
     
-    cursor.execute("CREATE INDEX idx_mv_user_monthly_activity ON mv_user_monthly_activity (observed_month, channel_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_monthly_activity ON mv_user_monthly_activity (observed_month, channel_id);")
 
     conn.commit()
     release_db_connection(conn)

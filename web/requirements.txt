@@ -4,3 +4,9 @@ Flask-Caching
 psycopg2
 gunicorn
 python-dateutil
+python-louvain
+networkx
+scikit-learn
+plotly
+pandas
+google-analytics-data
