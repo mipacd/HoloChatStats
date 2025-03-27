@@ -419,3 +419,41 @@ msgstr ""
 "各配信でチャット内の最も面白い反応が集中したタイムスタンプを使用して決定されます。<br><br>"
 "各リンクはYouTubeで新しいウィンドウで開きます。<br><br>"
 "CSVダウンロードには、yt-dlp、ffmpegなどでクリッピングに使用できるHH:MM:SS形式のタイムスタンプが含まれています。"
+
+msgid "JP User Percentages"
+msgstr "日本語ユーザーの割合"
+
+msgid ""
+"Percentage of users who primarily use Japanese (>50%) in chat across all "
+"channels, excluding emoji-only messages."
+msgstr ""
+"すべてのチャンネルで、主に日本語（>50%）を使用してチャットするユーザーの割合。"
+"絵文字のみのメッセージは除外されます。"
+
+msgid "JP User Percentage"
+msgstr "日本語ユーザーの割合"
+
+msgid "Username:"
+msgstr "ユーザー名："
+
+msgid "Enter username"
+msgstr "ユーザー名を入力してください"
+
+msgid "Get User Data"
+msgstr "ユーザーデータを取得"
+
+msgid "Channel"
+msgstr "チャンネル"
+
+msgid "Percentile"
+msgstr "パーセンタイル"
+
+msgid "Please enter a username and select a month."
+msgstr "ユーザー名を入力し、月を選択してください。"
+
+msgid "No data available for the selected user and month."
+msgstr "選択したユーザーと月のデータはありません。"
+
+msgid "Message Frequencies by User"
+msgstr "ユーザーごとのメッセージ頻度"
+

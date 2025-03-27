@@ -1075,6 +1075,65 @@ def get_message_type_percents():
         for row in results
     ])
 
+@app.route('/api/get_jp_user_percent', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_jp_user_percent():
+    """Returns the percentage of users using mostly Japanese (>50% of messages, excluding emoji-only messages) per month for a given channel."""
+    channel_name = request.args.get('channel')
+
+    if not channel_name:
+        return jsonify({"error": "Missing required parameter: channel"}), 400
+
+    query = """
+        WITH user_language_usage AS (
+            SELECT
+                ud.user_id,
+                DATE_TRUNC('month', ud.last_message_at) AS month,
+                SUM(ud.jp_count) AS total_jp_messages,
+                SUM(ud.total_message_count - ud.emoji_count) AS total_non_emoji_messages
+            FROM user_data ud
+            JOIN channels c ON ud.channel_id = c.channel_id
+            WHERE c.channel_name = %s
+            GROUP BY ud.user_id, month
+        ),
+        jp_users AS (
+            SELECT
+                month,
+                COUNT(*) AS jp_user_count
+            FROM user_language_usage
+            WHERE total_jp_messages > total_non_emoji_messages * 0.5
+            GROUP BY month
+        ),
+        total_users AS (
+            SELECT
+                DATE_TRUNC('month', last_message_at) AS month,
+                COUNT(DISTINCT user_id) AS total_user_count
+            FROM user_data ud
+            JOIN channels c ON ud.channel_id = c.channel_id
+            WHERE c.channel_name = %s
+            GROUP BY month
+        )
+        SELECT 
+            to_char(tu.month, 'YYYY-MM') AS month, 
+            ROUND(100.0 * COALESCE(jp.jp_user_count, 0) / NULLIF(tu.total_user_count, 0), 2) AS jp_user_percent
+        FROM total_users tu
+        LEFT JOIN jp_users jp ON tu.month = jp.month
+        ORDER BY month ASC;
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, (channel_name, channel_name))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Format results for Chart.js
+    response = [{"month": row[0], "jp_user_percent": row[1]} for row in results]
+
+    return jsonify(response)
+
+
 @app.route('/api/get_latest_updates', methods=['GET'])
 def get_latest_updates():
     """API to fetch the latest updates from news.txt for the front-end."""
@@ -1181,6 +1240,92 @@ def get_funniest_timestamps():
         for row in results if row[1] is not None and 0 <= row[2]
     ])
 
+@app.route('/api/get_user_info', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_user_info():
+    """API to fetch all channels a user chatted on in a given month,
+    their total messages on that channel, and their frequency percentile."""
+    
+    username = request.args.get('username')
+    month = request.args.get('month')  # YYYY-MM format
+
+    if not (username and month):
+        return jsonify({"error": "Missing required parameters"}), 400
+
+    # Convert month to first day format for filtering
+    month_start = f"{month}-01"
+    next_month_start = (datetime.strptime(month, "%Y-%m") + relativedelta(months=1)).strftime("%Y-%m-01")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Get the user's ID
+    cursor.execute("SELECT user_id FROM users WHERE username = %s", (username,))
+    user_row = cursor.fetchone()
+    
+    if not user_row:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "User not found"}), 404
+
+    user_id = user_row[0]
+
+    # Fetch user's chat activity per channel for the month
+    cursor.execute("""
+        SELECT 
+            ud.channel_id, 
+            c.channel_name, 
+            SUM(ud.total_message_count) AS user_message_count
+        FROM user_data ud
+        JOIN channels c ON ud.channel_id = c.channel_id
+        WHERE ud.user_id = %s
+          AND ud.last_message_at >= %s::DATE
+          AND ud.last_message_at < %s::DATE
+        GROUP BY ud.channel_id, c.channel_name
+    """, (user_id, month_start, next_month_start))
+    
+    user_chat_data = cursor.fetchall()
+
+    # If user has no messages
+    if not user_chat_data:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "No data available for the given user and month"}), 404
+
+    # Prepare data structure
+    results = []
+
+    for channel_id, channel_name, user_message_count in user_chat_data:
+        # Compute user's percentile rank on this channel
+        cursor.execute("""
+            WITH all_user_counts AS (
+                SELECT user_id, SUM(total_message_count) AS total_messages
+                FROM user_data
+                WHERE channel_id = %s
+                  AND last_message_at >= %s::DATE
+                  AND last_message_at < %s::DATE
+                GROUP BY user_id
+            )
+            SELECT 
+                100 * (SELECT COUNT(*) FROM all_user_counts WHERE total_messages < %s) 
+                / NULLIF((SELECT COUNT(*) FROM all_user_counts), 0) AS percentile
+        """, (channel_id, month_start, next_month_start, user_message_count))
+
+        percentile_row = cursor.fetchone()
+        percentile = percentile_row[0] if percentile_row and percentile_row[0] is not None else 0.0
+
+        # Append to results
+        results.append({
+            "channel_name": channel_name,
+            "message_count": user_message_count,
+            "percentile": round(percentile, 2)
+        })
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(results)
+
 
 @app.route('/streaming_hours')
 def streaming_hours_view():
@@ -1253,6 +1398,14 @@ def common_members_view():
 @app.route('/channel_clustering')
 def channel_clustering_view():
     return render_template('channel_clustering.html', _=_, get_locale=get_locale)
+
+@app.route('/jp_user_percents')
+def jp_user_percents_view():
+    return render_template('jp_user_percents.html', _=_, get_locale=get_locale)
+
+@app.route('/user_info')
+def user_info_view():
+    return render_template('user_info.html', _=_, get_locale=get_locale)
 
 if __name__ == '__main__':
     app.run(debug=True)
