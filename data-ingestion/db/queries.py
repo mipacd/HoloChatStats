@@ -44,7 +44,6 @@ def create_database_and_tables():
         CREATE TABLE IF NOT EXISTS user_data (
             user_id TEXT,
             channel_id TEXT,
-            first_message_at TIMESTAMP WITH TIME ZONE NOT NULL,
             last_message_at TIMESTAMP WITH TIME ZONE NOT NULL,
             video_id TEXT,
             membership_rank INT NOT NULL,

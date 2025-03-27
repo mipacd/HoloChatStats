@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ _("Chat Leaderboards") }}</title>
+    <title>{{ _("Message Frequencies by User") }}</title>
     
     <!-- jQuery & Bootstrap -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -16,7 +16,7 @@
 
     <style>
         .leaderboard-container {
-            max-width: 600px;
+            max-width: 800px;
             margin: 20px auto;
         }
         .leaderboard-table {
@@ -36,12 +36,12 @@
 
 <!-- Main Content -->
 <div id="content" class="mt-3 leaderboard-container">
-    <h2 class="text-center mb-4">{{ _("Chat Leaderboards") }}</h2>
+    <h2 class="text-center mb-4">{{ _("Message Frequencies by User") }}</h2>
 
     <div class="row mb-3">
         <div class="col-md-6">
-            <label for="channelSelect">{{ _("Channel:") }}</label>
-            <select id="channelSelect" class="form-select"></select>
+            <label for="usernameInput">{{ _("Username:") }}</label>
+            <input type="text" id="usernameInput" class="form-control" placeholder="{{ _("Enter username") }}">
         </div>
         <div class="col-md-6">
             <label for="monthPicker">{{ _("Month:") }}</label>
@@ -49,7 +49,7 @@
         </div>
     </div>
 
-    <button id="fetchLeaderboard" class="btn btn-primary mb-3">{{ _("Get Leaderboard") }}</button>
+    <button id="fetchUserStats" class="btn btn-primary mb-3">{{ _("Get User Data") }}</button>
 
     <!-- Loading Spinner -->
     <div id="spinnerContainer" class="spinner-container">
@@ -58,13 +58,13 @@
         </div>
     </div>
 
-    <!-- Leaderboard Table -->
-    <table id="leaderboardTable" class="table table-striped leaderboard-table" style="display: none;">
+    <!-- User Data Table -->
+    <table id="userStatsTable" class="table table-striped leaderboard-table" style="display: none;">
         <thead>
             <tr>
-                <th>#</th>
-                <th>{{ _("Username") }}</th>
+                <th>{{ _("Channel") }}</th>
                 <th>{{ _("Message Count") }}</th>
+                <th>{{ _("Percentile") }}</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -81,48 +81,39 @@ $(document).ready(function() {
         autoclose: true
     });
 
-    // Fetch available channels and populate dropdown
-    $.get('/api/get_channel_names', function(data) {
-        let options = '<option value="">{{ _("Select Channel") }}</option>';
-        data.forEach(channel => {
-            options += `<option value="${channel}">${channel}</option>`;
-        });
-        $('#channelSelect').html(options);
-    });
-
-    // Fetch leaderboard data
-    $('#fetchLeaderboard').on('click', function() {
-        const channel_name = $('#channelSelect').val();
+    // Fetch user message statistics
+    $('#fetchUserStats').on('click', function() {
+        const username = $('#usernameInput').val().trim();
         const month = $('#monthPicker').val();
 
-        if (!channel_name || !month) {
-            alert("{{ _("Please fill in all fields.") }}");
+        if (!username || !month) {
+            alert("{{ _("Please enter a username and select a month.") }}");
             return;
         }
 
         // Show spinner and hide table
         $('#spinnerContainer').show();
-        $('#leaderboardTable').hide();
+        $('#userStatsTable').hide();
 
-        $.get('/api/get_chat_leaderboard', { channel_name: channel_name, month: month }, function(data) {
+        $.get('/api/get_user_info', { username: username, month: month }, function(data) {
             $('#spinnerContainer').hide(); // Hide spinner when data is received
 
-            if (data.length === 0) {
-                alert("{{ _("No data available for the selected criteria.") }}");
+            if (!data || data.length === 0) {
+                alert("{{ _("No data available for the selected user and month.") }}");
                 return;
             }
 
             let tbody = "";
-            data.forEach((user, index) => {
+            data.forEach((channel, index) => {
                 tbody += `<tr>
-                    <td>${index + 1}</td>
-                    <td>${user.user_name}</td>
-                    <td>${user.message_count}</td>
+                    <td>${channel.channel_name}</td>
+                    <td>${channel.message_count}</td>
+                    <td>${channel.percentile}%</td>
                 </tr>`;
             });
 
-            $('#leaderboardTable tbody').html(tbody);
-            $('#leaderboardTable').show();
+            $('#userStatsTable tbody').html(tbody);
+            $('#userStatsTable').show();
         }).fail(function() {
             alert("{{ _("Error fetching data. Please try again later.") }}");
             $('#spinnerContainer').hide();
