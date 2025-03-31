@@ -146,8 +146,8 @@ msgid "Error fetching data. Please try again later."
 msgstr "データの取得に失敗しました。後でもう一度お試しください。"
 
 #: templates/index.html:6 templates/index.html:36
-msgid "Welcome to the HoloChatStats v2 Beta Test!"
-msgstr "HoloChatStats v2 ベータテストへようこそ！"
+msgid "Welcome to HoloChatStats v2!"
+msgstr "HoloChatStats v2へようこそ！"
 
 #: templates/index.html:37
 msgid "Since this is a beta, data may be incomplete or inaccurate."
@@ -290,7 +290,7 @@ msgstr "絵文字メッセージは総数に含まれません。総ストリー
 msgid "Language:"
 msgstr "言語："
 
-msgid "English (or none of others)"
+msgid "English (or none of the others)"
 msgstr "英語（またはその他なし）"
 
 msgid "Japanese"
@@ -456,4 +456,7 @@ msgstr "選択したユーザーと月のデータはありません。"
 
 msgid "Message Frequencies by User"
 msgstr "ユーザーごとのメッセージ頻度"
+
+msgid "Visitor Count in the Past Year:"
+msgstr "過去1年間の訪問者数:"
 

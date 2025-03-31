@@ -1,4 +1,5 @@
 import os
+from chat_downloader import sites
 from utils.logging_utils import get_logger
 from config.settings import get_config
 
@@ -32,3 +33,8 @@ def deduplicate_batch(batch, key_indices):
             seen.add(key)
 
     return deduplicated_batch
+
+def is_video_past(video_id):
+    video_data = sites.YouTubeChatDownloader().get_video_data(video_id=video_id)
+    return video_data["status"] == "past"
+    

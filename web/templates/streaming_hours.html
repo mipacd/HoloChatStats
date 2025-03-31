@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Hololive and Indie total streaming hours by channel and month.">
+    <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat statistics, total streaming hours">
     <title>{{ _("Total Streaming Hours") }}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -12,7 +14,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
     <style>
-       
+       html, body {
+           overflow-x: hidden;
+       }
        
         .form-group {
             margin-bottom: 10px;
@@ -31,10 +35,13 @@
         li a:hover {
             background-color: #34495e;
         }
-        chart-container {
-        margin-top: 20px;
-        position: relative; /* Add this to make absolute positioning work relative to .chart-container */
-    }
+        .chart-container {
+            margin-top: 10px;
+            position: relative;
+            height: 70vh;
+            max-width: 98vw;
+            overflow-x: auto;
+        }
 
     canvas {
         width: 100% !important;

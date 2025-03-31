@@ -119,10 +119,10 @@ def get_metadata_for_channel(channel_name, channel_id, year, month, download_que
         if retry_count < int(get_config("Settings", "MaxRetries")):
             wait_time = min(retry_delay * (2 ** retry_count), 60)
             print(e)
-            logger.info(f"⚠️ SSL Error encountered, retrying in {wait_time} seconds... ({retry_count}/{get_config('Settings', 'MaxRetries')})")
+            logger.info(f"SSL Error encountered, retrying in {wait_time} seconds... ({retry_count}/{get_config('Settings', 'MaxRetries')})")
             time.sleep(wait_time)  
         else:
-            logger.error(f"❌ Max retries exceeded. Error: {e}")
+            logger.error(f"Max retries exceeded. Error: {e}")
             return
     except pyyoutube.error.PyYouTubeException as e:
         if "quota" in str(e).lower():
@@ -131,11 +131,11 @@ def get_metadata_for_channel(channel_name, channel_id, year, month, download_que
         else:
             retry_count += 1
             if retry_count < int(get_config("Settings", "MaxRetries")):
-                logger.info(f"⚠️ YouTube API error encountered, retrying in {retry_delay} seconds... ({retry_count}/{get_config('Settings', 'MaxRetries')})")
+                logger.info(f"YouTube API error encountered, retrying in {retry_delay} seconds... ({retry_count}/{get_config('Settings', 'MaxRetries')})")
                 wait_time = min(retry_delay * (2 ** retry_count), 60)
                 time.sleep(wait_time)  
             else:
-                logger.error(f"❌ Max retries exceeded. Error: {e}")
+                logger.error(f"Max retries exceeded. Error: {e}")
                 return
         
 def get_metadata_for_date_range(year, month, download_queue):

@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Hololive and Indie common members by channel and month.">
+    <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat statistics, common members, channel comparison">
     <title>{{ _("Common Members by Channel / Month") }}</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
@@ -21,6 +23,40 @@
             text-align: center;
             margin-top: 20px;
         }
+        /* Style for datepicker background */
+        .datepicker table tr td.active, 
+        .datepicker table tr td.active:hover, 
+        .datepicker table tr td.active.disabled, 
+        .datepicker table tr td.active.disabled:hover,
+        .datepicker table tr td.today,
+        .datepicker table tr td.today:hover,
+        .datepicker table tr td.today.disabled,
+        .datepicker table tr td.today.disabled:hover,
+        .datepicker table tr td span.active,
+        .datepicker table tr td span.active:hover,
+        .datepicker table tr td span.active.disabled,
+        .datepicker table tr td span.active.disabled:hover {
+            background-color: #ffffff !important; /* White background */
+            color: #000000 !important; /* Black text for contrast */
+            border-color: #ddd !important; /* Optional: Adjust border color */
+        }
+        .datepicker table tr td.day:hover,
+        .datepicker table tr td span:hover {
+             background: #eee !important; /* Lighter grey hover */
+        }
+        /* Custom styles for width and centering */
+        .input-container {
+            max-width: 800px; /* Adjust max-width as needed */
+            margin: 0 auto; /* Center the container */
+        }
+        .input-container .form-select,
+        .input-container .form-control {
+            max-width: 300px; /* Adjust max-width for inputs */
+        }
+        .result-table {
+            max-width: 800px; /* Match the input container width */
+            margin: 20px auto; /* Center the table */
+        }
     </style>
 </head>
 <body>
@@ -28,12 +64,14 @@
 {% include 'menu.html' %}
 
 <!-- Main Content -->
-<div id="content" class="mt-3">
-    <h2 class="text-center mb-4">{{ _("Common Members by Channel / Month") }}</h2>
+<div class="container-fluid">
+    <div id="content" class="mt-3">
+        <h2 class="text-center mb-4">{{ _("Common Members by Channel / Month") }}</h2>
 
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <label for="channelASelect">{{ _("Channel A:") }}</label>
+        <div class="input-container"> <!-- Added container -->
+            <div class="row mb-3 justify-content-center">
+                <div class="col-md-6">
+                    <label for="channelASelect">{{ _("Channel A:") }}</label>
             <select id="channelASelect" class="form-select"></select>
         </div>
         <div class="col-md-6">
@@ -42,7 +80,7 @@
         </div>
     </div>
 
-    <div class="row mb-3">
+    <div class="row mb-3 justify-content-center">
         <div class="col-md-6">
             <label for="channelBSelect">{{ _("Channel B:") }}</label>
             <select id="channelBSelect" class="form-select"></select>
@@ -53,17 +91,20 @@
         </div>
     </div>
 
-    <button id="calculateButton" class="btn btn-primary mb-3">{{ _("Calculate") }}</button>
+    <div class="text-center"> <!-- Center the button -->
+        <button id="calculateButton" class="btn btn-primary mb-3">{{ _("Calculate") }}</button>
+    </div>
 
     <!-- Spinner -->
-    <div id="spinner">
+    <div id="spinner" class="text-center"> <!-- Added text-center -->
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">{{ _("Loading...") }}</span>
         </div>
     </div>
 
     <!-- Result Table -->
-    <table id="resultTable" class="table table-striped result-table" style="display: none;">
+    <!-- Removed margin: 20px auto; as centering is handled by input-container -->
+    <table id="resultTable" class="table table-striped result-table" style="display: none;"> 
         <tbody>
             <tr id="rowPercentAToBMembers">
                 <th>{{ _("Percent of Channel A's members in Month A that are also members of Channel B in Month B:") }}</th>
@@ -79,6 +120,8 @@
             </tr>
         </tbody>
     </table>
+</div> <!-- End of input-container -->
+    </div>
 </div>
 
 <script>

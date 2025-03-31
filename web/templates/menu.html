@@ -1,271 +1,127 @@
-<!-- menu.html -->
-<div id="sidebar">
-    <div class="sidebar-header">
-        <button id="menu-toggle">☰</button>
-        <span id="site-name">HoloChatStats</span>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HoloChatStats</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ GA_ID }}"></script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .navbar {
+            background-color: #2c3e50 !important;
+        }
+        .navbar-nav .nav-link, .dropdown-menu a {
+            color: white !important;
+        }
+        #navbarNav .dropdown-menu { /* More specific selector */
+            background-color: #34495e;
+        }
+        #navbarNav .dropdown-menu a:hover { /* More specific selector */
+            background-color: #2a3a4e;
+        }
+        .form-select {
+            background-color: #2a2a2a !important;
+            color: #ffffff !important;
+            border: 1px solid #3a3a3a !important;
+        }
+        .form-select:focus {
+            box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25) !important;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">HoloChatStats</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">{{ _("Home") }}</a>
+                </li>
+
+                <!-- Users and Memberships Dropdown -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="usersDropdown" role="button" data-bs-toggle="dropdown">
+                        {{ _("Users and Memberships") }}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/common_users">{{ _("Common Users by Channel / Month") }}</a></li>
+                        <li><a class="dropdown-item" href="/common_members">{{ _("Common Members by Channel / Month") }}</a></li>
+                        <li><a class="dropdown-item" href="/channel_clustering">{{ _("Channel Clusters by Common Users") }}</a></li>
+                        <li><a class="dropdown-item" href="/user_change">{{ _("Active User Gain / Loss") }}</a></li>
+                        <li><a class="dropdown-item" href="/chat_leaderboards">{{ _("Chat Leaderboards") }}</a></li>
+                        <li><a class="dropdown-item" href="/exclusive_chat">{{ _("Exclusive Chat Users") }}</a></li>
+                        <li><a class="dropdown-item" href="/user_info">{{ _("Message Frequencies by User") }}</a></li>
+                        <li><a class="dropdown-item" href="/membership_counts">{{ _("Membership Counts") }}</a></li>
+                        <li><a class="dropdown-item" href="/membership_percentages">{{ _("Membership Percentages") }}</a></li>
+                        <li><a class="dropdown-item" href="/membership_change">{{ _("Membership Gain / Loss") }}</a></li>
+                    </ul>
+                </li>
+
+                <!-- Language Stats Dropdown -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="languageDropdown" role="button" data-bs-toggle="dropdown">
+                        {{ _("Language Stats") }}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/chat_makeup">{{ _("Chat Makeup") }}</a></li>
+                        <li><a class="dropdown-item" href="/message_types">{{ _("Message Percentages and Rates by Language") }}</a></li>
+                        <li><a class="dropdown-item" href="/jp_user_percents">{{ _("JP User Percentages") }}</a></li>
+                    </ul>
+                </li>
+
+                <!-- Streaming Hours Dropdown -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="streamingDropdown" role="button" data-bs-toggle="dropdown">
+                        {{ _("Streaming Hours") }}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/streaming_hours">{{ _("Total Streaming Hours") }}</a></li>
+                        <li><a class="dropdown-item" href="/streaming_hours_avg">{{ _("Average Streaming Hours") }}</a></li>
+                        <li><a class="dropdown-item" href="/streaming_hours_max">{{ _("Longest Stream Duration") }}</a></li>
+                        <li><a class="dropdown-item" href="/streaming_hours_diff">{{ _("Streaming Hour Change") }}</a></li>
+                        <li><a class="dropdown-item" href="/monthly_streaming_hours">{{ _("Monthly Streaming Hours") }}</a></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/funniest_timestamps">{{ _("Funniest Timestamps") }}</a>
+                </li>
+            </ul>
+
+            <!-- Language Selector -->
+            <div class="d-flex">
+                <select id="languageSelect" class="form-select">
+                    <option value="en" {% if get_locale() == 'en' %}selected{% endif %}>English</option>
+                    <option value="ja" {% if get_locale() == 'ja' %}selected{% endif %}>日本語</option>
+                    <option value="ko" {% if get_locale() == 'ko' %}selected{% endif %}>한국어</option>
+                </select>
+            </div>
+        </div>
     </div>
-    <div class="language-selector">
-        <label for="languageSelect">{{ _("Language") }}:</label>
-        <select id="languageSelect" class="form-select">
-            <option value="en" {% if get_locale() == 'en' %}selected{% endif %}>English</option>
-            <option value="ja" {% if get_locale() == 'ja' %}selected{% endif %}>日本語</option>
-            <option value="ko" {% if get_locale() == 'ko' %}selected{% endif %}>한국어</option>
-        </select>
-    </div>    
-    <ul>
-        <li><a href="/">{{ _("Home") }}</a></li>
-        <li>
-            <div class="collapsible-header" onclick="toggleCollapsible(this)">{{ _("Users and Memberships") }} ▼</div>
-            <ul class="collapsible-content">
-                <!--<li><a href="/common_user_heatmap">{{ _("Common User Heatmap") }}</a></li>-->
-                <li><a href="/common_users">{{ _("Common Users by Channel / Month") }}</a></li>
-                <li><a href="/common_members">{{ _("Common Members by Channel / Month") }}</a></li>
-                <li><a href="/channel_clustering">{{ _("Channel Clusters by Common Users") }}</a></li>
-                <li><a href="/user_change">{{ _("Active User Gain / Loss") }}</a></li>
-                <li><a href="/chat_leaderboards">{{ _("Chat Leaderboards") }}</a></li>
-                <li><a href="/exclusive_chat">{{ _("Exclusive Chat Users") }}</a></li>
-                <li><a href="/user_info">{{ _("Message Frequencies by User") }}</a></li>
-                <li><a href="/membership_counts">{{ _("Membership Counts") }}</a></li>
-                <li><a href="/membership_percentages">{{ _("Membership Percentages") }}</a></li>
-                <li><a href="/membership_change">{{ _("Membership Gain / Loss") }}</a></li>
-            </ul>
-            <div class="collapsible-header" onclick="toggleCollapsible(this)">{{ _("Language Stats") }} ▼</div>
-            <ul class="collapsible-content">
-                <li><a href="/chat_makeup">{{ _("Chat Makeup") }}</a></li>
-                <li><a href="/message_types">{{ _("Message Percentages and Rates by Language") }}</a></li>
-                <li><a href="/jp_user_percents">{{ _("JP User Percentages") }}</a></li>
-            </ul>
-            <div class="collapsible-header" onclick="toggleCollapsible(this)">{{ _("Streaming Hours") }} ▼</div>
-            <ul class="collapsible-content">
-                <li><a href="/streaming_hours">{{ _("Total Streaming Hours") }}</a></li>
-                <li><a href="/streaming_hours_avg">{{ _("Average Streaming Hours") }}</a></li>
-                <li><a href="/streaming_hours_max">{{ _("Longest Stream Duration") }}</a></li>
-                <li><a href="/streaming_hours_diff">{{ _("Streaming Hour Change") }}</a></li>
-                <li><a href="/monthly_streaming_hours">{{ _("Monthly Streaming Hours") }}</a></li>
-            </ul>
-            <li><a href="/funniest_timestamps">{{ _("Funniest Timestamps") }}</a></li>
-        </li>
-    </ul>
-</div>
+</nav>
 
-<style>
-    body {
-        display: flex;
-        margin: 0;
-        height: 100vh;
-        overflow: hidden;
-        background-color: #1a1a1a;
-        color: #ffffff;
-    }
-
-        #sidebar {
-        width: 250px;
-        height: 100vh;
-        background-color: #2c3e50;
-        color: white;
-        padding: 15px;
-        position: fixed;
-        left: 0;
-        top: 0;
-        transition: transform 0.3s ease-in-out;
-        transform: translateX(0);
-        z-index: 1000;
-        display: flex;
-        flex-direction: column;
-        overflow-y: auto; /* Enable scrolling */
-        scrollbar-width: thin; /* For Firefox */
-        scrollbar-color: #888 #2c3e50; /* Customize scrollbar */
-    }
-
-    /* For WebKit browsers like Chrome, Safari */
-    #sidebar::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    #sidebar::-webkit-scrollbar-thumb {
-        background-color: #888;
-        border-radius: 4px;
-    }
-
-    #sidebar::-webkit-scrollbar-track {
-        background: #2c3e50;
-    }
-
-
-    .sidebar-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
-        position: relative;
-        background-color: #2c3e50;
-        padding: 10px;
-        width: 100%;
-    }
-
-    #menu-toggle {
-        background-color: #2c3e50;
-        border: none;
-        color: white;
-        font-size: 24px;
-        cursor: pointer;
-        padding: 0;
-        margin-right: 15px;
-        z-index: 1001;
-        width: 30px;
-        height: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        position: relative;
-    }
-
-    #site-name {
-        font-size: 24px;
-        white-space: nowrap;
-        color: white;
-    }
-
-    #sidebar.collapsed {
-        transform: translateX(-220px);
-    }
-
-    #sidebar.collapsed .sidebar-header {
-        background-color: transparent;
-    }
-
-    #sidebar.collapsed #menu-toggle {
-        transform: translateX(220px);
-        background-color: #2c3e50;
-        border-radius: 0 4px 4px 0;
-    }
-
-    #content {
-        margin-left: 250px;
-        padding: 20px;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        transition: margin-left 0.3s ease-in-out;
-        width: calc(100% - 250px);
-        height: 100vh;
-        overflow-y: auto;
-        background-color: #1a1a1a;
-    }
-
-    #content.collapsed {
-        margin-left: 30px;
-        width: calc(100% - 30px);
-    }
-
-    .chart-container {
-        flex: 1;
-        min-height: 0;
-        position: relative;
-        width: 100%;
-        background-color: #2a2a2a;
-        border-radius: 8px;
-        padding: 15px;
-    }
-
-    canvas {
-        width: 100% !important;
-        height: 100% !important;
-    }
-
-    ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-
-    li a {
-        color: white;
-        text-decoration: none;
-        display: block;
-        padding: 10px;
-        transition: 0.3s;
-        border-radius: 4px;
-    }
-
-    li a:hover {
-        background-color: #34495e;
-    }
-
-    /* Dark theme form elements */
-    select, input {
-        background-color: #2a2a2a !important;
-        color: #ffffff !important;
-        border: 1px solid #3a3a3a !important;
-    }
-
-    select:focus, input:focus {
-        background-color: #2a2a2a !important;
-        color: #ffffff !important;
-        border-color: #4a4a4a !important;
-        box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25) !important;
-    }
-
-    label {
-        color: #ffffff !important;
-    }
-
-    h2 {
-        color: #ffffff !important;
-    }
-
-    .collapsible-header {
-    cursor: pointer;
-    padding: 10px;
-}
-
-.collapsible-content {
-    display: none;
-    list-style-type: none;
-    padding-left: 20px;
-}
-</style>
-<script aysnc src="https://www.googletagmanager.com/gtag/js?id={{ GA_ID }}"></script>
 <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){ dataLayer.push(arguments); }
-        gtag('js', new Date());
-        gtag('config', '{{ GA_ID }}');
-</script>
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const sidebar = document.getElementById("sidebar");
-        const content = document.getElementById("content");
-        const menuToggle = document.getElementById("menu-toggle");
-
-        menuToggle.addEventListener("click", function() {
-            sidebar.classList.toggle("collapsed");
-            content.classList.toggle("collapsed");
-            
-            // Trigger chart resize after transition
-            setTimeout(() => {
-                window.dispatchEvent(new Event('resize'));
-            }, 300);
-        });
-
-        // Get the select element by its ID
+    document.addEventListener("DOMContentLoaded", function () {
+        // Language selector
         const languageSelect = document.getElementById("languageSelect");
-
-        // Verify that the element exists
         if (languageSelect) {
-            // Add the event listener for the 'change' event
             languageSelect.addEventListener("change", function () {
                 const selectedLanguage = languageSelect.value;
-                console.log(`Selected language: ${selectedLanguage}`);
-                window.location.href = `/set_language/${selectedLanguage}`; // Redirect to language route
+                window.location.href = `/set_language/${selectedLanguage}`;
             });
-        } else {
-            console.error("Element with ID 'languageSelect' not found!");
         }
     });
-    function toggleCollapsible(element) {
-    const content = element.nextElementSibling;
-    content.style.display = content.style.display === 'block' ? 'none' : 'block';
-    element.textContent = element.textContent.includes('▼') ? element.textContent.replace('▼', '▲') : element.textContent.replace('▲', '▼');
-
-}
 </script>
+
+</body>
+</html>

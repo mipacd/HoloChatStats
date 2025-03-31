@@ -137,7 +137,7 @@ def refresh_materialized_views():
     logger = get_logger()
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("REFRESH MATERIALIZED VIEW mv_common_chatters;")
+    cursor.execute("REFRESH MATERIALIZED VIEW mv_user_monthly_activity;")
     cursor.execute("REFRESH MATERIALIZED VIEW mv_membership_data;")
     conn.commit()
     release_db_connection(conn)
