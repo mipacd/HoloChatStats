@@ -54,7 +54,7 @@ def main():
         download_queue = manager.list()
         queue = manager.Queue()
 
-        process_cache_dir(download_queue)
+        process_cache_dir(download_queue, YEAR, MONTH)
 
         get_metadata_for_date_range(YEAR, MONTH, download_queue)
 

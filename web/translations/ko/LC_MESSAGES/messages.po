@@ -146,8 +146,8 @@ msgid "Error fetching data. Please try again later."
 msgstr "데이터를 가져오는 중 오류가 발생했습니다. 나중에 다시 시도하세요."
 
 #: templates/index.html:6 templates/index.html:36
-msgid "Welcome to the HoloChatStats v2 Beta Test!"
-msgstr "HoloChatStats v2 베타 테스트에 오신 것을 환영합니다!"
+msgid "Welcome to HoloChatStats v2"
+msgstr "HoloChatStats v2에 오신 것을 환영합니다!"
 
 #: templates/index.html:37
 msgid "Since this is a beta, data may be incomplete or inaccurate."
@@ -290,7 +290,7 @@ msgstr "이모티콘 메시지는 총계에서 제외됩니다. 총 지속 시�
 msgid "Language:"
 msgstr "언어:"
 
-msgid "English (or none of others)"
+msgid "English (or none of the others)"
 msgstr "영어(또는 기타 언어 없음)"
 
 msgid "Japanese"
@@ -458,6 +458,8 @@ msgstr "선택한 사용자 및 월에 대한 데이터가 없습니다."
 msgid "Message Frequencies by User"
 msgstr "사용자별 메시지 빈도"
 
+msgid "Visitor Count in the Past Year:"
+msgstr "지난 1년간 방문자 수:"
 
 
 

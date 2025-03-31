@@ -30,20 +30,20 @@ def get_db_connection():
     conn = DB_POOL.getconn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT 1")  # ✅ Test if connection is alive
+            cur.execute("SELECT 1")  # Test if connection is alive
         return conn
     except psycopg2.OperationalError:
         logger.warning("Stale DB connection detected. Reconnecting...")
-        DB_POOL.putconn(conn, close=True)  # ✅ Close broken connection
-        conn = DB_POOL.getconn()  # ✅ Get a fresh connection
+        DB_POOL.putconn(conn, close=True)  # Close broken connection
+        conn = DB_POOL.getconn()  # Get a fresh connection
         return conn
 
 def release_db_connection(conn):
 
     if conn is not None:
         try:
-            conn.rollback()  # ✅ Rollback any uncommitted transactions
+            conn.rollback()  # Rollback any uncommitted transactions
             DB_POOL.putconn(conn)
         except psycopg2.InterfaceError:
-            logger.warning("⚠️ Trying to release a closed connection. Removing from pool...")
-            DB_POOL.putconn(conn, close=True)  # ✅ Remove bad connection from pool
+            logger.warning("Trying to release a closed connection. Removing from pool...")
+            DB_POOL.putconn(conn, close=True)  # Remove bad connection from pool

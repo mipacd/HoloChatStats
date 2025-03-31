@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, session, redirect, Response
+from flask import Flask, request, jsonify, render_template, session, redirect, Response, url_for
 from flask_babel import Babel, _
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_caching import Cache
@@ -1406,6 +1406,59 @@ def jp_user_percents_view():
 @app.route('/user_info')
 def user_info_view():
     return render_template('user_info.html', _=_, get_locale=get_locale)
+
+#v1 redirects
+@app.route('/stream-time')
+def stream_time_redirect():
+    return redirect("/streaming_hours")
+
+@app.route('/nonjp-holojp')
+def nonjp_holojp_redirect():
+    return redirect("/message_types")
+
+@app.route('/jp-holoiden')
+def holoiden_redirect():
+    return redirect("/message_types")
+
+@app.route('/chat-makeup')
+def chat_makeup_redirect():
+    return redirect("/chat_makeup")
+
+@app.route('/langsum')
+def langsum_redirect():
+    return redirect("/message_types")
+
+@app.route('/en-livetl')
+def livetl_redirect():
+    return redirect("https://old.holochatstats.info/en-livetl")
+
+@app.route('/en-tl-stream')
+def en_tl_stream_redirect():
+    return redirect("https://old.holochatstats.info/en-tl-stream")
+
+@app.route('/common-chat')
+def common_chat_redirect():
+    return redirect("/common_users")
+
+@app.route('/excl-chat')
+def excl_chat_redirect():
+    return redirect("/exclusive_chat")
+
+@app.route('/members')
+def members_redirect():
+    return redirect("/membership_counts")
+
+@app.route('/member-percent')
+def member_percent_redirect():
+    return redirect("/membership_percentages")
+
+@app.route('/stream-time-series')
+def stream_time_series_redirect():
+    return redirect("/monthly_streaming_hours")
+
+@app.route('/coverage')
+def coverage_redirect():
+    return redirect("https://old.holochatstats.info/coverage")
 
 if __name__ == '__main__':
     app.run(debug=True)

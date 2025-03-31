@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Hololive and Indie active user gains and losses by channel and month.">
+    <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat statistics, active users, user gains, user losses">
     <title>{{ _("Active User Gains / Losses") }}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -13,15 +15,22 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
     <style>
         .form-group {
-            margin-bottom: 10px;
+            margin-bottom: 5px;
+        }
+        .form-select, .form-control {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
         }
         .chart-container {
-            margin-top: 20px;
+            margin-top: 10px;
             position: relative;
+            height: 70vh;
+            max-width: 98vw;
+            overflow-x: auto;
         }
         canvas {
             width: 100% !important;
-            height: 100% !important;
+            max-height: 100% !important;
         }
     </style>
 </head>
@@ -37,17 +46,17 @@
     </h2>
     
     <div class="row mb-3">
-        <div class="col-md-6">
+        <div class="col-md-4">
             <label for="groupSelect">{{ _("Channel Group:") }}</label>
-            <select id="groupSelect" class="form-select">
+            <select id="groupSelect" class="form-select" style="max-width: 300px;">
                 <option value="">{{ _("All") }}</option>
                 <option value="Hololive" selected="selected">{{ _("Hololive") }}</option>
                 <option value="Indie">{{ _("Indie") }}</option>
             </select>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
             <label for="monthSelect">{{ _("Month:") }}</label>
-            <input type="text" id="monthSelect" class="form-control">
+            <input type="text" id="monthSelect" class="form-control" style="max-width: 200px;">
         </div>
     </div>
 
@@ -196,4 +205,3 @@
 </script>
 
 </body>
-</html>

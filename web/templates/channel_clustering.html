@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Hololive and Indie VTuber chat cluster graphs based on common users.">
+    <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat clustering, common users">
     <title>{{ _("Channel Clusters by Common Users") }}</title>
     
     <!-- Plotly, jQuery & Bootstrap -->
@@ -20,20 +22,20 @@
         body { background-color: #1a1a1a; color: white; }
         #monthPicker { width: 200px; }
         #clusteringContainer {
-            margin-top: 20px;
-            width: calc(100% - 250px);  /* Adjust based on sidebar width */
-            height: calc(100vh - 200px); 
+            margin: 20px auto 0 auto; /* Center horizontally, add top margin */
+            width: 95%; /* Use most of the width */
+            height: calc(100vh - 275px); /* Adjust height dynamically based on viewport and elements above */
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            margin-left: 250px;  /* Match sidebar width */
+            /* Removed fixed margin-left and width calculation */
         }
 
         /* Ensure the graph expands properly */
         #graphContent {
             width: 100%;
-            height: 600px;  
+            height: 100%; /* Fill the container height */
             display: flex;
             justify-content: center;
             align-items: center;

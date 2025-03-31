@@ -9,6 +9,7 @@ import sys
 import shutil
 from utils.logging_utils import get_logger
 from config.settings import get_config
+from utils.helpers import is_video_past
 from utils.feature_analysis import has_humor, get_feature_timestamps, update_feature_timestamps
 from db.connection import get_db_connection, release_db_connection
 from db.queries import is_chat_log_processed, is_metadata_processed, insert_video_metadata
@@ -176,7 +177,7 @@ def write_chat_log_to_cache(channel_id, video_id, chat_log):
         for message in chat_log:
             f.write(json.dumps(message, ensure_ascii=False) + "\n")
 
-def process_cache_dir(download_queue):
+def process_cache_dir(download_queue, year, month):
     logger = get_logger()
     """
     Process the cache directory and ensure that both metadata and chat logs are inserted into the database.
@@ -216,11 +217,11 @@ def process_cache_dir(download_queue):
                 metadata_in_db = is_metadata_processed(video_id)
                 chat_log_in_db = is_chat_log_processed(video_id)
 
-                # Add video to download queue only if chat log is missing or empty
+                # Add video to download queue only if chat log is missing or empty and the video is set to past status
                 if not chat_log_exists:
-                    if (channel_id, video_id) not in download_queue:
+                    if (channel_id, video_id) not in download_queue and video_info["end_time"].startswith(f"{year}-{month:02d}") and is_video_past(video_id):
                         download_queue.append((channel_id, video_id))
-                        logger.info(f"🚀 Chat log missing for {video_id}. Added to download queue.")
+                        logger.info(f"Chat log missing for {video_id}. Added to download queue.")
 
                 # Insert missing metadata into the database
                 if not metadata_in_db:
@@ -231,7 +232,7 @@ def process_cache_dir(download_queue):
                         video_info["end_time"],
                         video_info["duration"]
                     )
-                    logger.info(f"📥 Metadata missing for {video_id}. Inserted into database.")
+                    logger.info(f"Metadata missing for {video_id}. Inserted into database.")
 
                 # Process cached chat log if it's missing from DB
                 if chat_log_exists and not chat_log_in_db:
@@ -244,9 +245,9 @@ def process_cache_dir(download_queue):
                         video_info["title"],
                         video_info["end_time"],
                         video_info["duration"],
-                        has_chat_log=(last_message_time is not None)  # ✅ Sets True if last message exists
+                        has_chat_log=(last_message_time is not None)  # Sets True if last message exists
                     )
-                    logger.info(f"✅ Chat log processed for {video_id}. Database updated.")
+                    logger.info(f"Chat log processed for {video_id}. Database updated.")
 
     return download_queue
 
