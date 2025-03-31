@@ -460,3 +460,6 @@ msgstr "ユーザーごとのメッセージ頻度"
 msgid "Visitor Count in the Past Year:"
 msgstr "過去1年間の訪問者数:"
 
+msgid "Only counts members that participated in chat."
+msgstr "チャットに参加したメンバーのみをカウントします。"
+

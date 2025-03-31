@@ -29,18 +29,23 @@
       padding-top: 20px;
     }
     .video-grid-container {
-      flex-grow: 1;
+      flex: 1;
       overflow-y: auto; /* Enables scrolling */
       padding: 10px;
       background-color: #2a2a2a;
       border-radius: 8px;
-      margin-bottom: 20px; /* Adds padding at the bottom */
+      margin-bottom: 20px;
+      max-height: calc(100vh - 300px); /* Limits height to viewport minus header/controls */
+      min-height: 200px; /* Minimum height */
     }
     .video-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); /* Adjusts to screen size */
+      grid-template-columns: repeat(auto-fill, minmax(160px, 160px)); /* Fixed width columns */
       gap: 15px;
-      padding-bottom: 10px; /* Bottom spacing inside the grid */
+      padding-bottom: 10px;
+      justify-content: center;
+      min-height: 0; /* Allows grid to shrink */
+      min-width: 0; /* Allows grid to shrink */
     }
     .video-card {
       text-align: center;
@@ -54,9 +59,11 @@
       transform: scale(1.05);
     }
     .video-card img {
-      width: 100%;
+      width: 140px; /* Fixed width */
+      height: 90px; /* Fixed height (16:9 aspect ratio) */
       border-radius: 6px;
       cursor: pointer;
+      object-fit: cover; /* Ensure thumbnails maintain aspect ratio */
     }
     .video-card h6 {
       color: white;
@@ -74,11 +81,15 @@
     }
     @media (max-width: 768px) {
       .video-grid-container {
-        margin-left: 0; /* Ensures no overlap with sidebars */
-        margin-right: 0; /* Side padding adjusts for small screens */
+        margin-left: 0;
+        margin-right: 0;
       }
       .video-grid {
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Further adjusts grid for smaller screens */
+        grid-template-columns: repeat(auto-fill, minmax(120px, 120px)); /* Fixed width columns */
+      }
+      .video-card img {
+        width: 120px; /* Fixed width */
+        height: 68px; /* Fixed height (16:9 aspect ratio) */
       }
     }
   </style>
@@ -107,6 +118,11 @@
   </div>
   <div class="video-grid-container">
     <div id="videoGrid" class="video-grid"></div>
+    <div id="loadingSpinner" class="d-none text-center" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
   </div>
 </div>
 <script>
@@ -135,7 +151,11 @@
         return;
       }
 
+      $('#videoGrid').empty();
+      $('#loadingSpinner').removeClass('d-none');
+
       $.get(`/api/get_funniest_timestamps?channel=${channel}&month=${month}`, function(data) {
+        $('#loadingSpinner').addClass('d-none');
         if (!data || data.length === 0) {
           $('#videoGrid').html("<p class='text-danger text-center'>{{ _("No data available.") }}</p>");
           return;
@@ -156,6 +176,7 @@
         });
         $('#videoGrid').html(html);
       }).fail(function() {
+        $('#loadingSpinner').addClass('d-none');
         alert("{{ _("Error fetching data. Please try again later.") }}");
       });
     });
