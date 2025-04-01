@@ -19,19 +19,6 @@
             color: white;
         }
 
-        /* Responsive Sidebar Adjustments */
-        @media (min-width: 992px) { /* Large screens */
-            #content {
-                margin-left: 280px; /* Adjust based on sidebar width */
-            }
-        }
-        
-        @media (max-width: 991px) { /* Laptops & tablets */
-            #content {
-                margin-left: 0 !important;
-            }
-        }
-
         .hero {
             background-color: #2c3e50;
             padding: 60px 20px;
@@ -56,6 +43,7 @@
         .container {
             max-width: 100%;
             padding: 15px;
+            margin: 0 auto;
         }
     </style>
 </head>
@@ -88,9 +76,9 @@
     </div>
 
     <!-- Info Boxes -->
-    <div class="row">
+    <div class="row justify-content-center">
         <!-- Date Ranges & Chat Logs -->
-        <div class="col-md-6">
+        <div class="col-lg-6 col-md-8">
             <div class="info-box text-center">
                 <h4>{{ _("Data Coverage") }}</h4>
                 <div id="dateRangesContainer">
@@ -106,7 +94,7 @@
         </div>
 
         <!-- News & Updates -->
-        <div class="col-md-6">
+        <div class="col-lg-6 col-md-8">
             <div class="info-box text-center">
                 <h4>{{ _("Latest Updates") }}</h4>
                 <div id="newsContainer">
