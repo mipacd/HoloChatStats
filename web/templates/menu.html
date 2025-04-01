@@ -96,10 +96,15 @@
                 <li class="nav-item">
                     <a class="nav-link" href="/funniest_timestamps">{{ _("Funniest Timestamps") }}</a>
                 </li>
+                
             </ul>
-
-            <!-- Language Selector -->
+            <ul class="navbar-nav">
+            <li class="nav-item">
+                <li><a href="https://old.holochatstats.info" class="nav-link">HoloChatStats v1</a></li>
+            </li>
+            </ul>
             <div class="d-flex">
+                <!-- Language Selector -->
                 <select id="languageSelect" class="form-select">
                     <option value="en" {% if get_locale() == 'en' %}selected{% endif %}>English</option>
                     <option value="ja" {% if get_locale() == 'ja' %}selected{% endif %}>日本語</option>

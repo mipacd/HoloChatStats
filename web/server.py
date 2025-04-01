@@ -1171,7 +1171,7 @@ def get_date_ranges():
     cursor = conn.cursor()
 
     # Gets first and last date from video table using end_time
-    cursor.execute("SELECT MIN(end_time), MAX(end_time) FROM videos")
+    cursor.execute("SELECT MIN(end_time), MAX(end_time) FROM videos WHERE has_chat_log = 't'")
     
     date_range = cursor.fetchone()
     cursor.close()
