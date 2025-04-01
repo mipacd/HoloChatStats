@@ -102,7 +102,13 @@
                 scales: {
                     x: {
                         stacked: true,
-                        ticks: { color: "white" }
+                        ticks: {
+                            color: "white",
+                            autoSkip: false,
+                            maxRotation: 45,
+                            minRotation: 45,
+                            padding: 10
+                        }
                     },
                     y: {
                         stacked: true,

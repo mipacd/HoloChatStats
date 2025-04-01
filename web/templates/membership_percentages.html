@@ -77,8 +77,15 @@ $(document).ready(function() {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                x: { 
-                    ticks: { color: "white" } 
+                x: {
+                    stacked: true,
+                    ticks: {
+                        color: "white",
+                        autoSkip: false,
+                        maxRotation: 45,
+                        minRotation: 45,
+                        padding: 10
+                    }
                 },
                 y: { 
                     ticks: { color: "white" } 
