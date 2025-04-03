@@ -56,7 +56,7 @@ os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = get_config("API", "GAAPIKeyFile")
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
-cache = Cache(app, config={"CACHE_TYPE": "simple"})
+cache = Cache(app, config={"CACHE_TYPE": "filesystem", "CACHE_DIR": get_config("Settings", "CacheDir")})
 
 DB_CONFIG = {
     "dbname": get_config("Database", "DBName"),
@@ -177,16 +177,13 @@ def streaming_hours_query(aggregation_function, group=None):
 @cache.cached(timeout=86400, query_string=True)
 def channel_clustering():
     try:
-        # Get the filter month from request arguments
         filter_month = request.args.get("month")
         if not filter_month:
             return jsonify({"error": "Month filter (e.g., '2025-03') is required"}), 400
 
-        # Connect to the database
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Query user-channel activity filtered by month
         cursor.execute("""
             SELECT ud.user_id, ch.channel_name, SUM(ud.total_message_count) AS message_weight
             FROM user_data ud
@@ -196,37 +193,31 @@ def channel_clustering():
         """, (filter_month + "-01",))
         rows = cursor.fetchall()
 
-        # Close connection
         cursor.close()
         conn.close()
 
-        # Process data into a DataFrame
         data = pd.DataFrame(rows, columns=['user_id', 'channel_name', 'message_weight'])
         if data.empty:
             return jsonify({"error": "No data found for the specified month"}), 404
 
-        # Create user-channel matrix
         user_channel_matrix = data.pivot(index='user_id', columns='channel_name', values='message_weight').fillna(0)
-
-        # Compute similarity matrix
         similarity_matrix = cosine_similarity(user_channel_matrix.T)
-
-        # Build graph
         channel_names = user_channel_matrix.columns
+
         G = nx.Graph()
-        threshold = 0.09  # Define similarity threshold
+        threshold = 0.09  
         for i, channel_a in enumerate(channel_names):
             for j, channel_b in enumerate(channel_names):
                 if i != j and similarity_matrix[i, j] > threshold:
                     G.add_edge(channel_a, channel_b, weight=similarity_matrix[i, j])
 
-        # Apply community detection
         partition = community_louvain.best_partition(G)
         community_colors = [partition[node] for node in G.nodes]
 
-        # Generate positions for nodes
-        pos = nx.spring_layout(G, k=0.15, iterations=50, weight='weight')
+        # --- IMPROVED LAYOUT ---
+        pos = nx.kamada_kawai_layout(G)  # Better spacing
         node_x, node_y = zip(*pos.values())
+
         edge_x, edge_y = [], []
         for edge in G.edges():
             x0, y0 = pos[edge[0]]
@@ -234,19 +225,18 @@ def channel_clustering():
             edge_x.extend([x0, x1, None])
             edge_y.extend([y0, y1, None])
 
-        # Create Plotly figure
         fig = go.Figure()
 
-        # Add edges
+        # --- EDGE VISUAL IMPROVEMENTS ---
         fig.add_trace(go.Scatter(
             x=edge_x,
             y=edge_y,
             mode='lines',
-            line=dict(width=0.5, color='#888'),
+            line=dict(width=0.5, color='rgba(150,150,150,0.5)'),  # Transparent gray edges
             hoverinfo='none'
         ))
 
-        # Add nodes
+        # --- NODE VISUAL IMPROVEMENTS ---
         fig.add_trace(go.Scatter(
             x=node_x,
             y=node_y,
@@ -254,29 +244,30 @@ def channel_clustering():
             text=list(G.nodes),
             textposition="top center",
             marker=dict(
-                size=10,
-                color=community_colors,  # Use detected community labels as colors
-                line_width=1
+                size=12,  # Larger nodes
+                color=community_colors,
+                colorscale='Viridis',  # Better contrast
+                line=dict(color='black', width=1)  # Node border for clarity
             )
         ))
 
-        # Customize layout
         fig.update_layout(
             title=f"Channel User Similarity Graph for {filter_month}",
             title_x=0.5,
             showlegend=False,
+            margin=dict(l=10, r=10, t=50, b=10),
             xaxis=dict(showgrid=False, zeroline=False),
             yaxis=dict(showgrid=False, zeroline=False),
             plot_bgcolor='white'
         )
 
-        # Convert figure to JSON
         graph_json = json.dumps(fig, cls=PlotlyJSONEncoder)
 
         return jsonify({"graph_json": graph_json})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 @app.route('/api/get_monthly_streaming_hours', methods=['GET'])
@@ -935,44 +926,23 @@ def get_exclusive_chat_users():
         return jsonify({"error": _("Missing required parameters")}), 400
 
     query = """
-        WITH user_activity AS (
+        WITH channel_specific_users AS (
             SELECT
-                ud.user_id,
-                ud.channel_id,
-                DATE_TRUNC('month', ud.last_message_at) AS activity_month
-            FROM user_data ud
-            JOIN channels c ON ud.channel_id = c.channel_id
-        ),
-        group_users AS (
-            SELECT
-                ua.user_id,
-                ua.channel_id,
-                ua.activity_month,
-                c.channel_group
-            FROM user_activity ua
-            JOIN channels c ON ua.channel_id = c.channel_id
-        ),
-        channel_specific_users AS (
-            SELECT
-                gu.user_id,
-                gu.activity_month,
-                gu.channel_id
-            FROM group_users gu
-            WHERE gu.channel_id = (
-                SELECT channel_id FROM channels WHERE channel_name = %s
-            )
+                user_id,
+                activity_month,
+                channel_id
+            FROM mv_user_activity
+            WHERE channel_id = (SELECT channel_id FROM channels WHERE channel_name = %s)
         ),
         exclusive_users AS (
             SELECT
                 csu.activity_month,
                 COUNT(DISTINCT csu.user_id) AS exclusive_users_count
             FROM channel_specific_users csu
-            LEFT JOIN group_users gu
+            LEFT JOIN mv_user_activity gu
                 ON csu.user_id = gu.user_id
                 AND gu.channel_id <> csu.channel_id
-                AND gu.channel_group = (
-                    SELECT channel_group FROM channels WHERE channel_name = %s
-                )
+                AND gu.channel_group = (SELECT channel_group FROM channels WHERE channel_name = %s)
             WHERE gu.user_id IS NULL
             GROUP BY csu.activity_month
         ),

@@ -5,7 +5,7 @@ config.ini
 *.mitm
 *.pyc
 youtube-cookies.txt
-data-ingestion/youtube_cookies.txt
+data_ingestion/youtube_cookies.txt
 *.sql
 news.txt
 google-secret.json

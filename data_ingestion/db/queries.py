@@ -126,7 +126,28 @@ def create_indexes_and_views():
             """
         )
     
+    cursor.execute("""CREATE MATERIALIZED VIEW IF NOT EXISTS mv_user_activity AS
+    WITH user_activity AS (
+        SELECT
+            ud.user_id,
+            ud.channel_id,
+            DATE_TRUNC('month', ud.last_message_at) AS activity_month
+        FROM user_data ud
+    )
+    SELECT
+        ua.user_id,
+        ua.activity_month,
+        ua.channel_id,
+        c.channel_group
+    FROM user_activity ua
+    JOIN channels c ON ua.channel_id = c.channel_id;
+    """)
+    
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_monthly_activity ON mv_user_monthly_activity (observed_month, channel_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_activity_channel ON mv_user_activity (channel_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_activity_group ON mv_user_activity (channel_group);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_activity_month ON mv_user_activity (activity_month);")
+
 
     conn.commit()
     release_db_connection(conn)
@@ -139,6 +160,7 @@ def refresh_materialized_views():
     cursor = conn.cursor()
     cursor.execute("REFRESH MATERIALIZED VIEW mv_user_monthly_activity;")
     cursor.execute("REFRESH MATERIALIZED VIEW mv_membership_data;")
+    cursor.execute("REFRESH MATERIALIZED VIEW mv_user_activity;")
     conn.commit()
     release_db_connection(conn)
     logger.info("Materialized views refreshed.")

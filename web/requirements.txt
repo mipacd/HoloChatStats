@@ -10,3 +10,5 @@ scikit-learn
 plotly
 pandas
 google-analytics-data
+pytest
+pytest-cov
