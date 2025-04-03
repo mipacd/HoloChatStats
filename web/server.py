@@ -201,7 +201,6 @@ def channel_clustering():
         rows = cursor.fetchall()
 
         cursor.close()
-        conn.close()
 
         data = pd.DataFrame(rows, columns=['user_id', 'channel_name', 'message_weight'])
         if data.empty:
@@ -690,7 +689,6 @@ def get_group_membership_changes():
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
-        conn.close()
 
     # Format the results as JSON
     response_data = [
@@ -1207,7 +1205,6 @@ def get_user_info():
     
     if not user_row:
         cursor.close()
-        conn.close()
         return jsonify({"error": "User not found"}), 404
 
     user_id = user_row[0]
@@ -1231,7 +1228,6 @@ def get_user_info():
     # If user has no messages
     if not user_chat_data:
         cursor.close()
-        conn.close()
         return jsonify({"error": "No data available for the given user and month"}), 404
 
     # Prepare data structure
@@ -1264,7 +1260,6 @@ def get_user_info():
         })
 
     cursor.close()
-    conn.close()
 
     return jsonify(results)
 
