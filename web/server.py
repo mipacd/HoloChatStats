@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, session, redirect, Response, url_for
+from flask import Flask, request, jsonify, render_template, session, redirect, g
 from flask_babel import Babel, _
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_caching import Cache
@@ -119,6 +119,14 @@ def before_request():
     if 'language' not in session:
         user_lang = request.headers.get('Accept-Language', 'en').split(',')[0][:2]
         session['language'] = user_lang if user_lang in ['en', 'ja', 'ko'] else 'en'
+    
+    g.db_conn = get_db_connection()
+    g.db_conn.cursor().execute("SET statement_timeout = '60s'")
+
+@app.teardown_request
+def teardown_request(exception):
+    if hasattr(g, 'db_conn'):
+        g.db_conn.close()
 
 def get_locale():
     return session.get('language', 'en')
@@ -181,8 +189,7 @@ def channel_clustering():
         if not filter_month:
             return jsonify({"error": "Month filter (e.g., '2025-03') is required"}), 400
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = g.db_conn.cursor()
 
         cursor.execute("""
             SELECT ud.user_id, ch.channel_name, SUM(ud.total_message_count) AS message_weight
@@ -291,12 +298,10 @@ def get_monthly_streaming_hours():
         ORDER BY month;
     """
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute(query, (channel_name,))
     results = cursor.fetchall()
     cursor.close()
-    conn.close()
 
     # Convert results into JSON format
     return jsonify([{"month": row[0].strftime('%Y-%m'), "total_streaming_hours": row[1]} for row in results])
@@ -307,8 +312,7 @@ def get_monthly_streaming_hours():
 def get_group_total_streaming_hours():
     query, params = streaming_hours_query('SUM')
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cur:
+        with g.db_conn.cursor() as cur:
             cur.execute(query, params)
             results = cur.fetchall()
         data = [{"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)} for row in results]
@@ -321,8 +325,7 @@ def get_group_total_streaming_hours():
 def get_group_avg_streaming_hours():
     query, params = streaming_hours_query('AVG')
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cur:
+        with g.db_conn.cursor() as cur:
             cur.execute(query, params)
             results = cur.fetchall()
         data = [{"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)} for row in results]
@@ -335,8 +338,7 @@ def get_group_avg_streaming_hours():
 def get_group_max_streaming_hours():
     query, params = streaming_hours_query('MAX')
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cur:
+        with g.db_conn.cursor() as cur:
             cur.execute(query, params)
             results = cur.fetchall()
         data = [{"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)} for row in results]
@@ -402,12 +404,10 @@ def get_group_chat_makeup():
     query += " GROUP BY c.channel_name, st.observed_month ORDER BY SUM(st.total_streaming_minutes) DESC"
 
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
+        cur = g.db_conn.cursor()
         cur.execute(query, params)
         results = cur.fetchall()
         cur.close()
-        conn.close()
 
         # Convert to JSON
         data = [
@@ -475,12 +475,10 @@ def get_common_users():
         GROUP BY ca.channel_name, cb.channel_name, ua.observed_month, ub.observed_month, ua_count.total_users, ub_count.total_users;
     """
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute(query, (channel_a, channel_b, month_a, month_b))
     results = cursor.fetchall()
     cursor.close()
-    conn.close()
 
     if results:
         data = {
@@ -582,12 +580,10 @@ def get_common_members():
 
     """
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute(query, (channel_a, channel_b, month_a, month_b, channel_a, channel_b, month_a, month_b, channel_a, channel_b))
     results = cursor.fetchall()
     cursor.close()
-    conn.close()
     if results:
         data = {
             "channel_a": results[0][0],
@@ -608,8 +604,7 @@ def get_common_members():
 @app.route('/api/get_group_membership_data', methods=['GET'])
 @cache.cached(timeout=86400, query_string=True)
 def get_group_membership_counts():
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     channel_group = request.args.get('channel_group')
     month = request.args.get('month')  # Expected format: YYYY-MM
 
@@ -621,7 +616,6 @@ def get_group_membership_counts():
     cursor.execute(query, (channel_group, f"{month}-01"))
     results = cursor.fetchall()
     cursor.close()
-    conn.close()
 
     return jsonify(results)
 
@@ -629,8 +623,7 @@ def get_group_membership_counts():
 @cache.cached(timeout=86400, query_string=True)
 def get_group_membership_changes():
     """API to fetch membership gains, losses, and differential by group and month."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
 
     channel_group = request.args.get('channel_group')
     month = request.args.get('month')  # Expected format: YYYY-MM
@@ -771,14 +764,12 @@ def get_group_streaming_hours_diff():
     query = query.format(group_filter=group_filter)
 
     # Execute the query
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
 
     cursor.execute(query, tuple(params))
     results = cursor.fetchall()
 
     cursor.close()
-    conn.close()
 
     # Format the response
     data = [
@@ -827,13 +818,11 @@ def get_chat_leaderboard():
         LIMIT 10;
     """
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute(query, (channel_name, month_start, month_start))
     
     results = cursor.fetchall()
     cursor.close()
-    conn.close()
 
     if not results:
         return jsonify({"error": _("No data found")}), 404
@@ -894,12 +883,10 @@ def get_user_changes():
         ORDER BY net_change DESC;
     """
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute(query, (current_month_start, previous_month_start, channel_group))
     results = cursor.fetchall()
     cursor.close()
-    conn.close()
 
     # Filter out channels where there is no data for one or both months
     filtered_results = [
@@ -962,12 +949,10 @@ def get_exclusive_chat_users():
         ORDER BY tu.activity_month;
     """
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute(query, (channel_name, channel_name))
     results = cursor.fetchall()
     cursor.close()
-    conn.close()
 
     # Convert results into JSON format
     return jsonify([
@@ -1032,12 +1017,10 @@ def get_message_type_percents():
         ORDER BY md.activity_month;
     """
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute(query, (channel_name, channel_name))
     results = cursor.fetchall()
     cursor.close()
-    conn.close()
 
     # Convert results into JSON format
     return jsonify([
@@ -1091,12 +1074,10 @@ def get_jp_user_percent():
         ORDER BY month ASC;
     """
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute(query, (channel_name, channel_name))
     results = cursor.fetchall()
     cursor.close()
-    conn.close()
 
     # Format results for Chart.js
     response = [{"month": row[0], "jp_user_percent": row[1]} for row in results]
@@ -1126,37 +1107,31 @@ def get_latest_updates():
 @app.route('/api/get_channel_names', methods=['GET'])
 @cache.cached(timeout=86400)
 def get_channel_names():
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute("SELECT channel_name FROM channels ORDER BY channel_name")
     channel_names = [row[0] for row in cursor.fetchall()]
     cursor.close()
-    conn.close()
     return jsonify(channel_names)
 
 @app.route('/api/get_date_ranges', methods=['GET'])
 @cache.cached(timeout=86400)
 def get_date_ranges():
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
 
     # Gets first and last date from video table using end_time
     cursor.execute("SELECT MIN(end_time), MAX(end_time) FROM videos WHERE has_chat_log = 't'")
     
     date_range = cursor.fetchone()
     cursor.close()
-    conn.close()
     return jsonify(date_range)
 
 @app.route('/api/get_number_of_chat_logs', methods=['GET'])
 @cache.cached(timeout=86400)
 def get_number_of_chat_logs():
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute("SELECT COUNT(*) from videos WHERE has_chat_log = 't'")
     num_chat_logs = cursor.fetchone()[0]
     cursor.close()
-    conn.close()
     return jsonify(num_chat_logs)
 
 @app.route('/api/get_funniest_timestamps', methods=['GET'])
@@ -1198,12 +1173,10 @@ def get_funniest_timestamps():
         ORDER BY v.end_time ASC;
     """
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
     cursor.execute(query, (channel_name, month_start, next_month_start, channel_name))
     results = cursor.fetchall()
     cursor.close()
-    conn.close()
 
     return jsonify([
         {"title": row[0], "video_id": row[1], "timestamp": int(row[2])}
@@ -1226,8 +1199,7 @@ def get_user_info():
     month_start = f"{month}-01"
     next_month_start = (datetime.strptime(month, "%Y-%m") + relativedelta(months=1)).strftime("%Y-%m-01")
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = g.db_conn.cursor()
 
     # Get the user's ID
     cursor.execute("SELECT user_id FROM users WHERE username = %s", (username,))
