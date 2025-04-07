@@ -2,7 +2,7 @@ import multiprocessing
 import os
 import sys
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from multiprocessing import get_context
 
 from db.connection import init_db_pool
@@ -17,13 +17,23 @@ from workers.metadata_fetcher import get_metadata_for_date_range
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Chat log and metadata downloader")
+    today = datetime.now()
+    if today.day == 1:
+        # If it's the 1st of month, use previous month
+        last_month = today - timedelta(days=1)
+        default_year = last_month.year
+        default_month = last_month.month
+    else:
+        default_year = today.year
+        default_month = today.month
+
     parser.add_argument(
-        "--year", type=int, default=datetime.now().year,
-        help="Year to process (default: current year)"
+        "--year", type=int, default=default_year,
+        help="Year to process (default: current year unless 1st of month)"
     )
     parser.add_argument(
-        "--month", type=int, default=datetime.now().month,
-        help="Month to process (default: current month)"
+        "--month", type=int, default=default_month,
+        help="Month to process (default: current month unless 1st of month)"
     )
     return parser.parse_args()
     

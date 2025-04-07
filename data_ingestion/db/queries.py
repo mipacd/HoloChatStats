@@ -141,7 +141,7 @@ def create_indexes_and_views():
         SUM(es_en_id_count) AS es_en_id_count,
         SUM(total_message_count) AS total_messages
     FROM user_data
-    GROUP BY channel_id, date_trunc('month', last_message_at);)
+    GROUP BY channel_id, date_trunc('month', last_message_at);
     """)
     
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_monthly_activity ON mv_user_monthly_activity (observed_month, channel_id);")
@@ -258,16 +258,13 @@ def is_metadata_and_chat_log_processed(video_id):
     """
     conn = get_db_connection()
     cursor = conn.cursor()
-    is_metadata_processed = False
-    is_chat_log_processed = False
     try:
-        cursor.execute("SELECT EXISTS (SELECT 1 FROM videos WHERE video_id = %s)", (video_id,))
+        cursor.execute("""
+            SELECT EXISTS (SELECT 1 FROM videos WHERE video_id = %s AND has_chat_log = 't'),
+                   EXISTS (SELECT 1 FROM user_data WHERE video_id = %s)
+        """, (video_id, video_id))
         result = cursor.fetchone()
-        is_metadata_processed = result[0]
-        cursor.execute("SELECT EXISTS (SELECT 1 FROM user_data WHERE video_id = %s)", (video_id,))
-        result = cursor.fetchone()
-        is_chat_log_processed = result[0]
-        return (is_metadata_processed, is_chat_log_processed)
+        return result[0] and result[1]
     except psycopg2.DatabaseError as e:
         logger.error(f"Database error in is_chat_log_processed: {e}")
         return False

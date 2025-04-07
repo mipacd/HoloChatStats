@@ -20,8 +20,6 @@ from plotly.utils import PlotlyJSONEncoder
 import json
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Metric
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from functools import wraps
 import time
 from pathlib import Path
@@ -200,12 +198,6 @@ def teardown_request(exception):
     if hasattr(g, 'sqlite_conn'):
         g.sqlite_conn.close()
 
-# Rate limiting and timeout decorator for LLM endpoint
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["5 per minute"]
-)
 
 def timeout(seconds=5):
     def decorator(f):
@@ -240,7 +232,6 @@ def check_rate_limit(ip):
         return app.config["DAILY_LIMIT"]  # Fail open by returning full limit
 
 @app.route('/api/llm/query', methods=['POST'])
-@limiter.limit("5 per minute")
 @timeout(300)
 @cache.cached(timeout=60, query_string=True)
 def llm_query():

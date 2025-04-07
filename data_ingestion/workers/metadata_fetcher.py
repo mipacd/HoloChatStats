@@ -9,7 +9,7 @@ import time
 import pyyoutube
 from config.settings import get_config
 from utils.logging_utils import get_logger
-from db.queries import is_chat_log_processed, is_metadata_processed
+from db.queries import is_metadata_and_chat_log_processed
 from cacheutil.cache_manager import write_metadata_to_cache, load_channels
 from db.queries import insert_video_metadata
 from db.connection import init_db_pool
@@ -82,7 +82,8 @@ def get_metadata_for_channel(channel_name, channel_id, year, month, download_que
                     break
 
                 # If video is in database, skip it
-                if is_chat_log_processed(video_id) and is_metadata_processed(video_id):
+                is_metadata_processed, is_chat_log_processed = is_metadata_and_chat_log_processed(video_id)
+                if is_metadata_processed and is_chat_log_processed:
                     logger.info(f"Skipping {video_id} as it is already processed.")
                     continue
 
