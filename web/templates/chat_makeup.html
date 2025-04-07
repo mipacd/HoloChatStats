@@ -31,6 +31,74 @@
             width: 100% !important;
             height: 100% !important;
         }
+        #chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            background-color: #222;
+            border: 1px solid #444;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+        #chat-container.collapsed {
+            width: 40px;
+            height: 40px;
+            overflow: hidden;
+        }
+        #chat-container.collapsed #chat-header span,
+        #chat-container.collapsed #chat-messages,
+        #chat-container.collapsed #chat-input {
+            display: none;
+        }
+        #chat-container.collapsed #chat-header {
+            justify-content: center;
+            padding: 0;
+        }
+        #chat-container.collapsed #toggle-chat {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: none;
+            color: white;
+        }
+        #chat-header {
+            padding: 8px;
+            background-color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        #chat-messages {
+            height: 200px;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        #chat-input {
+            display: flex;
+            padding: 8px;
+            border-top: 1px solid #444;
+        }
+        #chat-question {
+            flex-grow: 1;
+            background-color: #222;
+            color: white;
+            border: 1px solid #444;
+            padding: 4px;
+        }
+        .message {
+            margin: 4px 0;
+            padding: 4px;
+            border-radius: 4px;
+        }
+        .user-message {
+            background-color: #2a3a4a;
+        }
+        .bot-message {
+            background-color: #3a2a4a;
+        }
     </style>
 </head>
 <body>
@@ -52,7 +120,20 @@
                 <option value="Hololive">{{_("Hololive")}}</option>
                 <option value="Indie">{{_("Indie")}}</option>
             </select>
-        </div>
+</div>
+    <div id="chat-container" class="collapsed">
+    <div id="chat-header">
+      <span>HoloChatStats Bot</span>
+      <button id="toggle-chat">
+        <i class="bi bi-dash-lg"></i>
+      </button>
+    </div>
+    <div id="chat-messages"></div>
+    <div id="chat-input">
+      <input type="text" id="chat-question" placeholder="Ask about the data...">
+      <button id="chat-send"><i class="bi bi-send"></i></button>
+    </div>
+  </div>
         <div class="col-md-4">
             <label for="monthSelect">{{ _("Month:") }}</label>
             <input type="text" id="monthSelect" class="form-control">
@@ -62,6 +143,11 @@
     <div class="chart-container">
         <button id="downloadCSV" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3">{{ _("Download CSV")}}</button>
         <canvas id="streamingChart"></canvas>
+        <div id="chartLoading" class="position-absolute top-50 start-50 translate-middle d-none">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -77,7 +163,7 @@ $(document).ready(function() {
     });
 
     let ctx = document.getElementById('streamingChart').getContext('2d');
-    let chart = new Chart(ctx, {
+    let streamingChart = new Chart(ctx, {
         type: 'bar',
         data: { labels: [], datasets: [] },
         options: {
@@ -107,9 +193,12 @@ $(document).ready(function() {
     function fetchData() {
         let group = document.getElementById('groupSelect').value;
         let month = document.getElementById('monthSelect').value || new Date().toISOString().slice(0, 7);
-
         let url = `/api/get_group_chat_makeup?month=${month}`;
+        
         if (group) url += `&group=${encodeURIComponent(group)}`;
+
+        document.getElementById('chartLoading').classList.remove('d-none');
+        document.getElementById('streamingChart').classList.add('d-none');
 
         fetch(url)
             .then(response => response.json())
@@ -136,11 +225,18 @@ $(document).ready(function() {
                     { label: 'Emote', data: channels.map(d => d.rates[4]) }
                 ];
 
-                chart.data.labels = labels;
-                chart.data.datasets = datasets;
-                chart.update();
+                streamingChart.data.labels = labels;
+                streamingChart.data.datasets = datasets;
+                streamingChart.update();
+
+                document.getElementById('chartLoading').classList.add('d-none');
+                document.getElementById('streamingChart').classList.remove('d-none');
             })
-            .catch(error => console.error("Fetch Error:", error));
+            .catch(error => {
+                console.error("Fetch Error:", error);
+                document.getElementById('chartLoading').classList.add('d-none');
+                document.getElementById('streamingChart').classList.remove('d-none');
+            });
     }
 
     $('#monthSelect').val(new Date().toISOString().slice(0, 7));
@@ -152,7 +248,7 @@ $(document).ready(function() {
     });
 
     $('#downloadCSV').on('click', function() {
-        let data = chart.data;
+        let data = streamingChart.data;
         let csvContent = "data:text/csv;charset=utf-8,Channel,EN/ES/ID/etc.,JP,KR,RU,Emote\n"; // Add headers
 
         for (let i = 0; i < data.labels.length; i++) {
@@ -168,7 +264,93 @@ $(document).ready(function() {
         link.click();
         document.body.removeChild(link);
 });
+
+ // Chat toggle functionality
+ const toggleChat = () => {
+            const chat = document.getElementById('chat-container');
+            chat.classList.toggle('collapsed');
+        };
+        
+        document.getElementById('toggle-chat').addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleChat();
+        });
+        
+        document.getElementById('chat-header').addEventListener('click', function(e) {
+            if(e.target === this) {
+                toggleChat();
+            }
+        });
+
+        // Chat functionality
+        document.getElementById('chat-send').addEventListener('click', sendQuestion);
+        document.getElementById('chat-question').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendQuestion();
+        });
+
+        function addMessage(text, isUser) {
+            const messages = document.getElementById('chat-messages');
+            const msg = document.createElement('div');
+            msg.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            msg.textContent = text;
+            messages.appendChild(msg);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function formatChartData() {
+            if (!streamingChart || !streamingChart.data || !streamingChart.data.labels || !streamingChart.data.datasets) {
+                return "No chart data available";
+            }
+            
+            const data = streamingChart.data;
+            let csvContent = "Channel,EN/ES/ID/etc.,JP,KR,RU,Emote\n";
+
+            for (let i = 0; i < data.labels.length; i++) {
+                csvContent += `${data.labels[i]}`;
+                for (let j = 0; j < data.datasets.length; j++) {
+                    csvContent += `,${(data.datasets[j].data[i] || 0).toFixed(2)}`;
+                }
+                csvContent += `\n`;
+            }
+            
+            return csvContent;
+        }
+
+        async function sendQuestion() {
+            const input = document.getElementById('chat-question');
+            const question = input.value.trim();
+            if (!question) return;
+
+            addMessage(question, true);
+            input.value = '';
+
+            try {
+                const response = await fetch('/api/llm/query', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        question: question,
+                        chart_context: {
+                            chart_type: 'chat_makeup',
+                            current_data: formatChartData(),
+                            selected_group: document.getElementById('groupSelect').value,
+                            selected_month: document.getElementById('monthSelect').value
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                addMessage(data.answer, false);
+            } catch (error) {
+                addMessage(error, false);
+                console.error("Chat error:", error);
+            }
+        }
+
 });
+
+       
 </script>
 
 </body>

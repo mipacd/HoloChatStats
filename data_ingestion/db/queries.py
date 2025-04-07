@@ -56,19 +56,6 @@ def create_database_and_tables():
             PRIMARY KEY (user_id, channel_id, last_message_at, video_id)
         );
     """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS chat_language_stats (
-            channel_id TEXT,
-            observed_month DATE NOT NULL,
-            jp_count INT DEFAULT 0,
-            kr_count INT DEFAULT 0,
-            ru_count INT DEFAULT 0,
-            emoji_count INT DEFAULT 0,
-            es_en_id_count INT DEFAULT 0,
-            total_messages INT DEFAULT 0,
-            PRIMARY KEY (channel_id, observed_month)
-    );
-    """)
     conn.commit()
     release_db_connection(conn)
     logger.info("Database and tables are configured.")
@@ -142,6 +129,20 @@ def create_indexes_and_views():
     FROM user_activity ua
     JOIN channels c ON ua.channel_id = c.channel_id;
     """)
+
+    cursor.execute("""CREATE MATERIALIZED VIEW IF NOT EXISTS chat_language_stats_mv AS
+    SELECT
+        channel_id,
+        date_trunc('month', last_message_at) AS observed_month,
+        SUM(jp_count) AS jp_count,
+        SUM(kr_count) AS kr_count,
+        SUM(ru_count) AS ru_count,
+        SUM(emoji_count) AS emoji_count,
+        SUM(es_en_id_count) AS es_en_id_count,
+        SUM(total_message_count) AS total_messages
+    FROM user_data
+    GROUP BY channel_id, date_trunc('month', last_message_at);)
+    """)
     
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_monthly_activity ON mv_user_monthly_activity (observed_month, channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_activity_channel ON mv_user_activity (channel_id);")
@@ -161,6 +162,7 @@ def refresh_materialized_views():
     cursor.execute("REFRESH MATERIALIZED VIEW mv_user_monthly_activity;")
     cursor.execute("REFRESH MATERIALIZED VIEW mv_membership_data;")
     cursor.execute("REFRESH MATERIALIZED VIEW mv_user_activity;")
+    cursor.execute("REFRESH MATERIALIZED VIEW chat_language_stats_mv;")
     conn.commit()
     release_db_connection(conn)
     logger.info("Materialized views refreshed.")
@@ -242,20 +244,9 @@ def insert_batches(cursor, user_data_batch, user_batch, chat_stats_batch):
                 SET username = EXCLUDED.username;
                 """, user_batch)
     
-    execute_values(cursor, """
-                   INSERT INTO chat_language_stats (channel_id, observed_month, jp_count, kr_count, ru_count, emoji_count, es_en_id_count, total_messages)
-                VALUES %s
-                ON CONFLICT (channel_id, observed_month) DO UPDATE
-                SET jp_count = chat_language_stats.jp_count + EXCLUDED.jp_count,
-                    kr_count = chat_language_stats.kr_count + EXCLUDED.kr_count,
-                    ru_count = chat_language_stats.ru_count + EXCLUDED.ru_count,
-                    emoji_count = chat_language_stats.emoji_count + EXCLUDED.emoji_count,
-                    es_en_id_count = chat_language_stats.es_en_id_count + EXCLUDED.es_en_id_count,
-                    total_messages = chat_language_stats.total_messages + EXCLUDED.total_messages;
-                """, chat_stats_batch)
     
 # Check if metadata is processed into database for a given video id
-def is_metadata_processed(video_id):
+def is_metadata_and_chat_log_processed(video_id):
     logger = get_logger()
     """Check if metadata is processed into database for a given video id
     
@@ -267,28 +258,16 @@ def is_metadata_processed(video_id):
     """
     conn = get_db_connection()
     cursor = conn.cursor()
+    is_metadata_processed = False
+    is_chat_log_processed = False
     try:
         cursor.execute("SELECT EXISTS (SELECT 1 FROM videos WHERE video_id = %s)", (video_id,))
         result = cursor.fetchone()
-        return result[0]
-    except psycopg2.DatabaseError as e:
-        logger.error(f"Database error in is_chat_log_processed: {e}")
-        return False
-    finally:
-        cursor.close()
-        release_db_connection(conn)
-
-
-# Check if chat log is processed into database for a given video id
-def is_chat_log_processed(video_id):
-    logger = get_logger()
-    """Check if chat log is processed into the database for a given video ID."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
+        is_metadata_processed = result[0]
         cursor.execute("SELECT EXISTS (SELECT 1 FROM user_data WHERE video_id = %s)", (video_id,))
         result = cursor.fetchone()
-        return result[0]
+        is_chat_log_processed = result[0]
+        return (is_metadata_processed, is_chat_log_processed)
     except psycopg2.DatabaseError as e:
         logger.error(f"Database error in is_chat_log_processed: {e}")
         return False

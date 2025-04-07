@@ -12,7 +12,7 @@ from config.settings import get_config
 from utils.helpers import is_video_past
 from utils.feature_analysis import has_humor, get_feature_timestamps, update_feature_timestamps
 from db.connection import get_db_connection, release_db_connection
-from db.queries import is_chat_log_processed, is_metadata_processed, insert_video_metadata
+from db.queries import is_metadata_and_chat_log_processed, insert_video_metadata
 
 
 # Insert chat log from cache into database
@@ -94,23 +94,6 @@ def insert_chat_log_from_cache(channel_id, video_id):
         ON CONFLICT (user_id) DO UPDATE
         SET username = EXCLUDED.username;
     """, user_batch)
-
-    observed_month = datetime.fromtimestamp(last_message_time / 1_000_000, timezone.utc).replace(day=1)
-    total_messages = sum(chat_counts.values())
-
-    execute_values(cursor, """
-        INSERT INTO chat_language_stats (channel_id, observed_month, jp_count, kr_count, ru_count, emoji_count, es_en_id_count, total_messages)
-        VALUES %s
-        ON CONFLICT (channel_id, observed_month) DO UPDATE 
-        SET jp_count = chat_language_stats.jp_count + EXCLUDED.jp_count,
-            kr_count = chat_language_stats.kr_count + EXCLUDED.kr_count,
-            ru_count = chat_language_stats.ru_count + EXCLUDED.ru_count,
-            emoji_count = chat_language_stats.emoji_count + EXCLUDED.emoji_count,
-            es_en_id_count = chat_language_stats.es_en_id_count + EXCLUDED.es_en_id_count,
-            total_messages = chat_language_stats.total_messages + EXCLUDED.total_messages;
-    """, [(channel_id, observed_month, message_category_counts["jp"], message_category_counts["kr"],
-           message_category_counts["ru"], message_category_counts["emoji"],
-           message_category_counts["es_en_id"], total_messages)])
 
     update_feature_timestamps(video_id, get_feature_timestamps(feature_dict))
 
@@ -214,8 +197,7 @@ def process_cache_dir(download_queue, year, month):
                 chat_log_path = os.path.join(chat_log_dir, f"{video_id}.jsonl.gz")
 
                 chat_log_exists = os.path.exists(chat_log_path) and os.path.getsize(chat_log_path) > 0
-                metadata_in_db = is_metadata_processed(video_id)
-                chat_log_in_db = is_chat_log_processed(video_id)
+                metadata_in_db, chat_log_in_db = is_metadata_and_chat_log_processed(video_id)
 
                 # Add video to download queue only if chat log is missing or empty and the video is set to past status
                 if not chat_log_exists:

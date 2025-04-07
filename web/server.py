@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify, render_template, session, redirect, g
 from flask_babel import Babel, _
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_caching import Cache
+import sqlite3
+from datetime import datetime
+import requests
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import configparser
@@ -17,6 +20,11 @@ from plotly.utils import PlotlyJSONEncoder
 import json
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Metric
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from functools import wraps
+import time
+from pathlib import Path
 
 def get_config(key1, key2):
     """
@@ -51,6 +59,9 @@ app.config["BABEL_DEFAULT_LOCALE"] = "en"
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_AS_ASCII"] = False
 app.config["GA_ID"] = get_config("Settings", "GoogleAnalyticsID")
+app.config["OPENROUTER_URL"] = "https://openrouter.ai/api/v1"  # OpenRouter URL
+app.config["OPENROUTER_MODEL"] = "deepseek/deepseek-chat-v3-0324:free"  # Default model  
+app.config["DAILY_LIMIT"] = 3  # 3 queries per user per day
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = get_config("API", "GAAPIKeyFile")
 
@@ -154,6 +165,264 @@ def set_language(language):
         print("Language stored in session:", session['language'])
         return redirect(request.referrer or "/")
     return "Invalid language", 400
+
+def get_sqlite_connection():
+    """Creates a new SQLite connection stored in Flask's g object"""
+    if not hasattr(g, 'sqlite_conn'):
+        g.sqlite_conn = sqlite3.connect('usage.db')
+        g.sqlite_conn.execute("""
+            CREATE TABLE IF NOT EXISTS usage (
+                ip TEXT,
+                date TEXT, 
+                count INTEGER,
+                PRIMARY KEY (ip, date)
+            )
+        """)
+    return g.sqlite_conn
+
+@app.before_request
+def before_request():
+    real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
+    app.logger.info(f"Request from {real_ip} to {request.path}")
+    if 'language' not in session:
+        user_lang = request.headers.get('Accept-Language', 'en').split(',')[0][:2]
+        session['language'] = user_lang if user_lang in ['en', 'ja', 'ko'] else 'en'
+    
+    g.db_conn = get_db_connection()
+    g.db_conn.cursor().execute("SET statement_timeout = '60s'")
+    # Initialize SQLite connection for this request
+    get_sqlite_connection()
+
+@app.teardown_request
+def teardown_request(exception):
+    if hasattr(g, 'db_conn'):
+        g.db_conn.close()
+    if hasattr(g, 'sqlite_conn'):
+        g.sqlite_conn.close()
+
+# Rate limiting and timeout decorator for LLM endpoint
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["5 per minute"]
+)
+
+def timeout(seconds=5):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            start = time.time()
+            result = f(*args, *kwargs)
+            duration = time.time() - start
+            if duration > seconds:
+                raise TimeoutError("Request timed out")
+            return result
+        return wrapper
+    return decorator
+
+def check_rate_limit(ip):
+    """Check SQLite rate limit for IP, returns remaining requests"""
+    today = datetime.utcnow().strftime('%Y-%m-%d')
+    conn = get_sqlite_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR IGNORE INTO usage (ip, date, count) VALUES (?, ?, 0)
+        """, (ip, today))
+        cursor.execute("""
+            SELECT count FROM usage WHERE ip = ? AND date = ?
+        """, (ip, today))
+        count = cursor.fetchone()[0]
+        conn.commit()
+        return max(0, app.config["DAILY_LIMIT"] - count)
+    except Exception as e:
+        app.logger.error(f"Rate limit check failed: {str(e)}")
+        return app.config["DAILY_LIMIT"]  # Fail open by returning full limit
+
+@app.route('/api/llm/query', methods=['POST'])
+@limiter.limit("5 per minute")
+@timeout(300)
+@cache.cached(timeout=60, query_string=True)
+def llm_query():
+    try:
+        data = request.get_json()
+        # Get Cloudflare IP if available, fallback to remote address
+        real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
+        
+        # Check SQLite daily limit
+        remaining = check_rate_limit(real_ip)
+        if remaining <= 0:
+            return jsonify({
+                "error": "Daily query limit reached",
+                "limit": app.config["DAILY_LIMIT"]
+            }), 429
+        if not data or 'question' not in data or 'chart_context' not in data:
+            return jsonify({"error": "Invalid request format"}), 400
+
+        # Format prompt based on chart type
+        context = data['chart_context']
+        chart_type = context.get('chart_type', 'membership_counts')
+        
+        if chart_type == 'membership_counts':
+            prompt = f"""You are an expert data analyst answering questions about VTuber membership counts.
+
+Context:
+- Chart Type: Membership counts by duration  
+- Group: {context.get('selected_group', 'Unknown')}
+- Month: {context.get('selected_month', 'Unknown')}
+
+Data Format Guidelines:
+1. Numbers represent unique members (not percentages)
+2. Durations: New (0), 1 Month, 2 Months, etc.
+3. Values are exact counts - don't estimate
+
+Current Data (CSV):
+{context.get('current_data', [])}
+
+Rules for Responses:
+- Only use the provided data
+- Sum numbers under a channel to get the monthly total unless a duration is specified
+- If unsure, say "Data not available"
+- Keep answers under 3 sentences  
+- Do not provide calculations or reasoning
+
+Question: {data['question']}
+
+Answer:"""
+        
+        elif chart_type == 'user_changes':
+            prompt = f"""You are an expert data analyst answering questions about VTuber user changes.
+
+Context:
+- Chart Type: User changes
+- Group: {context.get('selected_group', 'Unknown')}  
+- Month: {context.get('selected_month', 'Unknown')}
+- Data includes: channel, users gained, users lost, net change
+- Threshold: Users met 5 message threshold in one month but not the other
+
+Current Data (CSV):
+{context.get('current_data', [])}
+
+Rules for Responses:
+- Only use the provided data
+- Focus on notable gains/losses and net changes
+- If unsure, say "Data not available"
+- Keep answers under 3 sentences
+- Do not provide calculations unless explicitly asked
+
+Question: {data['question']}
+
+Answer:"""
+        
+        elif chart_type == 'membership_changes':  
+            prompt = f"""You are an expert data analyst answering questions about VTuber membership changes.
+
+Context:  
+- Chart Type: Membership gains/losses
+- Group: {context.get('selected_group', 'Unknown')}
+- Month: {context.get('selected_month', 'Unknown')}
+- Data includes: channel, gains, losses, differential
+- Based on last recorded message from each user between months
+
+Current Data (CSV):  
+{context.get('current_data', [])}
+
+Rules for Responses:
+- Only use the provided data
+- Focus on notable gains/losses and net differentials
+- If unsure, say "Data not available"  
+- Keep answers under 3 sentences
+- Do not provide calculations unless explicitly asked
+
+Question: {data['question']}
+
+Answer:"""
+        
+        elif chart_type == 'chat_makeup':
+            prompt = f"""You are an expert data analyst answering questions about VTuber chat composition.
+
+Context:
+- Chart Type: Chat makeup average rates per minute by language and emote usage
+- Group: {context.get('selected_group', 'Unknown')}
+- Month: {context.get('selected_month', 'Unknown')}  
+- Data includes: channel, EN/ES/ID, JP, KR, RU, Emote message classifications
+
+Current Data (CSV):
+{context.get('current_data', [])}
+
+Rules for Responses:
+- Only use the provided data
+- Focus on notable language distributions and emote usage
+- If unsure, say "Data not available"
+- Keep answers under 3 sentences
+- Do not provide calculations unless explicitly asked
+
+Question: {data['question']}
+
+Answer:"""
+        
+        print(prompt)
+
+        # Block Japan and South Korea via Cloudflare headers
+        country = request.headers.get("CF-IPCountry", "").upper()
+        if country in ["JP", "KR"]:
+            return jsonify({
+                "error": "Service not available in your country",
+                "country": country
+            }), 403
+
+        # Call OpenRouter
+        response = requests.post(
+            f"{app.config['OPENROUTER_URL']}/chat/completions",
+            json={
+                "model": app.config["OPENROUTER_MODEL"],
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            },
+            headers={
+                "Authorization": f"Bearer {get_config('API', 'OpenRouterAPIKey')}",
+                "Content-Type": "application/json"
+            },
+            timeout=60
+        )
+        response.raise_for_status()
+
+        # Process OpenRouter response
+        result = response.json()
+        print(result)
+        answer = result["choices"][0]["message"]["content"].strip()
+        
+        # Update usage count
+        conn = get_sqlite_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE usage SET count = count + 1 
+                WHERE ip = ? AND date = ?
+            """, (real_ip, datetime.utcnow().strftime('%Y-%m-%d')))
+            conn.commit()
+        except Exception as e:
+            app.logger.error(f"Failed to update usage count: {str(e)}")
+
+        return jsonify({
+            "answer": answer,
+            "supporting_data": None,
+            "error": None,
+            "remaining_queries": remaining - 1
+        })
+
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"OpenRouter connection error: {str(e)}")
+        return jsonify({"error": "LLM service unavailable"}), 503
+    except TimeoutError:
+        return jsonify({"error": "Request timed out"}), 504
+    except Exception as e:
+        app.logger.error(f"Unexpected error: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 
 def streaming_hours_query(aggregation_function, group=None):
     group = request.args.get('group', None)
@@ -381,7 +650,7 @@ def get_group_chat_makeup():
             SUM(cls.kr_count)::DECIMAL / NULLIF(SUM(st.total_streaming_minutes), 0) AS kr_rate_per_minute,
             SUM(cls.ru_count)::DECIMAL / NULLIF(SUM(st.total_streaming_minutes), 0) AS ru_rate_per_minute,
             SUM(cls.emoji_count)::DECIMAL / NULLIF(SUM(st.total_streaming_minutes), 0) AS emoji_rate_per_minute
-        FROM chat_language_stats cls
+        FROM chat_language_stats_mv cls
         JOIN channels c ON cls.channel_id = c.channel_id
         JOIN streaming_time st 
             ON st.channel_id = c.channel_id 
