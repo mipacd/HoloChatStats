@@ -264,7 +264,7 @@ def is_metadata_and_chat_log_processed(video_id):
                    EXISTS (SELECT 1 FROM user_data WHERE video_id = %s)
         """, (video_id, video_id))
         result = cursor.fetchone()
-        return result[0] and result[1]
+        return (result[0], result[1])
     except psycopg2.DatabaseError as e:
         logger.error(f"Database error in is_chat_log_processed: {e}")
         return False
