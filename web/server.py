@@ -22,7 +22,6 @@ from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Metric
 from functools import wraps
 import time
-from pathlib import Path
 
 def get_config(key1, key2):
     """

@@ -197,7 +197,7 @@ def process_cache_dir(download_queue, year, month):
                 chat_log_path = os.path.join(chat_log_dir, f"{video_id}.jsonl.gz")
 
                 chat_log_exists = os.path.exists(chat_log_path) and os.path.getsize(chat_log_path) > 0
-                metadata_in_db, chat_log_in_db = is_metadata_and_chat_log_processed(video_id)
+                chat_log_in_db, metadata_in_db = is_metadata_and_chat_log_processed(video_id)
 
                 # Add video to download queue only if chat log is missing or empty and the video is set to past status
                 if not chat_log_exists:
