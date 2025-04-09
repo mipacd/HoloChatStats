@@ -24,7 +24,7 @@ All data is derived from a combination of publically available chat logs and met
     also chatted in B, and vice versa.
     * Common Member Percentages by Channel / Month: Same as above for chat users holding a membership.
     * Channel Clusters by Common Members: Generates a node graph for a given month showing which channels have similar user patterns. The connections between nodes are calculated using cosine similarity, 
-    at a threshold of 0.09. Communities are shown as the colors of the nodes, and are calculated using Louvain community detection. This data is calculated from the number of chat messages each user has made 
+    at a threshold of 0.09. Communities are shown as the colors of the nodes, and are calculated using Leiden community detection. This data is calculated from the number of chat messages each user has made 
     in each channel in a given month. Placement of the nodes and any numbers that appear on the graph are dynamic and not part of the calculation. Channels must meet a similarity threshold with at least one other channel to appear on the graph.
     * Active User Gain / Loss: The number of chat users that met a 5 message threshold in the specified month and not the previous month (gain) and vice versa (loss). Channels that did not stream in either month 
     will not be shown on the graph.

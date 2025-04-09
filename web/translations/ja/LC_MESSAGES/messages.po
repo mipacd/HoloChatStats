@@ -345,11 +345,11 @@ msgid "Channel Clustering"
 msgstr "チャンネルクラスタリング"
 
 msgid ""
-"Determined by common chat users using cosine similarity and Louvain "
+"Determined by common chat users using cosine similarity and Leiden "
 "community detection. Channels must meet a similarity threshold with at "
 "least one other channel to appear. Click and drag to zoom. Double click "
 "to reset."
-msgstr "コサイン類似性とLouvainコミュニティ検出を使用して、共通のチャットユーザーに基づきクラスタを決定します。表示されるには、他のチャンネルとの類似性閾値を満たす必要があります。クリック＆ドラッグでズーム、ダブルクリックでリセットします。"
+msgstr "コサイン類似性とLeidenコミュニティ検出を使用して、共通のチャットユーザーに基づきクラスタを決定します。表示されるには、他のチャンネルとの類似性閾値を満たす必要があります。クリック＆ドラッグでズーム、ダブルクリックでリセットします。"
 
 msgid "Select Month:"
 msgstr "月を選択:"

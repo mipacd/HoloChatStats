@@ -345,11 +345,11 @@ msgid "Channel Clustering"
 msgstr "채널 클러스터링"
 
 msgid ""
-"Determined by common chat users using cosine similarity and Louvain "
+"Determined by common chat users using cosine similarity and Leiden "
 "community detection. Channels must meet a similarity threshold with at "
 "least one other channel to appear. Click and drag to zoom. Double click "
 "to reset."
-msgstr "코사인 유사도와 Louvain 커뮤니티 탐지를 사용하여 공통 채팅 사용자에 따라 클러스터를 결정합니다. 표시되려면 최소한 다른 채널과 유사도 임계값을 충족해야 합니다. 클릭하여 드래그로 확대하고, 더블 클릭으로 초기화합니다."
+msgstr "코사인 유사도와 Leiden 커뮤니티 탐지를 사용하여 공통 채팅 사용자에 따라 클러스터를 결정합니다. 표시되려면 최소한 다른 채널과 유사도 임계값을 충족해야 합니다. 클릭하여 드래그로 확대하고, 더블 클릭으로 초기화합니다."
 
 msgid "Select Month:"
 msgstr "월 선택:"

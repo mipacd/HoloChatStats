@@ -261,7 +261,7 @@ def is_metadata_and_chat_log_processed(video_id):
     try:
         cursor.execute("""
             SELECT EXISTS (SELECT 1 FROM videos WHERE video_id = %s AND has_chat_log = 't'),
-                   EXISTS (SELECT 1 FROM user_data WHERE video_id = %s)
+                   EXISTS (SELECT 1 FROM videos WHERE video_id = %s)
         """, (video_id, video_id))
         result = cursor.fetchone()
         return (result[0], result[1])

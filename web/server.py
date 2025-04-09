@@ -14,7 +14,8 @@ import logging
 import pandas as pd
 import networkx as nx
 from sklearn.metrics.pairwise import cosine_similarity
-import community.community_louvain as community_louvain
+import leidenalg as la
+import igraph as ig
 import plotly.graph_objects as go
 from plotly.utils import PlotlyJSONEncoder
 import json
@@ -476,8 +477,21 @@ def channel_clustering():
                 if i != j and similarity_matrix[i, j] > threshold:
                     G.add_edge(channel_a, channel_b, weight=similarity_matrix[i, j])
 
-        partition = community_louvain.best_partition(G)
-        community_colors = [partition[node] for node in G.nodes]
+        # Convert networkx Graph to igraph Graph
+        g_igraph = ig.Graph.from_networkx(G)
+        
+        # Find partition using Leiden algorithm
+        partition = la.find_partition(
+            g_igraph, 
+            la.RBConfigurationVertexPartition,
+            weights='weight',
+            resolution_parameter=1.0
+        )
+        
+        # Convert partition
+        partition_dict = {g_igraph.vs[node]['_nx_name']: partition.membership[node] 
+                         for node in range(g_igraph.vcount())}
+        community_colors = [partition_dict[node] for node in G.nodes]
 
         # --- IMPROVED LAYOUT ---
         pos = nx.kamada_kawai_layout(G)  # Better spacing
