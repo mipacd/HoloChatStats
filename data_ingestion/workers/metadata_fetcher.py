@@ -82,7 +82,7 @@ def get_metadata_for_channel(channel_name, channel_id, year, month, download_que
                     break
 
                 # If video is in database, skip it
-                is_metadata_processed, is_chat_log_processed = is_metadata_and_chat_log_processed(video_id)
+                is_chat_log_processed, is_metadata_processed = is_metadata_and_chat_log_processed(video_id)
                 if is_metadata_processed and is_chat_log_processed:
                     logger.info(f"Skipping {video_id} as it is already processed.")
                     continue
