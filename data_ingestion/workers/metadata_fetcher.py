@@ -84,7 +84,6 @@ def get_metadata_for_channel(channel_name, channel_id, year, month, download_que
                 # If video is in database, skip it
                 is_chat_log_processed, is_metadata_processed = is_metadata_and_chat_log_processed(video_id)
                 if is_metadata_processed and is_chat_log_processed:
-                    logger.info(f"Skipping {video_id} as it is already processed.")
                     continue
 
                 # Add video to download queue if it's within date range and has chat log

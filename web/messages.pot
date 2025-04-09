@@ -40,7 +40,7 @@ msgstr ""
 
 #: templates/channel_clustering.html:55
 msgid ""
-"Determined by common chat users using cosine similarity and Louvain "
+"Determined by common chat users using cosine similarity and Leiden "
 "community detection. Channels must meet a similarity threshold with at "
 "least one other channel to appear. Click and drag to zoom. Double click "
 "to reset."
