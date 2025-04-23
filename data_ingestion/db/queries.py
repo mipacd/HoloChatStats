@@ -143,6 +143,17 @@ def create_indexes_and_views():
     FROM user_data
     GROUP BY channel_id, date_trunc('month', last_message_at);
     """)
+
+    cursor.execute("""CREATE MATERIALIZED VIEW IF NOT EXISTS mv_user_language_per_month AS
+    SELECT
+        ud.user_id,
+        ud.channel_id,
+        DATE_TRUNC('month', ud.last_message_at) AS month,
+        SUM(ud.jp_count) AS total_jp_messages,
+        SUM(ud.total_message_count - ud.emoji_count) AS total_non_emoji_messages
+    FROM user_data ud
+    GROUP BY ud.user_id, ud.channel_id, month;
+    """)
     
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_monthly_activity ON mv_user_monthly_activity (observed_month, channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_activity_channel ON mv_user_activity (channel_id);")
@@ -163,6 +174,7 @@ def refresh_materialized_views():
     cursor.execute("REFRESH MATERIALIZED VIEW mv_membership_data;")
     cursor.execute("REFRESH MATERIALIZED VIEW mv_user_activity;")
     cursor.execute("REFRESH MATERIALIZED VIEW chat_language_stats_mv;")
+    cursor.execute("REFRESH MATERIALIZED VIEW mv_user_language_per_month;")
     conn.commit()
     release_db_connection(conn)
     logger.info("Materialized views refreshed.")
@@ -268,6 +280,51 @@ def is_metadata_and_chat_log_processed(video_id):
     except psycopg2.DatabaseError as e:
         logger.error(f"Database error in is_chat_log_processed: {e}")
         return False
+    finally:
+        cursor.close()
+        release_db_connection(conn)
+
+
+def get_videos_without_chat_logs(month, year, channel_id):
+    logger = get_logger()
+    """Get video data for videos without chat logs in a specific month/year.
+    
+    Args:
+        month (int): Month to query (1-12)
+        year (int): Year to query
+        
+    Returns:
+        list[dict]: List of video data dictionaries with keys:
+            - video_id
+            - channel_id
+            - title
+            - end_time
+            - duration
+            - has_chat_log
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT 
+                video_id, 
+                channel_id, 
+                title, 
+                end_time, 
+                duration, 
+                has_chat_log
+            FROM videos 
+            WHERE has_chat_log = 'f'
+            AND channel_id = %s
+            AND EXTRACT(MONTH FROM end_time) = %s 
+            AND EXTRACT(YEAR FROM end_time) = %s
+        """, (channel_id, month, year))
+        
+        columns = [desc[0] for desc in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    except psycopg2.DatabaseError as e:
+        logger.error(f"Database error in get_videos_without_chat_logs: {e}")
+        return []
     finally:
         cursor.close()
         release_db_connection(conn)
