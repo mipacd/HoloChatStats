@@ -79,7 +79,6 @@ def get_metadata_for_channel(channel_name, channel_id, year, month, download_que
                 # Stop pagination if video is too old
                 if end_date < start_month:
                     stop_pagination = True
-                    break
 
                 # If video is in database, skip it
                 is_chat_log_processed, is_metadata_processed = is_metadata_and_chat_log_processed(video_id)

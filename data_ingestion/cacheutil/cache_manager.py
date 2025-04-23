@@ -136,10 +136,17 @@ def write_metadata_to_cache(channel_id, video_id, title, end_time, duration):
         with open(metadata_path, "r", encoding="utf-8") as f:
             metadata = json.load(f)
 
+    # Ensure duration is numeric (seconds)
+    numeric_duration = duration
+    if hasattr(duration, 'total_seconds'):  # Handle timedelta/interval
+        numeric_duration = duration.total_seconds()
+    elif not isinstance(duration, (int, float)):  # Handle None/other types
+        numeric_duration = 0
+        
     metadata[video_id] = {
         "title": title,
         "end_time": end_time,
-        "duration": duration
+        "duration": numeric_duration
     }
 
     with open(metadata_path, "w", encoding="utf-8") as f:
@@ -189,8 +196,12 @@ def process_cache_dir(download_queue, year, month):
             channel_id = filename.replace(".json", "")
             metadata_path = os.path.join(metadata_dir, filename)
             # Load all video ids from metadata json file keys
-            with open(metadata_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            try:
+                with open(metadata_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to decode JSON from {metadata_path}: {e}")
+                sys.exit(1)
 
             # Check each video in the metadata file
             for video_id, video_info in data.items():
@@ -199,11 +210,22 @@ def process_cache_dir(download_queue, year, month):
                 chat_log_exists = os.path.exists(chat_log_path) and os.path.getsize(chat_log_path) > 0
                 chat_log_in_db, metadata_in_db = is_metadata_and_chat_log_processed(video_id)
 
-                # Add video to download queue only if chat log is missing or empty and the video is set to past status
-                if not chat_log_exists:
-                    if (channel_id, video_id) not in download_queue and video_info["end_time"].startswith(f"{year}-{month:02d}") and is_video_past(video_id):
-                        download_queue.append((channel_id, video_id))
-                        logger.info(f"Chat log missing for {video_id}. Added to download queue.")
+                # Add video to download queue if:
+                # 1. Chat log is missing from cache AND
+                # 2. Not already marked complete in database AND
+                # 3. Not already in download queue AND
+                # 4. Matches target date range AND
+                # 5. Video is past status
+                if video_info["end_time"] is None:
+                    logger.warning(f"Video {video_id} in channel {channel_id} has no end time. Aborting.")
+                    sys.exit(1)
+                if (not chat_log_exists and 
+                    not chat_log_in_db and
+                    (channel_id, video_id) not in download_queue and 
+                    video_info["end_time"].startswith(f"{year}-{month:02d}") and 
+                    is_video_past(video_id)):
+                    download_queue.append((channel_id, video_id))
+                    logger.info(f"Chat log missing for {video_id}. Added to download queue.")
 
                 # Insert missing metadata into the database
                 if not metadata_in_db:

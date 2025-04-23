@@ -1299,6 +1299,84 @@ def get_message_type_percents():
         for row in results
     ])
 
+@app.route('/api/get_attrition_rates', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_attrition_rates():
+    """API to calculate attrition rates of a channel's top chatters.
+    Returns percentage of top 1000 chatters (from last 3 months) who continue chatting in Hololive channels."""
+    
+    channel_name = request.args.get('channel')
+    month = request.args.get('month')  # YYYY-MM format
+
+    if not (channel_name and month):
+        return jsonify({"error": "Missing required parameters"}), 400
+
+    try:
+        # Calculate date ranges - include full given month plus previous 2 months
+        end_date = datetime.strptime(month, "%Y-%m") + relativedelta(months=1)  # Start of next month
+        start_date = end_date - relativedelta(months=3)  # 3 months back
+        end_date_str = end_date.strftime("%Y-%m-01")
+        start_date_str = start_date.strftime("%Y-%m-01")
+
+        cursor = g.db_conn.cursor()
+
+        # Get top 1000 users in the 3-month window
+        cursor.execute("""
+            WITH top_users AS (
+                SELECT 
+                    ud.user_id,
+                    SUM(ud.total_message_count) AS total_messages
+                FROM user_data ud
+                JOIN channels c ON ud.channel_id = c.channel_id
+                WHERE c.channel_name = %s
+                  AND ud.last_message_at >= %s::DATE
+                  AND ud.last_message_at < %s::DATE
+                GROUP BY ud.user_id
+                ORDER BY total_messages DESC
+                LIMIT 1000
+            )
+            SELECT user_id FROM top_users
+        """, (channel_name, start_date_str, end_date_str))
+        
+        top_users = [row[0] for row in cursor.fetchall()]
+        if not top_users:
+            return jsonify({"error": "No top chatters found for the given period"}), 404
+
+        # For each subsequent month through current month, calculate percentage still active
+        results = []
+        current_month = end_date + relativedelta(months=1)
+        today = datetime.utcnow()
+        
+        while current_month <= today:
+            month_str = current_month.strftime("%Y-%m-01")
+            
+            cursor.execute("""
+                SELECT COUNT(DISTINCT ud.user_id)
+                FROM user_data ud
+                JOIN channels c ON ud.channel_id = c.channel_id
+                WHERE ud.user_id = ANY(%s)
+                  AND c.channel_group = 'Hololive'
+                  AND ud.last_message_at >= %s::DATE
+                  AND ud.last_message_at < (%s::DATE + INTERVAL '1 month')
+            """, (top_users, month_str, month_str))
+            
+            active_count = cursor.fetchone()[0] or 0
+            percent_active = round((active_count / len(top_users)) * 100, 2)
+            
+            results.append({
+                "month": current_month.strftime("%Y-%m"),
+                "percent": percent_active
+            })
+            
+            current_month = current_month + relativedelta(months=1)
+
+        cursor.close()
+        return jsonify(results)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/get_jp_user_percent', methods=['GET'])
 @cache.cached(timeout=86400, query_string=True)
 def get_jp_user_percent():
