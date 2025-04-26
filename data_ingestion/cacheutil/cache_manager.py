@@ -9,7 +9,7 @@ import sys
 import shutil
 from utils.logging_utils import get_logger
 from config.settings import get_config
-from utils.helpers import is_video_past
+from utils.helpers import is_video_past, get_ignore_list
 from utils.feature_analysis import has_humor, get_feature_timestamps, update_feature_timestamps
 from db.connection import get_db_connection, release_db_connection
 from db.queries import is_metadata_and_chat_log_processed, insert_video_metadata
@@ -205,6 +205,16 @@ def process_cache_dir(download_queue, year, month):
 
             # Check each video in the metadata file
             for video_id, video_info in data.items():
+
+                # Skip video if not in month processed
+                if not video_info["end_time"].startswith(f"{year}-{month:02d}"):
+                    continue
+                
+                # Skip video if in ignore list
+                ignore_list = get_ignore_list()
+                if video_id in ignore_list:
+                    continue
+
                 chat_log_path = os.path.join(chat_log_dir, f"{video_id}.jsonl.gz")
 
                 chat_log_exists = os.path.exists(chat_log_path) and os.path.getsize(chat_log_path) > 0
@@ -278,11 +288,13 @@ def load_channels():
     for group, group_channels in data.items():
         if isinstance(group_channels, dict):  # It's a group
             for name, channel_id in group_channels.items():
-                parsed_channels.append((channel_id, name, group))
-                channels[name] = channel_id
+                if not name.startswith("_"):
+                    parsed_channels.append((channel_id, name, group))
+                    channels[name] = channel_id
         else:  # No group assigned
-            parsed_channels.append((group_channels, group, None))
-            channels[group] = group_channels
+            if not group.startswith("_"):
+                parsed_channels.append((group_channels, group, None))
+                channels[group] = group_channels
 
     conn = get_db_connection()
     cursor = conn.cursor()

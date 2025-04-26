@@ -9,6 +9,7 @@ import time
 import pyyoutube
 from config.settings import get_config
 from utils.logging_utils import get_logger
+from utils.helpers import get_ignore_list
 from db.queries import is_metadata_and_chat_log_processed
 from cacheutil.cache_manager import write_metadata_to_cache, load_channels
 from db.queries import insert_video_metadata
@@ -58,17 +59,15 @@ def get_metadata_for_channel(channel_name, channel_id, year, month, download_que
 
             for item in playlist_items.items:
                 video_id = item.contentDetails.videoId
-                video_data = sites.YouTubeChatDownloader().get_video_data(video_id=video_id)
 
-                # If video status is not past, skip it
-                if video_data["status"] != "past":
-                    logger.info(f"Skipping {video_id} as it is not in the past. Status: {video_data['status']}")
+                # Skip if video ID is in ignore list
+                ignore_list = get_ignore_list()
+                if video_id in ignore_list:
                     continue
 
+                video_data = sites.YouTubeChatDownloader().get_video_data(video_id=video_id)
+
                 end_date = video_data["end_time"]
-                duration = video_data["duration"] 
-                if not duration:
-                    duration = isodate.parse_duration(yt_api.get_video_by_id(video_id=video_id).items[0].contentDetails.duration).total_seconds()
 
                 # Prefer end date from chat log if available, otherwise get it from YT API
                 if not end_date:
@@ -80,34 +79,45 @@ def get_metadata_for_channel(channel_name, channel_id, year, month, download_que
                 if end_date < start_month:
                     stop_pagination = True
 
-                # If video is in database, skip it
-                is_chat_log_processed, is_metadata_processed = is_metadata_and_chat_log_processed(video_id)
-                if is_metadata_processed and is_chat_log_processed:
-                    continue
-
                 # Add video to download queue if it's within date range and has chat log
                 if start_month <= end_date < end_month:
+
+                    # If video status is not past, skip it
+                    if video_data["status"] != "past":
+                        logger.info(f"Skipping {video_id} as it is not in the past. Status: {video_data['status']}")
+                        continue
+
+                    duration = video_data["duration"] 
+
+                    if not duration:
+                        duration = isodate.parse_duration(yt_api.get_video_by_id(video_id=video_id).items[0].contentDetails.duration).total_seconds()
+
+                    # If video is in database, skip it
+                    is_chat_log_processed, is_metadata_processed = is_metadata_and_chat_log_processed(video_id)
+                    if is_metadata_processed and is_chat_log_processed:
+                        continue
+
                     if (channel_id, video_id) not in download_queue and video_data["continuation_info"]:
                         download_queue.append((channel_id, video_id))
                         logger.info(f"Added {video_id} to download queue for {channel_name} ({channel_id})")
 
-                # Write metadata to cache
-                write_metadata_to_cache(
-                    channel_id=channel_id,
-                    video_id=video_id,
-                    title=item.snippet.title,
-                    end_time=end_date.isoformat(),
-                    duration=duration
-                )
+                    # Write metadata to cache
+                    write_metadata_to_cache(
+                        channel_id=channel_id,
+                        video_id=video_id,
+                        title=item.snippet.title,
+                        end_time=end_date.isoformat(),
+                        duration=duration
+                    )
 
-                # Write metadata to database
-                insert_video_metadata(
-                    channel_id=channel_id,
-                    video_id=video_id,
-                    title=item.snippet.title,
-                    end_time=end_date.isoformat(),
-                    duration=duration
-                )
+                    # Write metadata to database
+                    insert_video_metadata(
+                        channel_id=channel_id,
+                        video_id=video_id,
+                        title=item.snippet.title,
+                        end_time=end_date.isoformat(),
+                        duration=duration
+                    )
 
             page_token = playlist_items.nextPageToken
             if not page_token:
