@@ -418,20 +418,19 @@ Answer:"""
 def streaming_hours_query(aggregation_function, group=None):
     group = request.args.get('group', None)
     month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))
-    timezone_offset = int(request.args.get('timezone', 0))
     month_start = f"{month}-01"
 
     base_query = f"""
         SELECT
             c.channel_name,
-            DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC' + INTERVAL %s) AS month,
+            DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC') AS month,
             {aggregation_function}(EXTRACT(EPOCH FROM v.duration)) / 3600 AS hours
         FROM videos v
         JOIN channels c ON v.channel_id = c.channel_id
-        WHERE DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC' + INTERVAL %s) = %s::DATE
+        WHERE DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC') = %s::DATE
     """
 
-    params = [f"{timezone_offset} hour", f"{timezone_offset} hour", month_start]
+    params = [month_start]
 
     if group and group != "All":
             base_query += " AND c.channel_group = %s"
@@ -587,7 +586,10 @@ def get_group_total_streaming_hours():
         with g.db_conn.cursor() as cur:
             cur.execute(query, params)
             results = cur.fetchall()
-        data = [{"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)} for row in results]
+        data = [
+            {"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)}
+            for row in results if row[2] is not None
+        ]
         return jsonify({"success": True, "data": data})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -600,7 +602,10 @@ def get_group_avg_streaming_hours():
         with g.db_conn.cursor() as cur:
             cur.execute(query, params)
             results = cur.fetchall()
-        data = [{"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)} for row in results]
+        data = [
+            {"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)}
+            for row in results if row[2] is not None
+        ]
         return jsonify({"success": True, "data": data})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -613,7 +618,10 @@ def get_group_max_streaming_hours():
         with g.db_conn.cursor() as cur:
             cur.execute(query, params)
             results = cur.fetchall()
-        data = [{"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)} for row in results]
+        data = [
+            {"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)}
+            for row in results if row[2] is not None
+        ]
         return jsonify({"success": True, "data": data})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
