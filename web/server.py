@@ -673,13 +673,8 @@ def get_group_chat_makeup():
 
     # Group filtering
     if group:
-        if group == "Indie":
-            query += " WHERE c.channel_group IS NULL"
-        else:
-            query += " WHERE c.channel_group = %s"
-            params.append(group)
-    else:  # Default to All
-        query += " WHERE (c.channel_group = 'Hololive' OR c.channel_group IS NULL)"
+        query += " WHERE c.channel_group = %s"
+        params.append(group)
 
     query += " GROUP BY c.channel_name, st.observed_month ORDER BY SUM(st.total_streaming_minutes) DESC"
 
@@ -975,12 +970,12 @@ def get_group_membership_changes():
     response_data = [
         {
             "channel_name": row[0],
-            "observed_month": row[1].strftime('%Y-%m'),
+            "observed_month": row[1].strftime('%Y-%m') if row[1] else None,
             "gains_count": row[2],
             "losses_count": row[3],
             "differential": row[4]
         }
-        for row in results
+        for row in results if row[1] is not None
     ]
 
     return jsonify(response_data)

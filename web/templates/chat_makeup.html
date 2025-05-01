@@ -162,6 +162,8 @@ $(document).ready(function() {
         fetchData();
     });
 
+    $('#groupSelect').on('change', fetchData);
+
     let ctx = document.getElementById('streamingChart').getContext('2d');
     let streamingChart = new Chart(ctx, {
         type: 'bar',
