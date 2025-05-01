@@ -252,8 +252,9 @@
                 .catch(error => console.error("Fetch Error:", error));
         }
 
-        // Auto-load current month
-        $('#monthSelect').val(new Date().toISOString().slice(0, 7));
+        const currentDate = new Date();
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        $('#monthSelect').val(currentDate.toISOString().slice(0, 7));
         fetchData();
 
         $('#groupSelect').on("change", fetchData);
