@@ -239,7 +239,9 @@ $(document).ready(function() {
             });
     }
 
-    $('#monthSelect').val(new Date().toISOString().slice(0, 7));
+    const currentDate = new Date();
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    $('#monthSelect').val(currentDate.toISOString().slice(0, 7));
     fetchData();
 
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
