@@ -25,7 +25,7 @@
         #clusteringContainer {
             margin: 20px auto 0 auto; /* Center horizontally, add top margin */
             width: 95%; /* Use most of the width */
-            height: calc(100vh - 275px); /* Adjust height dynamically based on viewport and elements above */
+            height: calc(100vh - 225px); /* Adjust height dynamically based on viewport and elements above */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -58,13 +58,10 @@
             title="{{ _("Determined by common chat users using cosine similarity and Leiden community detection. Channels must meet a similarity threshold with at least one other channel to appear. Click and drag to zoom. Double click to reset.") }}"></i></sup>
     </h2>
 
-    <div class="text-center mb-3">
-        <label for="monthPicker">{{ _("Select Month:") }}</label>
-        <input type="text" id="monthPicker" class="form-control d-inline-block" placeholder="{{ _("YYYY-MM") }}">
-    </div>
-
-    <div class="text-center">
-        <button id="loadButton" class="btn btn-primary mt-3">{{ _("Load Clustering Graph") }}</button>
+    <div class="text-center mb-3 d-flex align-items-center justify-content-center">
+        <label for="monthPicker" class="me-2">{{ _("Select Month:") }}</label>
+        <input type="text" id="monthPicker" class="form-control d-inline-block" style="width: 200px;" placeholder="{{ _("YYYY-MM") }}">
+        <button id="loadButton" class="btn btn-primary ms-3">{{ _("Load Clustering Graph") }}</button>
     </div>
 
     <!-- Spinner -->
