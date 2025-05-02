@@ -1532,7 +1532,7 @@ def get_funniest_timestamps():
 
     return jsonify([
         {"title": row[0], "video_id": row[1], "timestamp": int(row[2])}
-        for row in results if row[1] is not None and 0 <= row[2]
+        for row in results if row[1] is not None and row[2] is not None
     ])
 
 @app.route('/api/get_user_info', methods=['GET'])
