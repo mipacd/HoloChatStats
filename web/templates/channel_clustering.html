@@ -58,10 +58,20 @@
             title="{{ _("Determined by common chat users using cosine similarity and Leiden community detection. Channels must meet a similarity threshold with at least one other channel to appear. Click and drag to zoom. Double click to reset.") }}"></i></sup>
     </h2>
 
-    <div class="text-center mb-3 d-flex align-items-center justify-content-center">
-        <label for="monthPicker" class="me-2">{{ _("Select Month:") }}</label>
-        <input type="text" id="monthPicker" class="form-control d-inline-block" style="width: 200px;" placeholder="{{ _("YYYY-MM") }}">
-        <button id="loadButton" class="btn btn-primary ms-3">{{ _("Load Clustering Graph") }}</button>
+    <div class="text-center mb-3 d-flex flex-wrap align-items-center justify-content-center gap-2">
+        <div class="d-flex align-items-center me-3">
+            <label for="monthPicker" class="me-2">{{ _("Select Month:") }}</label>
+            <input type="text" id="monthPicker" class="form-control" style="width: 200px;" placeholder="{{ _("YYYY-MM") }}">
+        </div>
+        <div class="d-flex align-items-center me-3">
+            <label for="thresholdSelect" class="me-2">{{ _("Threshold:") }}</label>
+            <select id="thresholdSelect" class="form-select" style="width: 200px;">
+                <option value="95" selected>{{ _("High (P95)") }}</option>
+                <option value="90">{{ _("Medium (P90)") }}</option>
+                <option value="80">{{ _("Low (P80)") }}</option>
+            </select>
+        </div>
+        <button id="loadButton" class="btn btn-primary">{{ _("Load Clustering Graph") }}</button>
     </div>
 
     <!-- Spinner -->
@@ -92,17 +102,21 @@
         // Handle Load Button Click
         $('#loadButton').on('click', function() {
             const selectedMonth = $('#monthPicker').val();
+            const threshold = $('#thresholdSelect').val();
+
             if (!selectedMonth) {
                 alert('{{ _("Please select a month.") }}');
                 return;
             }
 
+            $('#clusteringContainer').hide(); // Hide the graph container while loading
             $('#clusteringSpinner').show();
 
-            // Fetch clustering graph JSON
-            $.getJSON(`/api/channel_clustering?month=${selectedMonth}`)
+            // Now including the weighting parameter in the request
+            $.getJSON(`/api/channel_clustering?month=${selectedMonth}&percentile=${threshold}`)
                 .done(function(response) {
                     $('#clusteringSpinner').hide();
+                    $('#clusteringContainer').show(); // Show the graph container after loading
                     if (response.error) {
                         alert(response.error);
                         return;
@@ -115,6 +129,7 @@
                     $('#clusteringSpinner').hide();
                 });
         });
+
 
         // Initialize Bootstrap tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));

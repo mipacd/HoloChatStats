@@ -464,6 +464,20 @@ msgstr "지난 1년간 방문자 수:"
 msgid "Only counts members that participated in chat."
 msgstr "채팅에 참여한 멤버만 집계됩니다."
 
+msgid "Average Streaming Duration"
+msgstr "평균 스트리밍 시간"
+
+msgid "Threshold:"
+msgstr "임계값:"
+
+msgid "High (P95)"
+msgstr "높음 (P95)"
+
+msgid "Medium (P90)"
+msgstr "중간 (P90)"
+
+msgid "Low (P80)"
+msgstr "낮음 (P80)"
 
 
 

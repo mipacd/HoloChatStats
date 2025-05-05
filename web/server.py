@@ -17,6 +17,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import leidenalg as la
 import igraph as ig
 import plotly.graph_objects as go
+import numpy as np
 from plotly.utils import PlotlyJSONEncoder
 import json
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
@@ -445,6 +446,7 @@ def streaming_hours_query(aggregation_function, group=None):
 def channel_clustering():
     try:
         filter_month = request.args.get("month")
+        percentile = request.args.get("percentile", "95")
         if not filter_month:
             return jsonify({"error": "Month filter (e.g., '2025-03') is required"}), 400
 
@@ -470,7 +472,8 @@ def channel_clustering():
         channel_names = user_channel_matrix.columns
 
         G = nx.Graph()
-        threshold = 0.09  
+        threshold = np.percentile(similarity_matrix, float(percentile))
+
         for i, channel_a in enumerate(channel_names):
             for j, channel_b in enumerate(channel_names):
                 if i != j and similarity_matrix[i, j] > threshold:

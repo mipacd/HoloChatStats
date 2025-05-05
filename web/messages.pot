@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-03-26 19:52-0400\n"
+"POT-Creation-Date: 2025-05-04 15:08-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,28 +17,28 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:290 server.py:451 server.py:519 server.py:626 server.py:650
-#: server.py:814 server.py:864 server.py:935 server.py:1019
+#: server.py:562 server.py:720 server.py:786 server.py:890 server.py:912
+#: server.py:1073 server.py:1121 server.py:1190 server.py:1251
 msgid "Missing required parameters"
 msgstr ""
 
-#: server.py:848
+#: server.py:1105
 msgid "No data found"
 msgstr ""
 
-#: server.py:1022
+#: server.py:1254
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
-#: templates/channel_clustering.html:6 templates/menu.html:23
+#: templates/channel_clustering.html:8 templates/menu.html:56
 msgid "Channel Clusters by Common Users"
 msgstr ""
 
-#: templates/channel_clustering.html:53
+#: templates/channel_clustering.html:56
 msgid "Channel Clustering"
 msgstr ""
 
-#: templates/channel_clustering.html:55
+#: templates/channel_clustering.html:58
 msgid ""
 "Determined by common chat users using cosine similarity and Leiden "
 "community detection. Channels must meet a similarity threshold with at "
@@ -46,257 +46,272 @@ msgid ""
 "to reset."
 msgstr ""
 
-#: templates/channel_clustering.html:59
+#: templates/channel_clustering.html:63
 msgid "Select Month:"
 msgstr ""
 
-#: templates/channel_clustering.html:60
+#: templates/channel_clustering.html:64
 msgid "YYYY-MM"
 msgstr ""
 
-#: templates/channel_clustering.html:64
+#: templates/channel_clustering.html:67
+msgid "Threshold:"
+msgstr ""
+
+#: templates/channel_clustering.html:69
+msgid "High (P95)"
+msgstr ""
+
+#: templates/channel_clustering.html:70
+msgid "Medium (P90)"
+msgstr ""
+
+#: templates/channel_clustering.html:71
+msgid "Low (P80)"
+msgstr ""
+
+#: templates/channel_clustering.html:74
 msgid "Load Clustering Graph"
 msgstr ""
 
-#: templates/channel_clustering.html:69 templates/channel_clustering.html:75
-#: templates/chat_leaderboards.html:57 templates/common_members.html:61
-#: templates/common_users.html:61 templates/user_info.html:57
+#: templates/channel_clustering.html:79 templates/channel_clustering.html:85
+#: templates/chat_leaderboards.html:60 templates/common_members.html:81
+#: templates/common_users.html:83 templates/user_info.html:60
 msgid "Loading..."
 msgstr ""
 
-#: templates/channel_clustering.html:96
+#: templates/channel_clustering.html:108
 msgid "Please select a month."
 msgstr ""
 
-#: templates/channel_clustering.html:114
+#: templates/channel_clustering.html:128
 msgid "Failed to load clustering graph."
 msgstr ""
 
-#: templates/chat_leaderboards.html:6 templates/chat_leaderboards.html:39
-#: templates/menu.html:25
+#: templates/chat_leaderboards.html:8 templates/chat_leaderboards.html:42
+#: templates/menu.html:58
 msgid "Chat Leaderboards"
 msgstr ""
 
-#: templates/chat_leaderboards.html:43 templates/exclusive_chat.html:39
-#: templates/funniest_timestamps.html:92 templates/jp_user_percents.html:43
-#: templates/message_types.html:39 templates/monthly_streaming_hours.html:39
+#: templates/chat_leaderboards.html:46 templates/exclusive_chat.html:48
+#: templates/funniest_timestamps.html:106 templates/jp_user_percents.html:50
+#: templates/message_types.html:49 templates/monthly_streaming_hours.html:48
 msgid "Channel:"
 msgstr ""
 
-#: templates/chat_leaderboards.html:47 templates/chat_makeup.html:49
-#: templates/common_user_heatmap.html:44 templates/funniest_timestamps.html:98
-#: templates/membership_change.html:49 templates/membership_counts.html:59
-#: templates/membership_percentages.html:43 templates/streaming_hours.html:66
-#: templates/streaming_hours_avg.html:66 templates/streaming_hours_diff.html:66
-#: templates/streaming_hours_max.html:66 templates/user_change.html:49
-#: templates/user_info.html:47
+#: templates/chat_leaderboards.html:50 templates/chat_makeup.html:138
+#: templates/common_user_heatmap.html:45 templates/funniest_timestamps.html:112
+#: templates/membership_change.html:126 templates/membership_counts.html:141
+#: templates/membership_percentages.html:50 templates/streaming_hours.html:74
+#: templates/streaming_hours_avg.html:74 templates/streaming_hours_diff.html:74
+#: templates/streaming_hours_max.html:74 templates/user_change.html:132
+#: templates/user_info.html:50
 msgid "Month:"
 msgstr ""
 
-#: templates/chat_leaderboards.html:52
+#: templates/chat_leaderboards.html:55
 msgid "Get Leaderboard"
 msgstr ""
 
-#: templates/chat_leaderboards.html:66
+#: templates/chat_leaderboards.html:69
 msgid "Username"
 msgstr ""
 
-#: templates/chat_leaderboards.html:67 templates/user_info.html:66
+#: templates/chat_leaderboards.html:70 templates/user_info.html:69
 msgid "Message Count"
 msgstr ""
 
-#: templates/chat_leaderboards.html:86 templates/common_members.html:102
-#: templates/common_users.html:102 templates/exclusive_chat.html:41
-#: templates/funniest_timestamps.html:94 templates/funniest_timestamps.html:121
-#: templates/jp_user_percents.html:45 templates/message_types.html:41
-#: templates/monthly_streaming_hours.html:41
+#: templates/chat_leaderboards.html:89 templates/common_members.html:125
+#: templates/common_users.html:125 templates/exclusive_chat.html:50
+#: templates/funniest_timestamps.html:108
+#: templates/funniest_timestamps.html:140 templates/jp_user_percents.html:52
+#: templates/message_types.html:51 templates/monthly_streaming_hours.html:50
 msgid "Select Channel"
 msgstr ""
 
-#: templates/chat_leaderboards.html:99 templates/common_members.html:118
-#: templates/common_users.html:118
+#: templates/chat_leaderboards.html:102 templates/common_members.html:141
+#: templates/common_users.html:141
 msgid "Please fill in all fields."
 msgstr ""
 
-#: templates/chat_leaderboards.html:111
+#: templates/chat_leaderboards.html:114
 msgid "No data available for the selected criteria."
 msgstr ""
 
-#: templates/chat_leaderboards.html:127 templates/common_members.html:148
-#: templates/common_users.html:148 templates/funniest_timestamps.html:157
-#: templates/funniest_timestamps.html:203 templates/user_info.html:118
+#: templates/chat_leaderboards.html:130 templates/common_members.html:171
+#: templates/common_users.html:171 templates/funniest_timestamps.html:181
+#: templates/funniest_timestamps.html:227 templates/user_info.html:121
 msgid "Error fetching data. Please try again later."
 msgstr ""
 
-#: templates/chat_makeup.html:6 templates/chat_makeup.html:33
-#: templates/menu.html:34
+#: templates/chat_makeup.html:8 templates/chat_makeup.html:109
+#: templates/menu.html:73
 msgid "Chat Makeup"
 msgstr ""
 
-#: templates/chat_makeup.html:35
+#: templates/chat_makeup.html:111
 msgid ""
 "Rates per minute using character set detection. Emote category counts "
 "both Unicode and YouTube style emote-only messages."
 msgstr ""
 
-#: templates/chat_makeup.html:41 templates/common_user_heatmap.html:37
-#: templates/membership_change.html:41 templates/membership_counts.html:52
-#: templates/membership_percentages.html:36 templates/streaming_hours.html:58
-#: templates/streaming_hours_avg.html:58 templates/streaming_hours_diff.html:58
-#: templates/streaming_hours_max.html:58 templates/user_change.html:41
+#: templates/chat_makeup.html:117 templates/common_user_heatmap.html:38
+#: templates/membership_change.html:118 templates/membership_counts.html:134
+#: templates/membership_percentages.html:43 templates/streaming_hours.html:66
+#: templates/streaming_hours_avg.html:66 templates/streaming_hours_diff.html:66
+#: templates/streaming_hours_max.html:66 templates/user_change.html:124
 msgid "Channel Group:"
 msgstr ""
 
-#: templates/chat_makeup.html:43 templates/membership_change.html:43
-#: templates/streaming_hours.html:60 templates/streaming_hours_avg.html:60
-#: templates/streaming_hours_diff.html:60 templates/streaming_hours_max.html:60
-#: templates/user_change.html:43
+#: templates/chat_makeup.html:119 templates/membership_change.html:120
+#: templates/streaming_hours.html:68 templates/streaming_hours_avg.html:68
+#: templates/streaming_hours_diff.html:68 templates/streaming_hours_max.html:68
+#: templates/user_change.html:126
 msgid "All"
 msgstr ""
 
-#: templates/chat_makeup.html:44 templates/common_user_heatmap.html:39
-#: templates/membership_change.html:44 templates/membership_counts.html:54
-#: templates/membership_percentages.html:38 templates/streaming_hours.html:61
-#: templates/streaming_hours_avg.html:61 templates/streaming_hours_diff.html:61
-#: templates/streaming_hours_max.html:61 templates/user_change.html:44
+#: templates/chat_makeup.html:120 templates/common_user_heatmap.html:40
+#: templates/membership_change.html:121 templates/membership_counts.html:136
+#: templates/membership_percentages.html:45 templates/streaming_hours.html:69
+#: templates/streaming_hours_avg.html:69 templates/streaming_hours_diff.html:69
+#: templates/streaming_hours_max.html:69 templates/user_change.html:127
 msgid "Hololive"
 msgstr ""
 
-#: templates/chat_makeup.html:45 templates/common_user_heatmap.html:40
-#: templates/membership_change.html:45 templates/membership_counts.html:55
-#: templates/membership_percentages.html:39 templates/streaming_hours.html:62
-#: templates/streaming_hours_avg.html:62 templates/streaming_hours_diff.html:62
-#: templates/streaming_hours_max.html:62 templates/user_change.html:45
+#: templates/chat_makeup.html:121 templates/common_user_heatmap.html:41
+#: templates/membership_change.html:122 templates/membership_counts.html:137
+#: templates/membership_percentages.html:46 templates/streaming_hours.html:70
+#: templates/streaming_hours_avg.html:70 templates/streaming_hours_diff.html:70
+#: templates/streaming_hours_max.html:70 templates/user_change.html:128
 msgid "Indie"
 msgstr ""
 
-#: templates/chat_makeup.html:55 templates/common_user_heatmap.html:49
-#: templates/funniest_timestamps.html:104 templates/membership_change.html:55
-#: templates/membership_counts.html:65 templates/membership_percentages.html:49
-#: templates/streaming_hours.html:72 templates/streaming_hours_avg.html:72
-#: templates/streaming_hours_diff.html:72 templates/streaming_hours_max.html:72
-#: templates/user_change.html:55
+#: templates/chat_makeup.html:144 templates/common_user_heatmap.html:50
+#: templates/funniest_timestamps.html:118 templates/membership_change.html:132
+#: templates/membership_counts.html:147
+#: templates/membership_percentages.html:56 templates/streaming_hours.html:80
+#: templates/streaming_hours_avg.html:80 templates/streaming_hours_diff.html:80
+#: templates/streaming_hours_max.html:80 templates/user_change.html:138
 msgid "Download CSV"
 msgstr ""
 
-#: templates/common_members.html:6 templates/common_members.html:32
-#: templates/menu.html:22
+#: templates/common_members.html:8 templates/common_members.html:49
+#: templates/menu.html:55
 msgid "Common Members by Channel / Month"
 msgstr ""
 
-#: templates/common_members.html:36 templates/common_users.html:36
+#: templates/common_members.html:54 templates/common_users.html:55
 msgid "Channel A:"
 msgstr ""
 
-#: templates/common_members.html:40 templates/common_users.html:40
+#: templates/common_members.html:58 templates/common_users.html:59
 msgid "Month for A:"
 msgstr ""
 
-#: templates/common_members.html:47 templates/common_users.html:47
+#: templates/common_members.html:65 templates/common_users.html:66
 msgid "Channel B:"
 msgstr ""
 
-#: templates/common_members.html:51 templates/common_users.html:51
+#: templates/common_members.html:69 templates/common_users.html:70
 msgid "Month for B:"
 msgstr ""
 
-#: templates/common_members.html:56 templates/common_users.html:56
+#: templates/common_members.html:75 templates/common_users.html:76
 msgid "Calculate"
 msgstr ""
 
-#: templates/common_members.html:69
+#: templates/common_members.html:90
 msgid ""
 "Percent of Channel A's members in Month A that are also members of "
 "Channel B in Month B:"
 msgstr ""
 
-#: templates/common_members.html:73
+#: templates/common_members.html:94
 msgid ""
 "Percent of Channel B's members in Month B that are also members of "
 "Channel A in Month A:"
 msgstr ""
 
-#: templates/common_members.html:77
+#: templates/common_members.html:98
 msgid "Number of common members:"
 msgstr ""
 
-#: templates/common_members.html:128
+#: templates/common_members.html:151
 msgid "No common members found for the selected criteria."
 msgstr ""
 
-#: templates/common_user_heatmap.html:6 templates/common_user_heatmap.html:33
-#: templates/menu.html:20
+#: templates/common_user_heatmap.html:6 templates/common_user_heatmap.html:34
 msgid "Common User Heatmap"
 msgstr ""
 
-#: templates/common_user_heatmap.html:101
+#: templates/common_user_heatmap.html:102
 msgid "Common Chat Percentages Between Channels"
 msgstr ""
 
-#: templates/common_user_heatmap.html:103
+#: templates/common_user_heatmap.html:104
 msgid "Target Channels"
 msgstr ""
 
-#: templates/common_user_heatmap.html:108
+#: templates/common_user_heatmap.html:109
 msgid "Source Channels"
 msgstr ""
 
-#: templates/common_users.html:6 templates/common_users.html:32
-#: templates/menu.html:21
+#: templates/common_users.html:6 templates/common_users.html:50
+#: templates/menu.html:54
 msgid "Common Users by Channel / Month"
 msgstr ""
 
-#: templates/common_users.html:69
+#: templates/common_users.html:91
 msgid ""
 "Percent of Channel A's chat in Month A that participated in Channel B's "
 "chat in Month B:"
 msgstr ""
 
-#: templates/common_users.html:73
+#: templates/common_users.html:95
 msgid ""
 "Percent of Channel B's chat in Month B that participated in Channel A's "
 "chat in Month A:"
 msgstr ""
 
-#: templates/common_users.html:77
+#: templates/common_users.html:99
 msgid "Number of common users:"
 msgstr ""
 
-#: templates/common_users.html:128
+#: templates/common_users.html:151
 msgid "No common users found for the selected criteria."
 msgstr ""
 
-#: templates/exclusive_chat.html:6 templates/exclusive_chat.html:32
-#: templates/menu.html:26
+#: templates/exclusive_chat.html:8 templates/exclusive_chat.html:41
+#: templates/menu.html:59
 msgid "Exclusive Chat Users"
 msgstr ""
 
-#: templates/exclusive_chat.html:34
+#: templates/exclusive_chat.html:43
 msgid ""
 "Percentage of chat users exclusive to this channel each month, within the"
 " same group (e.g. Hololive, Indie)."
 msgstr ""
 
-#: templates/exclusive_chat.html:82 templates/jp_user_percents.html:82
-#: templates/message_types.html:92 templates/monthly_streaming_hours.html:82
+#: templates/exclusive_chat.html:91 templates/jp_user_percents.html:89
+#: templates/message_types.html:103 templates/monthly_streaming_hours.html:91
 msgid "Month"
 msgstr ""
 
-#: templates/exclusive_chat.html:86 templates/exclusive_chat.html:142
+#: templates/exclusive_chat.html:95 templates/exclusive_chat.html:151
 msgid "Exclusive Users (%)"
 msgstr ""
 
-#: templates/exclusive_chat.html:116 templates/jp_user_percents.html:115
-#: templates/monthly_streaming_hours.html:117
+#: templates/exclusive_chat.html:125 templates/jp_user_percents.html:122
+#: templates/monthly_streaming_hours.html:126
 msgid "Please select a channel."
 msgstr ""
 
-#: templates/funniest_timestamps.html:6 templates/funniest_timestamps.html:87
-#: templates/menu.html:46
+#: templates/funniest_timestamps.html:8 templates/funniest_timestamps.html:101
+#: templates/menu.html:94
 msgid "Funniest Timestamps"
 msgstr ""
 
-#: templates/funniest_timestamps.html:88
+#: templates/funniest_timestamps.html:102
 msgid ""
 "Determined using the highest concentration of humerous reactions by chat "
 "for each stream.<br><br>\n"
@@ -305,328 +320,312 @@ msgid ""
 "clipping."
 msgstr ""
 
-#: templates/funniest_timestamps.html:103
+#: templates/funniest_timestamps.html:117
 msgid "Fetch Funniest Moments"
 msgstr ""
 
-#: templates/funniest_timestamps.html:132
+#: templates/funniest_timestamps.html:151
 msgid "Please select a channel and a month."
 msgstr ""
 
-#: templates/funniest_timestamps.html:138
+#: templates/funniest_timestamps.html:161
 msgid "No data available."
 msgstr ""
 
-#: templates/funniest_timestamps.html:169
+#: templates/funniest_timestamps.html:193
 msgid "Please select a channel and a month before downloading."
 msgstr ""
 
-#: templates/funniest_timestamps.html:175
+#: templates/funniest_timestamps.html:199
 msgid "No data available for export."
 msgstr ""
 
-#: templates/index.html:6 templates/index.html:69
-msgid "Welcome to the HoloChatStats v2 Beta Test!"
+#: templates/index.html:61
+msgid "Welcome to HoloChatStats v2!"
 msgstr ""
 
-#: templates/index.html:70
+#: templates/index.html:62
 msgid "Explore statistics and insights for Hololive and Indie VTuber chats."
 msgstr ""
 
-#: templates/index.html:74
+#: templates/index.html:66
 msgid "GitHub"
 msgstr ""
 
-#: templates/index.html:77
+#: templates/index.html:69
 msgid "Twitter/X"
 msgstr ""
 
-#: templates/index.html:80
+#: templates/index.html:72
 msgid "BlueSky"
 msgstr ""
 
-#: templates/index.html:92
+#: templates/index.html:84
 msgid "Data Coverage"
 msgstr ""
 
-#: templates/index.html:94
+#: templates/index.html:86
 msgid "Loading date ranges..."
 msgstr ""
 
-#: templates/index.html:97
+#: templates/index.html:89
 msgid "Loading chat log count..."
 msgstr ""
 
-#: templates/index.html:100
-msgid "Loading visitor count..."
-msgstr ""
-
-#: templates/index.html:108
+#: templates/index.html:97
 msgid "Latest Updates"
 msgstr ""
 
-#: templates/index.html:110 templates/index.html:168
+#: templates/index.html:99 templates/index.html:146
 msgid "No updates available."
 msgstr ""
 
-#: templates/index.html:127
+#: templates/index.html:116
 msgid "Start:"
 msgstr ""
 
-#: templates/index.html:128
+#: templates/index.html:117
 msgid "End:"
 msgstr ""
 
-#: templates/index.html:131
+#: templates/index.html:120
 msgid "Unable to fetch date ranges."
 msgstr ""
 
-#: templates/index.html:134
+#: templates/index.html:123
 msgid "Error fetching date ranges."
 msgstr ""
 
-#: templates/index.html:140
+#: templates/index.html:129
 msgid "Number of Chat Logs Processed:"
 msgstr ""
 
-#: templates/index.html:142
+#: templates/index.html:131
 msgid "Unable to fetch chat log count."
 msgstr ""
 
-#: templates/index.html:145
+#: templates/index.html:134
 msgid "Error fetching chat log count."
 msgstr ""
 
-#: templates/index.html:151
-msgid "Visitor Count in the Past Year:"
-msgstr ""
-
-#: templates/index.html:153
-msgid "Unable to fetch visitor count."
-msgstr ""
-
-#: templates/index.html:156
-msgid "Error fetching visitor count."
-msgstr ""
-
-#: templates/index.html:171
+#: templates/index.html:149
 msgid "Error fetching updates."
 msgstr ""
 
-#: templates/jp_user_percents.html:6 templates/jp_user_percents.html:36
-#: templates/menu.html:36
+#: templates/jp_user_percents.html:8 templates/jp_user_percents.html:43
+#: templates/menu.html:75
 msgid "JP User Percentages"
 msgstr ""
 
-#: templates/jp_user_percents.html:38
+#: templates/jp_user_percents.html:45
 msgid ""
 "Percentage of users who primarily use Japanese (>50%) in chat across all "
 "channels, excluding emoji-only messages."
 msgstr ""
 
-#: templates/jp_user_percents.html:86 templates/jp_user_percents.html:140
+#: templates/jp_user_percents.html:93 templates/jp_user_percents.html:147
 msgid "JP User Percentage"
 msgstr ""
 
-#: templates/membership_change.html:6 templates/membership_change.html:34
-#: templates/menu.html:30
+#: templates/membership_change.html:8 templates/membership_change.html:111
+#: templates/menu.html:63
 msgid "Membership Gain / Loss"
 msgstr ""
 
-#: templates/membership_change.html:36
+#: templates/membership_change.html:113
 msgid ""
 "Determined using the last recorded message for each user between the "
 "specified month and the previous month."
 msgstr ""
 
-#: templates/membership_change.html:138
+#: templates/membership_change.html:234
 msgid "Gains"
 msgstr ""
 
-#: templates/membership_change.html:145
+#: templates/membership_change.html:241
 msgid "Losses"
 msgstr ""
 
-#: templates/membership_counts.html:6 templates/membership_counts.html:48
-#: templates/menu.html:28
+#: templates/membership_counts.html:8 templates/membership_counts.html:130
+#: templates/menu.html:61
 msgid "Membership Counts"
 msgstr ""
 
-#: templates/membership_counts.html:48
+#: templates/membership_counts.html:130
 msgid ""
 "Only counts members that participated in chat. Membership durations are "
 "based on available badges for each channel."
 msgstr ""
 
-#: templates/membership_counts.html:117
+#: templates/membership_counts.html:223
 msgid "Total Members:"
 msgstr ""
 
-#: templates/membership_percentages.html:32 templates/menu.html:29
+#: templates/membership_percentages.html:8
+#: templates/membership_percentages.html:39 templates/menu.html:62
 msgid "Membership Percentages"
 msgstr ""
 
-#: templates/membership_percentages.html:32
+#: templates/membership_percentages.html:39
 msgid "Only counts members that participated in chat."
 msgstr ""
 
-#: templates/membership_percentages.html:124
+#: templates/membership_percentages.html:138
 msgid "Membership Percentage"
 msgstr ""
 
-#: templates/menu.html:8
-msgid "Language"
-msgstr ""
-
-#: templates/menu.html:16
+#: templates/menu.html:45
 msgid "Home"
 msgstr ""
 
-#: templates/menu.html:18
+#: templates/menu.html:51
 msgid "Users and Memberships"
 msgstr ""
 
-#: templates/menu.html:24
+#: templates/menu.html:57
 msgid "Active User Gain / Loss"
 msgstr ""
 
-#: templates/menu.html:27 templates/user_info.html:6
-#: templates/user_info.html:39
+#: templates/menu.html:60 templates/user_info.html:8
+#: templates/user_info.html:42
 msgid "Message Frequencies by User"
 msgstr ""
 
-#: templates/menu.html:32
+#: templates/menu.html:70
 msgid "Language Stats"
 msgstr ""
 
-#: templates/menu.html:35 templates/message_types.html:6
-#: templates/message_types.html:32
+#: templates/menu.html:74 templates/message_types.html:8
+#: templates/message_types.html:42
 msgid "Message Percentages and Rates by Language"
 msgstr ""
 
-#: templates/menu.html:38 templates/monthly_streaming_hours.html:86
-#: templates/monthly_streaming_hours.html:143
+#: templates/menu.html:82 templates/monthly_streaming_hours.html:95
+#: templates/monthly_streaming_hours.html:152
 msgid "Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:40 templates/streaming_hours.html:6
-#: templates/streaming_hours.html:53
+#: templates/menu.html:85 templates/streaming_hours.html:8
+#: templates/streaming_hours.html:61
 msgid "Total Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:41 templates/streaming_hours_avg.html:6
-#: templates/streaming_hours_avg.html:53
+#: templates/menu.html:86 templates/streaming_hours_avg.html:61
 msgid "Average Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:42 templates/streaming_hours_max.html:6
-#: templates/streaming_hours_max.html:53
+#: templates/menu.html:87 templates/streaming_hours_max.html:8
+#: templates/streaming_hours_max.html:61
 msgid "Longest Stream Duration"
 msgstr ""
 
-#: templates/menu.html:43
+#: templates/menu.html:88
 msgid "Streaming Hour Change"
 msgstr ""
 
-#: templates/menu.html:44 templates/monthly_streaming_hours.html:6
-#: templates/monthly_streaming_hours.html:32
+#: templates/menu.html:89 templates/monthly_streaming_hours.html:8
+#: templates/monthly_streaming_hours.html:41
 msgid "Monthly Streaming Hours"
 msgstr ""
 
-#: templates/message_types.html:34
+#: templates/message_types.html:44
 msgid ""
 "Emote messages are excluded from the total count. Total duration is "
 "computed using only streams with available chat logs."
 msgstr ""
 
-#: templates/message_types.html:45
+#: templates/message_types.html:55
 msgid "Language:"
 msgstr ""
 
-#: templates/message_types.html:47
-msgid "English (or none of others)"
+#: templates/message_types.html:57
+msgid "English (or none of the others)"
 msgstr ""
 
-#: templates/message_types.html:48
+#: templates/message_types.html:58
 msgid "Japanese"
 msgstr ""
 
-#: templates/message_types.html:49
+#: templates/message_types.html:59
 msgid "Korean"
 msgstr ""
 
-#: templates/message_types.html:50
+#: templates/message_types.html:60
 msgid "Russian"
 msgstr ""
 
-#: templates/message_types.html:98 templates/message_types.html:164
+#: templates/message_types.html:109 templates/message_types.html:175
 msgid "Percentage"
 msgstr ""
 
-#: templates/message_types.html:104 templates/message_types.html:172
+#: templates/message_types.html:115 templates/message_types.html:183
 msgid "Rate (messages/min)"
 msgstr ""
 
-#: templates/message_types.html:137
+#: templates/message_types.html:148
 msgid "Please select both a channel and a language."
 msgstr ""
 
-#: templates/monthly_streaming_hours.html:34
+#: templates/monthly_streaming_hours.html:43
 msgid "Only counts public archived streams from YouTube."
 msgstr ""
 
-#: templates/streaming_hours.html:53 templates/streaming_hours_avg.html:53
-#: templates/streaming_hours_diff.html:53 templates/streaming_hours_max.html:53
+#: templates/streaming_hours.html:61 templates/streaming_hours_avg.html:61
+#: templates/streaming_hours_diff.html:61 templates/streaming_hours_max.html:61
 msgid "Archived, non-member streams from YouTube only."
 msgstr ""
 
-#: templates/streaming_hours_diff.html:6 templates/streaming_hours_diff.html:53
+#: templates/streaming_hours_avg.html:8
+msgid "Average Streaming Duration"
+msgstr ""
+
+#: templates/streaming_hours_diff.html:8 templates/streaming_hours_diff.html:61
 msgid "Streaming Hour Change Since Previous Month"
 msgstr ""
 
-#: templates/user_change.html:6 templates/user_change.html:34
+#: templates/user_change.html:8 templates/user_change.html:117
 msgid "Active User Gains / Losses"
 msgstr ""
 
-#: templates/user_change.html:36
+#: templates/user_change.html:119
 msgid ""
 "Determined by users who met a 5 message threshold in one month but not in"
 " the other. Channels that didn't stream in either month are not included."
 msgstr ""
 
-#: templates/user_change.html:138
+#: templates/user_change.html:234
 msgid "Users Gained"
 msgstr ""
 
-#: templates/user_change.html:145
+#: templates/user_change.html:241
 msgid "Users Lost"
 msgstr ""
 
-#: templates/user_info.html:43
+#: templates/user_info.html:46
 msgid "Username:"
 msgstr ""
 
-#: templates/user_info.html:44
+#: templates/user_info.html:47
 msgid "Enter username"
 msgstr ""
 
-#: templates/user_info.html:52
+#: templates/user_info.html:55
 msgid "Get User Data"
 msgstr ""
 
-#: templates/user_info.html:65
+#: templates/user_info.html:68
 msgid "Channel"
 msgstr ""
 
-#: templates/user_info.html:67
+#: templates/user_info.html:70
 msgid "Percentile"
 msgstr ""
 
-#: templates/user_info.html:90
+#: templates/user_info.html:93
 msgid "Please enter a username and select a month."
 msgstr ""
 
-#: templates/user_info.html:102
+#: templates/user_info.html:105
 msgid "No data available for the selected user and month."
 msgstr ""
 

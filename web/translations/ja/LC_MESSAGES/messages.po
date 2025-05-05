@@ -463,3 +463,18 @@ msgstr "過去1年間の訪問者数:"
 msgid "Only counts members that participated in chat."
 msgstr "チャットに参加したメンバーのみをカウントします。"
 
+msgid "Average Streaming Duration"
+msgstr "平均ストリーミング時間"
+
+msgid "Threshold:"
+msgstr "しきい値:"
+
+msgid "High (P95)"
+msgstr "高 (P95)"
+
+msgid "Medium (P90)"
+msgstr "中 (P90)"
+
+msgid "Low (P80)"
+msgstr "低 (P80)"
+
