@@ -71,6 +71,13 @@
                 <option value="80">{{ _("Low (P80)") }}</option>
             </select>
         </div>
+        <div class="d-flex align-items-center me-3">
+            <label class="form-check-label me-2">{{ _("3D View:") }}<sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
+                title="{{ _("Click and drag to rotate. Mouse wheel to zoom.") }}"></i></sup></label>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="view3dSwitch">
+            </div>
+        </div>
         <button id="loadButton" class="btn btn-primary">{{ _("Load Clustering Graph") }}</button>
     </div>
 
@@ -112,8 +119,9 @@
             $('#clusteringContainer').hide(); // Hide the graph container while loading
             $('#clusteringSpinner').show();
 
-            // Now including the weighting parameter in the request
-            $.getJSON(`/api/channel_clustering?month=${selectedMonth}&percentile=${threshold}`)
+            // Get 3D view state and include in request
+            const view3d = $('#view3dSwitch').is(':checked') ? '3d' : '2d';
+            $.getJSON(`/api/channel_clustering?month=${selectedMonth}&percentile=${threshold}&type=${view3d}`)
                 .done(function(response) {
                     $('#clusteringSpinner').hide();
                     $('#clusteringContainer').show(); // Show the graph container after loading

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-04 15:08-0400\n"
+"POT-Creation-Date: 2025-05-08 17:59-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,16 +17,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:562 server.py:720 server.py:786 server.py:890 server.py:912
-#: server.py:1073 server.py:1121 server.py:1190 server.py:1251
+#: server.py:685 server.py:843 server.py:909 server.py:1013 server.py:1035
+#: server.py:1196 server.py:1244 server.py:1313 server.py:1374
 msgid "Missing required parameters"
 msgstr ""
 
-#: server.py:1105
+#: server.py:1228
 msgid "No data found"
 msgstr ""
 
-#: server.py:1254
+#: server.py:1377
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
@@ -70,21 +70,29 @@ msgstr ""
 msgid "Low (P80)"
 msgstr ""
 
-#: templates/channel_clustering.html:74
+#: templates/channel_clustering.html:75
+msgid "3D View:"
+msgstr ""
+
+#: templates/channel_clustering.html:76
+msgid "Click and drag to pan. Mouse wheel to zoom."
+msgstr ""
+
+#: templates/channel_clustering.html:81
 msgid "Load Clustering Graph"
 msgstr ""
 
-#: templates/channel_clustering.html:79 templates/channel_clustering.html:85
+#: templates/channel_clustering.html:86 templates/channel_clustering.html:92
 #: templates/chat_leaderboards.html:60 templates/common_members.html:81
 #: templates/common_users.html:83 templates/user_info.html:60
 msgid "Loading..."
 msgstr ""
 
-#: templates/channel_clustering.html:108
+#: templates/channel_clustering.html:115
 msgid "Please select a month."
 msgstr ""
 
-#: templates/channel_clustering.html:128
+#: templates/channel_clustering.html:136
 msgid "Failed to load clustering graph."
 msgstr ""
 
