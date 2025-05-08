@@ -446,6 +446,7 @@ def channel_clustering():
     try:
         filter_month = request.args.get("month")
         percentile = request.args.get("percentile", "95")
+        graph_type = request.args.get("type", "2d")  # Default to 2d if not specified
         if not filter_month:
             return jsonify({"error": "Month filter (e.g., '2025-03') is required"}), 400
 
@@ -494,86 +495,174 @@ def channel_clustering():
                          for node in range(g_igraph.vcount())}
         community_colors = [partition_dict[node] for node in G.nodes]
 
-        # --- IMPROVED LAYOUT ---
-        pos = nx.kamada_kawai_layout(G)  # Better spacing
-        node_x, node_y = zip(*pos.values())
-
-        edge_x, edge_y = [], []
-        for edge in G.edges():
-            x0, y0 = pos[edge[0]]
-            x1, y1 = pos[edge[1]]
-            edge_x.extend([x0, x1, None])
-            edge_y.extend([y0, y1, None])
-
         fig = go.Figure()
+        
+        if graph_type == "3d":
+            # 3D layout using spring layout with dim=3
+            pos = nx.spring_layout(G, dim=3, seed=42)
+            node_x, node_y, node_z = zip(*[pos[node] for node in G.nodes()])
+            
+            edge_weights = [G[u][v]['weight'] for u, v in G.edges()]
+            min_weight, max_weight = min(edge_weights), max(edge_weights)
+            normalized_weights = [(w - min_weight) / (max_weight - min_weight) for w in edge_weights]
+            edge_traces = []
+            hover_traces = []  # Separate layer for tooltips
+            num_hover_points = 10  # Increase for better line coverage
 
-        edge_weights = [G[u][v]['weight'] for u, v in G.edges()]
-        min_weight, max_weight = min(edge_weights), max(edge_weights)
-        normalized_weights = [(w - min_weight) / (max_weight - min_weight) for w in edge_weights]
-        edge_traces = []
-        hover_traces = []  # Separate layer for tooltips
-        num_hover_points = 10  # Increase for better line coverage
+            edge_x, edge_y, edge_z = [], [], []  # Initialize lists for 3D edges
 
-        for (u, v), norm_weight in zip(G.edges(), normalized_weights):
-            x0, y0 = pos[u]
-            x1, y1 = pos[v]
-            adjusted_opacity = 0.1 + (norm_weight ** 1.1) * 0.9
+            for u, v in G.edges():
+                x0, y0, z0 = pos[u]  # Unpack 3D position for first node
+                x1, y1, z1 = pos[v]  # Unpack 3D position for second node
+                edge_x.extend([x0, x1, None])
+                edge_y.extend([y0, y1, None])
+                edge_z.extend([z0, z1, None])  # Include Z coordinate
 
-            # Line Trace
-            edge_traces.append(go.Scatter(
-                x=[x0, x1, None],
-                y=[y0, y1, None],
-                mode='lines',
-                line=dict(width=1.5, color=f'rgba(0,0,0,{adjusted_opacity})'),  # Darkness scaling
-                hoverinfo='none'  # Disable hover for lines themselves
-            ))
 
-            line_x = np.linspace(x0, x1, num_hover_points)
-            line_y = np.linspace(y0, y1, num_hover_points)
+            for (u, v), norm_weight in zip(G.edges(), normalized_weights):
+                x0, y0, z0 = pos[u]
+                x1, y1, z1 = pos[v]
+                adjusted_opacity = 0.1 + (norm_weight ** 1.1) * 0.9
 
-            # Midpoint Marker for Hover Tooltip
-            hover_traces.append(go.Scatter(
-                x=line_x.tolist(),
-                y=line_y.tolist(),
-                mode='markers',
-                marker=dict(size=6, color='rgba(255,255,255,0)'),  # Fully transparent markers
+                # Line Trace (3D)
+                fig.add_trace(go.Scatter3d(
+                    x=edge_x,
+                    y=edge_y,
+                    z=edge_z,
+                    mode='lines',
+                    line=dict(width=1.5, color=f'rgba(0,0,0,{adjusted_opacity})'),  # Darkness scaling
+                    hoverinfo='none'  # Disable hover for lines themselves
+                ))
+
+                line_x = np.linspace(x0, x1, num_hover_points)
+                line_y = np.linspace(y0, y1, num_hover_points)
+                line_z = np.linspace(z0, z1, num_hover_points)  # Include Z dimension
+
+                hover_traces.append(go.Scatter3d(
+                    x=line_x.tolist(),
+                    y=line_y.tolist(),
+                    z=line_z.tolist(),
+                    mode='markers',
+                    marker=dict(size=6, color='rgba(255,255,255,0)'),  # Fully transparent markers
+                    hoverinfo='text',
+                    hovertext=[f"{u} ↔ {v}<br>Score: {G[u][v]['weight'] * 100:.2f}"] * num_hover_points
+                ))
+
+            # Add both traces to the figure
+            for trace in edge_traces:
+                fig.add_trace(trace)
+            for trace in hover_traces:
+                fig.add_trace(trace)
+
+            
+            # Add nodes as 3D scatter points
+            fig.add_trace(go.Scatter3d(
+                x=node_x,
+                y=node_y,
+                z=node_z,
+                mode='markers+text',
+                text=list(G.nodes),
+                textposition="top center",
                 hoverinfo='text',
-                hovertext=[f"{u} ↔ {v}<br>Score: {G[u][v]['weight'] * 100:.2f}"] * num_hover_points
+                hovertext=[f"{node}<br>Connected to: {', '.join(G.neighbors(node))}" for node in G.nodes],
+                marker=dict(
+                    size=12,
+                    color=community_colors,
+                    colorscale='Viridis',
+                    line=dict(color='black', width=1)
+                )
+            ))
+            
+            formatted_month = datetime.strptime(filter_month, "%Y-%m").strftime("%B %Y")
+            fig.update_layout(
+                title=f"Channel User Similarity Graph (3D) for {formatted_month}",
+                title_x=0.5,
+                showlegend=False,
+                margin=dict(l=10, r=10, t=50, b=10),
+                scene=dict(
+                    xaxis=dict(visible=False),
+                    yaxis=dict(visible=False),
+                    zaxis=dict(visible=False)
+                )
+            )
+        else:
+            # Default 2D layout
+            pos = nx.kamada_kawai_layout(G)  # Better spacing
+            node_x, node_y = zip(*pos.values())
+
+            edge_x, edge_y = [], []
+            for edge in G.edges():
+                x0, y0 = pos[edge[0]]
+                x1, y1 = pos[edge[1]]
+                edge_x.extend([x0, x1, None])
+                edge_y.extend([y0, y1, None])
+
+            edge_weights = [G[u][v]['weight'] for u, v in G.edges()]
+            min_weight, max_weight = min(edge_weights), max(edge_weights)
+            normalized_weights = [(w - min_weight) / (max_weight - min_weight) for w in edge_weights]
+            edge_traces = []
+            hover_traces = []  # Separate layer for tooltips
+            num_hover_points = 10  # Increase for better line coverage
+
+            for (u, v), norm_weight in zip(G.edges(), normalized_weights):
+                x0, y0 = pos[u]
+                x1, y1 = pos[v]
+                adjusted_opacity = 0.1 + (norm_weight ** 1.1) * 0.9
+
+                # Line Trace
+                edge_traces.append(go.Scatter(
+                    x=[x0, x1, None],
+                    y=[y0, y1, None],
+                    mode='lines',
+                    line=dict(width=1.5, color=f'rgba(0,0,0,{adjusted_opacity})'),  # Darkness scaling
+                    hoverinfo='none'  # Disable hover for lines themselves
+                ))
+
+                line_x = np.linspace(x0, x1, num_hover_points)
+                line_y = np.linspace(y0, y1, num_hover_points)
+
+                # Midpoint Marker for Hover Tooltip
+                hover_traces.append(go.Scatter(
+                    x=line_x.tolist(),
+                    y=line_y.tolist(),
+                    mode='markers',
+                    marker=dict(size=6, color='rgba(255,255,255,0)'),  # Fully transparent markers
+                    hoverinfo='text',
+                    hovertext=[f"{u} ↔ {v}<br>Score: {G[u][v]['weight'] * 100:.2f}"] * num_hover_points
+                ))
+
+            # Add both traces to the figure
+            for trace in edge_traces:
+                fig.add_trace(trace)
+            for trace in hover_traces:
+                fig.add_trace(trace)
+
+            fig.add_trace(go.Scatter(
+                x=node_x,
+                y=node_y,
+                mode='markers+text',
+                text=list(G.nodes),
+                textposition="top center",
+                hoverinfo='text',  # Only show hover text
+                hovertext=[f"{node}<br>Connected to: {', '.join(G.neighbors(node))}" for node in G.nodes],  # Show connections
+                marker=dict(
+                    size=12,  # Larger nodes
+                    color=community_colors,
+                    colorscale='Viridis',  # Better contrast
+                    line=dict(color='black', width=1)  # Node border for clarity
+                )
             ))
 
-        # Add both traces to the figure
-        for trace in edge_traces:
-            fig.add_trace(trace)
-        for trace in hover_traces:
-            fig.add_trace(trace)
-
-
-        fig.add_trace(go.Scatter(
-            x=node_x,
-            y=node_y,
-            mode='markers+text',
-            text=list(G.nodes),
-            textposition="top center",
-            hoverinfo='text',  # Only show hover text
-            hovertext=[f"{node}<br>Connected to: {', '.join(G.neighbors(node))}" for node in G.nodes],  # Show connections
-            marker=dict(
-                size=12,  # Larger nodes
-                color=community_colors,
-                colorscale='Viridis',  # Better contrast
-                line=dict(color='black', width=1)  # Node border for clarity
+            formatted_month = datetime.strptime(filter_month, "%Y-%m").strftime("%B %Y")
+            fig.update_layout(
+                title=f"Channel User Similarity Graph for {formatted_month}",
+                title_x=0.5,
+                showlegend=False,
+                margin=dict(l=10, r=10, t=50, b=10),
+                xaxis=dict(visible=False),  # Hide X-axis
+                yaxis=dict(visible=False),  # Hide Y-axis
+                plot_bgcolor='white'
             )
-        ))
-
-        formatted_month = datetime.strptime(filter_month, "%Y-%m").strftime("%B %Y")
-        fig.update_layout(
-            title=f"Channel User Similarity Graph for {formatted_month}",
-            title_x=0.5,
-            showlegend=False,
-            margin=dict(l=10, r=10, t=50, b=10),
-            xaxis=dict(visible=False),  # Hide X-axis
-            yaxis=dict(visible=False),  # Hide Y-axis
-            plot_bgcolor='white'
-        )
 
 
         graph_json = json.dumps(fig, cls=PlotlyJSONEncoder)

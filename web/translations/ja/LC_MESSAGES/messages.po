@@ -478,3 +478,8 @@ msgstr "中 (P90)"
 msgid "Low (P80)"
 msgstr "低 (P80)"
 
+msgid "3D View:"
+msgstr "3Dビュー:"
+
+msgid "Click and drag to rotate. Mouse wheel to zoom."
+msgstr "クリックしてドラッグすると回転、マウスホイールでズーム。"
