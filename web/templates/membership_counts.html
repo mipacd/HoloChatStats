@@ -268,20 +268,38 @@ $(document).ready(function() {
 
     function processMembershipData(data) {
         let groupedData = {};
-        data.forEach(d => {
-            if (d[1] === -1) return; // Ignore membership_rank = -1
+        const colorPalette = [
+            "#4a6b91",
+            "#8aa56f",
+            "#b26e5f",
+            "#9b7391",
+            "#d1af75",
+            "#6fa6b5",
+            "#a54d55",
+            "#6b8cad",
+            "#b2b2b2",
+            "#3c475a"
+        ];
 
+
+        data.forEach(d => {
             let channel = d[0];
             let membership_rank = d[1];
             let count = d[2];
 
             if (!(channel in groupedData)) {
-                groupedData[channel] = { total: 0, membership_counts: {} };
+                groupedData[channel] = { total: 0, membership_counts: {}, special_counts: {} };
             }
 
             let label = formatMembershipLabel(membership_rank);
-            groupedData[channel].membership_counts[label] = count;
-            groupedData[channel].total += count;
+
+            if (membership_rank === -1) {
+                groupedData[channel].special_counts[label] = count;
+            } else {
+                groupedData[channel].membership_counts[label] = count;
+                groupedData[channel].total += count;
+            }
+
         });
 
         let sortedChannels = Object.entries(groupedData)
@@ -297,17 +315,35 @@ $(document).ready(function() {
             data: labels.map(channel => groupedData[channel].membership_counts[rank] || 0),
             totalMemberships: labels.map(channel => groupedData[channel].total || 0),
             tooltipData: labels.map(channel => groupedData[channel].membership_counts),
+            backgroundColor: colorPalette[rankLabels.indexOf(rank) % colorPalette.length],
             stack: 'Stack 0'
         }));
+
+        // Add special rank = -1 dataset, hidden by default
+        let specialLabel = formatMembershipLabel(-1);
+        let specialDataset = {
+            label: specialLabel,
+            data: labels.map(channel => groupedData[channel].special_counts?.[specialLabel] || 0),
+            totalMemberships: labels.map(channel => groupedData[channel].total || 0),
+            tooltipData: labels.map(channel => groupedData[channel].special_counts || {}),
+            backgroundColor: '#666666', 
+            stack: 'Stack 0',
+            hidden: true
+        };
+
+        datasets.push(specialDataset);
+
 
         return { labels, datasets };
     }
 
     function formatMembershipLabel(rank) {
+        if (rank === -1) return "Non-Members";
         if (rank === 0) return "New Members";
         if (rank < 12) return `${rank} Month${rank > 1 ? "s" : ""}`;
         return `${Math.floor(rank / 12)} Year${rank >= 24 ? "s" : ""}`;
     }
+
 
     function rankSortOrder(label) {
         if (label === "New Members") return 0;
@@ -329,27 +365,35 @@ $(document).ready(function() {
           return new bootstrap.Tooltip(tooltipTriggerEl);
         });
 
-    $('#downloadCSV').on('click', function() {
-        let data = chart.data;
-        let csvContent = "data:text/csv;charset=utf-8,Channel,New Members,1 Months,2 Months,6 Months,1 Year,2 Years,3 Years,4 Years,5 Years\n"; // Add headers
+        $('#downloadCSV').on('click', function() {
+            let data = chart.data;
+            let csvContent = "data:text/csv;charset=utf-8,Channel,Non-Members,New Members,1 Months,2 Months,6 Months,1 Year,2 Years,3 Years,4 Years,5 Years\n"; // Adjusted header order
 
-        for (let i = 0; i < data.labels.length; i++) {
-            csvContent += `${data.labels[i]}`;
-            for (let j = 0; j < data.datasets.length; j++) {
-                csvContent += `,${data.datasets[j].data[i]}`;
+            for (let i = 0; i < data.labels.length; i++) {
+                csvContent += `${data.labels[i]}`;
+
+                // Assuming Non-Members corresponds to the last dataset in the original order
+                csvContent += `,${data.datasets[data.datasets.length - 1].data[i]}`; // Non-Members
+                csvContent += `,${data.datasets[0].data[i]}`; // New Members
+
+                // Adding the rest of the datasets in their original order (skipping the first and last)
+                for (let j = 1; j < data.datasets.length - 1; j++) {
+                    csvContent += `,${data.datasets[j].data[i]}`;
+                }
+
+                csvContent += `\n`;
             }
-            csvContent += `\n`;
-        }
 
-        var encodedUri = encodeURI(csvContent);
-        var link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "membership_counts.csv");
+            var encodedUri = encodeURI(csvContent);
+            var link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "membership_counts.csv");
 
-        document.body.appendChild(link); // Required for FF
-        link.click();
-        document.body.removeChild(link);
-});
+            document.body.appendChild(link); // Required for FF
+            link.click();
+            document.body.removeChild(link);
+        });
+
 
             // Chat toggle functionality
         // Initialize chat toggle
