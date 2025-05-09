@@ -70,6 +70,7 @@ def create_indexes_and_views():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_user_id ON user_data (user_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_channel_id ON user_data (channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_id ON channels (channel_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_name ON channels (channel_name);")
 
     # Create membership data view
     cursor.execute("""CREATE MATERIALIZED VIEW IF NOT EXISTS mv_membership_data AS
@@ -159,7 +160,12 @@ def create_indexes_and_views():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_activity_channel ON mv_user_activity (channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_activity_group ON mv_user_activity (channel_group);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_activity_month ON mv_user_activity (activity_month);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mv_user_activity_user_id ON mv_user_activity(user_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_month_user ON mv_user_activity(activity_month, user_id);")
 
+    # Optimizations
+    cursor.execute("SET work_mem = '512MB';")
+    cursor.execute("SET max_parallel_workers_per_gather = 4;")
 
     conn.commit()
     release_db_connection(conn)

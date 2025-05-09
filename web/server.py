@@ -1311,6 +1311,16 @@ def get_exclusive_chat_users():
 
     if not channel_name:
         return jsonify({"error": _("Missing required parameters")}), 400
+    
+    cursor = g.db_conn.cursor()
+    cursor.execute(
+        "SELECT channel_id, channel_group FROM channels WHERE channel_name = %s", (channel_name,)
+    )
+    channel_info = cursor.fetchone()
+    if not channel_info:
+        return jsonify({"error": "Invalid channel"}), 400
+
+    channel_id, channel_group = channel_info
 
     query = """
         WITH channel_specific_users AS (
@@ -1319,7 +1329,7 @@ def get_exclusive_chat_users():
                 activity_month,
                 channel_id
             FROM mv_user_activity
-            WHERE channel_id = (SELECT channel_id FROM channels WHERE channel_name = %s)
+            WHERE channel_id = %s
         ),
         exclusive_users AS (
             SELECT
@@ -1329,8 +1339,14 @@ def get_exclusive_chat_users():
             LEFT JOIN mv_user_activity gu
                 ON csu.user_id = gu.user_id
                 AND gu.channel_id <> csu.channel_id
-                AND gu.channel_group = (SELECT channel_group FROM channels WHERE channel_name = %s)
-            WHERE gu.user_id IS NULL
+                AND gu.channel_group = %s
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM mv_user_activity gu
+                WHERE gu.user_id = csu.user_id
+                AND gu.channel_group = %s
+                AND gu.channel_id <> csu.channel_id
+            )
             GROUP BY csu.activity_month
         ),
         total_users_per_month AS (
@@ -1349,8 +1365,7 @@ def get_exclusive_chat_users():
         ORDER BY tu.activity_month;
     """
 
-    cursor = g.db_conn.cursor()
-    cursor.execute(query, (channel_name, channel_name))
+    cursor.execute(query, (channel_id, channel_group, channel_group))
     results = cursor.fetchall()
     cursor.close()
 
