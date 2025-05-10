@@ -483,3 +483,10 @@ msgstr "3Dビュー:"
 
 msgid "Click and drag to rotate. Mouse wheel to zoom."
 msgstr "クリックしてドラッグすると回転、マウスホイールでズーム。"
+
+msgid "Engagement Rates"
+msgstr "エンゲージメント率"
+
+msgid "Average chat message count per user."
+msgstr "ユーザーごとの平均チャットメッセージ数。"
+

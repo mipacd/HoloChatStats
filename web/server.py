@@ -498,8 +498,7 @@ def channel_clustering():
         fig = go.Figure()
         
         if graph_type == "3d":
-            # 3D layout using spring layout with dim=3
-            pos = nx.spring_layout(G, dim=3, seed=42)
+            pos = nx.forceatlas2_layout(G, dim=3)
             node_x, node_y, node_z = zip(*[pos[node] for node in G.nodes()])
             
             edge_weights = [G[u][v]['weight'] for u, v in G.edges()]
@@ -587,7 +586,7 @@ def channel_clustering():
             )
         else:
             # Default 2D layout
-            pos = nx.kamada_kawai_layout(G)  # Better spacing
+            pos = nx.forceatlas2_layout(G)  # Better spacing
             node_x, node_y = zip(*pos.values())
 
             edge_x, edge_y = [], []
@@ -1758,6 +1757,51 @@ def get_user_info():
 
     return jsonify(results)
 
+@app.route('/api/get_chat_engagement', methods=['GET'])
+@cache.cached(timeout=86400, query_string=True)
+def get_chat_engagement():
+    """API to fetch chat engagement statistics per channel, with optional filtering."""
+    month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))  # Default: current month
+    group = request.args.get('group', None)  # "Hololive", "Indie", or None
+
+    # Convert 'YYYY-MM' to 'YYYY-MM-01'
+    start_month = datetime.strptime(month + "-01", '%Y-%m-%d').strftime('%Y-%m-01')
+
+    query = """
+        WITH chat_engagement AS (
+            SELECT 
+                ud.channel_id, 
+                COUNT(DISTINCT ud.user_id) AS total_users,
+                SUM(ud.total_message_count) AS total_messages
+            FROM user_data ud
+            JOIN channels c ON ud.channel_id = c.channel_id
+            WHERE 
+                DATE_TRUNC('month', ud.last_message_at) = %s
+                AND (%s IS NULL OR c.channel_group = %s)
+            GROUP BY ud.channel_id
+        )
+        SELECT 
+            c.channel_name,
+            ce.total_users,
+            ce.total_messages,
+            ROUND(ce.total_messages::DECIMAL / NULLIF(ce.total_users, 0), 2) AS avg_messages_per_user
+        FROM chat_engagement ce
+        JOIN channels c ON ce.channel_id = c.channel_id
+        ORDER BY avg_messages_per_user DESC;
+    """
+
+    try:
+        with g.db_conn.cursor() as cur:
+            cur.execute(query, (start_month, group, group))
+            results = cur.fetchall()
+        data = [
+            {"channel": row[0], "total_users": row[1], "total_messages": row[2], "avg_messages_per_user": row[3]}
+            for row in results if row[3] is not None
+        ]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route('/streaming_hours')
 def streaming_hours_view():
@@ -1838,6 +1882,10 @@ def jp_user_percents_view():
 @app.route('/user_info')
 def user_info_view():
     return render_template('user_info.html', _=_, get_locale=get_locale)
+
+@app.route('/engagement')
+def engagement_redirect():
+    return render_template('engagement.html', _=_, get_locale=get_locale)
 
 #v1 redirects
 @app.route('/stream-time')

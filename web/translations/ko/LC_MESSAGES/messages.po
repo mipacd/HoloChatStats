@@ -485,4 +485,10 @@ msgstr "3D 뷰:"
 msgid "Click and drag to rotate. Mouse wheel to zoom."
 msgstr "클릭 후 드래그하면 회전, 마우스 휠로 확대/축소."
 
+msgid "Engagement Rates"
+msgstr "참여율"
+
+msgid "Average chat message count per user."
+msgstr "사용자당 평균 채팅 메시지 수."
+
 
