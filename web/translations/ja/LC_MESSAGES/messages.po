@@ -469,14 +469,14 @@ msgstr "平均ストリーミング時間"
 msgid "Threshold:"
 msgstr "しきい値:"
 
-msgid "High (P95)"
-msgstr "高 (P95)"
+msgid "High (95th Percentile)"
+msgstr "高 (95パーセンタイル)"
 
-msgid "Medium (P90)"
-msgstr "中 (P90)"
+msgid "Medium (90th Percentile)"
+msgstr "中 (90パーセンタイル)"
 
-msgid "Low (P80)"
-msgstr "低 (P80)"
+msgid "Low (80th Percentile)"
+msgstr "低 (80パーセンタイル)"
 
 msgid "3D View:"
 msgstr "3Dビュー:"

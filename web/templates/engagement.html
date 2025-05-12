@@ -54,6 +54,9 @@
 
     <div class="chart-container">
         <button id="downloadCSV" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3">{{ _("Download CSV") }}</button>
+        <div id="chartSpinner" class="spinner-border text-primary position-absolute top-50 start-50" role="status" style="display: none;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
         <canvas id="engagementChart"></canvas>
     </div>
 </div>
@@ -110,6 +113,8 @@ $(document).ready(function() {
             let month = $('#monthSelect').val();
             let group = $('#groupSelect').val();
 
+            $('#chartSpinner').show();
+
             $.ajax({
                 type: 'GET',
                 url: '/api/get_chat_engagement',
@@ -131,8 +136,12 @@ $(document).ready(function() {
                         borderWidth: 1
                     }];
                     chart.update();
+                },
+                error: function() {
+                    $('#chartSpinner').hide();
                 }
             });
+            $('#chartSpinner').hide();
         }
 
     // Set default values
