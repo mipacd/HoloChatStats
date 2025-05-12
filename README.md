@@ -31,25 +31,26 @@ All data is derived from a combination of publically available chat logs and met
     * Chat Leaderborads: Displays the top 10 chat users by message count for a given channel and month.
     * Exclusive Chat Users: The percentage of a channels chat users that did not participate in any other channel's chat within the channel's assigned group (e.g. Hololive, Indie). 
     * Message Frequencies by User: Given a username and a month, display counts and percentiles for each channel's chat that the user participated in.
+    * Engagement Rates: Average number of messages per user by channel for a given month.
 * Streaming Hours (all streaming hours are calculated from archived, public streams only)
     * Total Streaming Hours: Total streaming hours by channel in a given month
     * Average Streaming Hours: Average stream duration for each channel in a given month
     * Longest Streeam Duration: Duration of each channel's longest stream in a given month
     * Streaming Hour Change: The change in streaming hours from the previous month for each channel
     * Monthly Streaming Hours: The streaming hours for a given channel over time
-* Funniest Timestamps: Uses feature detection to algorithmically determine the "funniest" moment of each stream, based on the greatest concentration of humorous reactions (lol, lmao, etc.) in each stream. This timestamp is shifted back 10 seconds to provide a leadup to the moment. 
+* Funniest Moments: Uses feature detection to algorithmically determine the "funniest" moment of each stream, based on the greatest concentration of humorous reactions (lol, lmao, etc.) in each stream. This timestamp is shifted back 10 seconds to provide a leadup to the moment. 
 * LLM Insights: An LLM query interface is available for select graphs (membership gain/loss, membership counts, user gain/loss, chat makeup). This interface is restricted to 3 queries per user per day and only 
 English is supported. Access to the LLM interface is blocked in Japan and South Korea due to a combination of the language restriction, the significant number of site users from these countries, and the limited 
 number of free daily queries from OpenRouter (50 per day).
 * CSV Downloads
 * Containerization with Docker
-* Support for every Hololive member and select indies (currently Nimi, Dooby, Dokibird, Mint, Sakuna, Rica)
+* Support for every Hololive member and select indies (currently Nimi, Dooby, Dokibird, Mint, Sakuna, Rica, Ruka)
 
 ## Planned Features / TODO (subject to change)
 
 * Public API (depending on available hosting): This feature and the one below it would require site donations and/or a paid service.
 * Mobile App (dependant on public API)
-* Attrition rates of graduated/affiliated talent's fanbases from all Hololive chats
+* Attrition rates of graduated/affiliated talent's fanbases from all Hololive chats (API Done)
 * Data ingest optimizations
 * Unit tests
 
@@ -70,7 +71,7 @@ number of free daily queries from OpenRouter (50 per day).
 7. `downloader.py` takes two arguments: --month and --year. If these arguments are not specifed, the script will run against the current month. If it is the first of the month, 
 the script will run against the previous month.
 
-8. The data ingestion process is currently quite slow. It takes about a day to ingest an entire month on an AMD Ryzen 9 3900X with 32GB of RAM.
+8. The data ingestion process can take some time, about an hour or more for one day in order to calculate the materialized views.
 
 ## Web Server Setup
 
