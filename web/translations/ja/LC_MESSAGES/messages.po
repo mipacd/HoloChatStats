@@ -499,4 +499,7 @@ msgstr "一般的なユーザーチャンネルのクラスタ"
 msgid "Funniest Moment Timestamps"
 msgstr "最も面白い瞬間のタイムスタンプ"
 
+msgid "Featured"
+msgstr "特集"
+
 
