@@ -59,15 +59,15 @@ msgid "Threshold:"
 msgstr ""
 
 #: templates/channel_clustering.html:69
-msgid "High (P95)"
+msgid "High (95th Percentile)"
 msgstr ""
 
 #: templates/channel_clustering.html:70
-msgid "Medium (P90)"
+msgid "Medium (90th Percentile)"
 msgstr ""
 
 #: templates/channel_clustering.html:71
-msgid "Low (P80)"
+msgid "Low (80th Percentile)"
 msgstr ""
 
 #: templates/channel_clustering.html:75

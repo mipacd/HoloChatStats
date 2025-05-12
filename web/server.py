@@ -498,7 +498,7 @@ def channel_clustering():
         fig = go.Figure()
         
         if graph_type == "3d":
-            pos = nx.forceatlas2_layout(G, dim=3)
+            pos = nx.forceatlas2_layout(G, dim=3, strong_gravity=True)
             node_x, node_y, node_z = zip(*[pos[node] for node in G.nodes()])
             
             edge_weights = [G[u][v]['weight'] for u, v in G.edges()]
@@ -586,7 +586,7 @@ def channel_clustering():
             )
         else:
             # Default 2D layout
-            pos = nx.forceatlas2_layout(G)  # Better spacing
+            pos = nx.forceatlas2_layout(G, strong_gravity=True)  # Better spacing
             node_x, node_y = zip(*pos.values())
 
             edge_x, edge_y = [], []

@@ -470,14 +470,14 @@ msgstr "평균 스트리밍 시간"
 msgid "Threshold:"
 msgstr "임계값:"
 
-msgid "High (P95)"
-msgstr "높음 (P95)"
+msgid "High (95th Percentile)"
+msgstr "높음 (95번째 백분위)"
 
-msgid "Medium (P90)"
-msgstr "중간 (P90)"
+msgid "Medium (90th Percentile)"
+msgstr "중간 (90번째 백분위)"
 
-msgid "Low (P80)"
-msgstr "낮음 (P80)"
+msgid "Low (80th Percentile)"
+msgstr "낮음 (80번째 백분위)"
 
 msgid "3D View:"
 msgstr "3D 뷰:"
