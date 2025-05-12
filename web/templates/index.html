@@ -46,6 +46,41 @@
             padding: 15px;
             margin: 0 auto;
         }
+        .featured {
+        margin: 10px 0;
+        }
+
+        .featured h2 {
+            text-align: center;
+        }
+
+        .featured-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-gap: 20px;
+        }
+
+        .featured-item {
+        position: relative;
+        }
+
+        .featured-item img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 10px;
+        }
+
+        .caption {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        padding: 10px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -75,6 +110,32 @@
             </div>
         </div>
     </div>
+
+    <section class="featured">
+        <div class="info-box">
+            <h2>Featured</h2>
+            <div class="featured-grid">
+            <div class="featured-item">
+                <a href="/channel_clustering">
+                <img src="static/cluster_snap.jpg" alt="Channel Clustering">
+                <span class="caption">{{ _("Common User Channel Clusters") }}</span>
+                </a>
+            </div>
+            <div class="featured-item">
+                <a href="/membership_counts">
+                <img src="static/member_snap.jpg" alt="Membership Counts">
+                <span class="caption">{{ _("Membership Counts") }}</span>
+                </a>
+            </div>
+            <div class="featured-item">
+                <a href="/funniest_timestamps">
+                <img src="static/funny_snap.jpg" alt="Funniest Moments">
+                <span class="caption">{{ _("Funniest Moment Timestamps") }}</span>
+                </a>
+            </div>
+            </div>
+        </div> 
+      </section>
 
     <!-- Info Boxes -->
     <div class="row justify-content-center">

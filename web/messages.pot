@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-10 16:17-0400\n"
+"POT-Creation-Date: 2025-05-12 14:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -59,15 +59,15 @@ msgid "Threshold:"
 msgstr ""
 
 #: templates/channel_clustering.html:69
-msgid "High (95th Percentile)"
+msgid "High (Top 5%)"
 msgstr ""
 
 #: templates/channel_clustering.html:70
-msgid "Medium (90th Percentile)"
+msgid "Medium (Top 10%)"
 msgstr ""
 
 #: templates/channel_clustering.html:71
-msgid "Low (80th Percentile)"
+msgid "Low (Top 20%)"
 msgstr ""
 
 #: templates/channel_clustering.html:75
@@ -328,7 +328,6 @@ msgid "Please select a channel."
 msgstr ""
 
 #: templates/funniest_timestamps.html:8 templates/funniest_timestamps.html:101
-#: templates/menu.html:95
 msgid "Funniest Timestamps"
 msgstr ""
 
@@ -361,75 +360,88 @@ msgstr ""
 msgid "No data available for export."
 msgstr ""
 
-#: templates/index.html:61
+#: templates/index.html:96
 msgid "Welcome to HoloChatStats v2!"
 msgstr ""
 
-#: templates/index.html:62
+#: templates/index.html:97
 msgid "Explore statistics and insights for Hololive and Indie VTuber chats."
 msgstr ""
 
-#: templates/index.html:66
+#: templates/index.html:101
 msgid "GitHub"
 msgstr ""
 
-#: templates/index.html:69
+#: templates/index.html:104
 msgid "Twitter/X"
 msgstr ""
 
-#: templates/index.html:72
+#: templates/index.html:107
 msgid "BlueSky"
 msgstr ""
 
-#: templates/index.html:84
+#: templates/index.html:121
+msgid "Common User Channel Clusters"
+msgstr ""
+
+#: templates/index.html:127 templates/membership_counts.html:8
+#: templates/membership_counts.html:130 templates/menu.html:62
+msgid "Membership Counts"
+msgstr ""
+
+#: templates/index.html:133
+msgid "Funniest Moment Timestamps"
+msgstr ""
+
+#: templates/index.html:145
 msgid "Data Coverage"
 msgstr ""
 
-#: templates/index.html:86
+#: templates/index.html:147
 msgid "Loading date ranges..."
 msgstr ""
 
-#: templates/index.html:89
+#: templates/index.html:150
 msgid "Loading chat log count..."
 msgstr ""
 
-#: templates/index.html:97
+#: templates/index.html:158
 msgid "Latest Updates"
 msgstr ""
 
-#: templates/index.html:99 templates/index.html:146
+#: templates/index.html:160 templates/index.html:207
 msgid "No updates available."
 msgstr ""
 
-#: templates/index.html:116
+#: templates/index.html:177
 msgid "Start:"
 msgstr ""
 
-#: templates/index.html:117
+#: templates/index.html:178
 msgid "End:"
 msgstr ""
 
-#: templates/index.html:120
+#: templates/index.html:181
 msgid "Unable to fetch date ranges."
 msgstr ""
 
-#: templates/index.html:123
+#: templates/index.html:184
 msgid "Error fetching date ranges."
 msgstr ""
 
-#: templates/index.html:129
+#: templates/index.html:190
 msgid "Number of Chat Logs Processed:"
 msgstr ""
 
-#: templates/index.html:131
+#: templates/index.html:192
 msgid "Unable to fetch chat log count."
 msgstr ""
 
-#: templates/index.html:134
+#: templates/index.html:195
 msgid "Error fetching chat log count."
 msgstr ""
 
-#: templates/index.html:149
+#: templates/index.html:210
 msgid "Error fetching updates."
 msgstr ""
 
@@ -465,11 +477,6 @@ msgstr ""
 
 #: templates/membership_change.html:241
 msgid "Losses"
-msgstr ""
-
-#: templates/membership_counts.html:8 templates/membership_counts.html:130
-#: templates/menu.html:62
-msgid "Membership Counts"
 msgstr ""
 
 #: templates/membership_counts.html:130
@@ -547,6 +554,10 @@ msgstr ""
 #: templates/menu.html:90 templates/monthly_streaming_hours.html:8
 #: templates/monthly_streaming_hours.html:41
 msgid "Monthly Streaming Hours"
+msgstr ""
+
+#: templates/menu.html:95
+msgid "Funniest Moments"
 msgstr ""
 
 #: templates/message_types.html:44

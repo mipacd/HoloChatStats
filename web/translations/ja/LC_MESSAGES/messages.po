@@ -469,14 +469,14 @@ msgstr "平均ストリーミング時間"
 msgid "Threshold:"
 msgstr "しきい値:"
 
-msgid "High (95th Percentile)"
-msgstr "高 (95パーセンタイル)"
+msgid "High (Top 5%)"
+msgstr "高 (上位5%)"
 
-msgid "Medium (90th Percentile)"
-msgstr "中 (90パーセンタイル)"
+msgid "Medium (Top 10%)"
+msgstr "中 (上位10%)"
 
-msgid "Low (80th Percentile)"
-msgstr "低 (80パーセンタイル)"
+msgid "Low (Top 20%)"
+msgstr "低 (上位20%)"
 
 msgid "3D View:"
 msgstr "3Dビュー:"
@@ -489,4 +489,14 @@ msgstr "エンゲージメント率"
 
 msgid "Average chat message count per user."
 msgstr "ユーザーごとの平均チャットメッセージ数。"
+
+msgid "Funniest Moments"
+msgstr "最も面白い瞬間"
+
+msgid "Common User Channel Clusters"
+msgstr "一般的なユーザーチャンネルのクラスタ"
+
+msgid "Funniest Moment Timestamps"
+msgstr "最も面白い瞬間のタイムスタンプ"
+
 

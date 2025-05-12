@@ -470,14 +470,14 @@ msgstr "평균 스트리밍 시간"
 msgid "Threshold:"
 msgstr "임계값:"
 
-msgid "High (95th Percentile)"
-msgstr "높음 (95번째 백분위)"
+msgid "High (Top 5%)"
+msgstr "높음 (상위 5%)"
 
-msgid "Medium (90th Percentile)"
-msgstr "중간 (90번째 백분위)"
+msgid "Medium (Top 10%)"
+msgstr "중간 (상위 10%)"
 
-msgid "Low (80th Percentile)"
-msgstr "낮음 (80번째 백분위)"
+msgid "Low (Top 20%)"
+msgstr "낮음 (상위 20%)"
 
 msgid "3D View:"
 msgstr "3D 뷰:"
@@ -490,5 +490,15 @@ msgstr "참여율"
 
 msgid "Average chat message count per user."
 msgstr "사용자당 평균 채팅 메시지 수."
+
+msgid "Funniest Moments"
+msgstr "가장 재미있는 순간"
+
+msgid "Common User Channel Clusters"
+msgstr "일반적인 사용자 채널 클러스터"
+
+msgid "Funniest Moment Timestamps"
+msgstr "가장 재미있는 순간의 타임스탬프"
+
 
 
