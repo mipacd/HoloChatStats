@@ -280,7 +280,7 @@ def before_request():
         session['language'] = user_lang if user_lang in ['en', 'ja', 'ko'] else 'en'
     
     g.db_conn = get_db_connection()
-    g.db_conn.cursor().execute("SET statement_timeout = '60s'")
+    g.db_conn.cursor().execute("SET statement_timeout = '300s'")
     # Initialize SQLite connection for this request
     get_sqlite_connection()
     track_metrics()
