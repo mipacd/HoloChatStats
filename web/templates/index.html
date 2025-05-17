@@ -149,9 +149,6 @@
                 <div id="chatLogCountContainer">
                     <p class="text-muted">{{ _("Loading chat log count...") }}</p>
                 </div>
-                <div id="numChattersContainer">
-                    <p class="text-muted">{{ _("Loading user count...") }}</p>
-                </div>
                 <div id="numMsgsContainer">
                     <p class="text-muted">{{ _("Loading message count...") }}</p>
                 </div>
@@ -199,17 +196,6 @@ $(document).ready(function() {
         }
     }).fail(function() {
         $('#chatLogCountContainer').html(`<p class="text-danger">{{ _("Error fetching chat log count.") }}</p>`);
-    });
-
-    // Fetch user count
-    $.get('/api/get_num_chatters', function(data) {
-        if (data) {
-            $('#numChattersContainer').html(`<p><strong>{{ _("Number of Unique Chatters Observed:") }}</strong> ${data.toLocaleString()}</p>`);
-        } else {
-            $('#numChattersContainer').html(`<p class="text-danger">{{ _("Unable to fetch chatter count.") }}</p>`);
-        }
-    }).fail(function() {
-        $('#numChattersContainer').html(`<p class="text-danger">{{ _("Error fetching chatter count.") }}</p>`);
     });
 
     // Fetch user count
