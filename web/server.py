@@ -1917,21 +1917,6 @@ def get_number_of_chat_logs():
     g.redis_conn.set(redis_key, json.dumps(num_chat_logs))
     return jsonify(num_chat_logs)
 
-@app.route('/api/get_num_chatters', methods=['GET'])
-def get_num_chatters():
-    redis_key = "num_chatters"
-    cached_data = g.redis_conn.get(redis_key)
-    if cached_data:
-        inc_cache_hit_count()
-        return jsonify(json.loads(cached_data))
-    inc_cache_miss_count()
-    cursor = g.db_conn.cursor()
-    cursor.execute("SELECT COUNT(DISTINCT user_id) FROM user_data")
-    num_chatters = cursor.fetchone()[0]
-    cursor.close()
-    g.redis_conn.set(redis_key, json.dumps(num_chatters))
-    return jsonify(num_chatters)
-
 @app.route('/api/get_num_messages', methods=['GET'])
 def get_num_messages():
     redis_key = "num_messages"
