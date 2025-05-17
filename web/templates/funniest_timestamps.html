@@ -201,7 +201,7 @@ $('#downloadCSV').on('click', function() {
     }
 
     // Build CSV content properly
-    let csvContent = "Title,URL,Timestamp\n"; // No need to include `data:text/csv;charset=utf-8` here
+    let csvContent = "Title,URL,Timestamp\n";
     data.forEach(video => {
       const title = `"${video.title.replace(/"/g, '""')}"`; // Escape quotes in title
       const videoId = video.video_id;

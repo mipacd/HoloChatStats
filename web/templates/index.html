@@ -149,6 +149,12 @@
                 <div id="chatLogCountContainer">
                     <p class="text-muted">{{ _("Loading chat log count...") }}</p>
                 </div>
+                <div id="numChattersContainer">
+                    <p class="text-muted">{{ _("Loading user count...") }}</p>
+                </div>
+                <div id="numMsgsContainer">
+                    <p class="text-muted">{{ _("Loading message count...") }}</p>
+                </div>
             </div>
         </div>
 
@@ -187,12 +193,34 @@ $(document).ready(function() {
     // Fetch chat log count
     $.get('/api/get_number_of_chat_logs', function(data) {
         if (data) {
-            $('#chatLogCountContainer').html(`<p><strong>{{ _("Number of Chat Logs Processed:") }}</strong> ${data}</p>`);
+            $('#chatLogCountContainer').html(`<p><strong>{{ _("Number of Chat Logs Processed:") }}</strong> ${data.toLocaleString()}</p>`);
         } else {
             $('#chatLogCountContainer').html(`<p class="text-danger">{{ _("Unable to fetch chat log count.") }}</p>`);
         }
     }).fail(function() {
         $('#chatLogCountContainer').html(`<p class="text-danger">{{ _("Error fetching chat log count.") }}</p>`);
+    });
+
+    // Fetch user count
+    $.get('/api/get_num_chatters', function(data) {
+        if (data) {
+            $('#numChattersContainer').html(`<p><strong>{{ _("Number of Unique Chatters Observed:") }}</strong> ${data.toLocaleString()}</p>`);
+        } else {
+            $('#numChattersContainer').html(`<p class="text-danger">{{ _("Unable to fetch chatter count.") }}</p>`);
+        }
+    }).fail(function() {
+        $('#numChattersContainer').html(`<p class="text-danger">{{ _("Error fetching chatter count.") }}</p>`);
+    });
+
+    // Fetch user count
+    $.get('/api/get_num_messages', function(data) {
+        if (data) {
+            $('#numMsgsContainer').html(`<p><strong>{{ _("Number of Chat Messages Processed:") }}</strong> ${data.toLocaleString()}</p>`);
+        } else {
+            $('#numMsgsContainer').html(`<p class="text-danger">{{ _("Unable to fetch message count.") }}</p>`);
+        }
+    }).fail(function() {
+        $('#numMsgsContainer').html(`<p class="text-danger">{{ _("Error fetching message count.") }}</p>`);
     });
 
     // Fetch latest updates

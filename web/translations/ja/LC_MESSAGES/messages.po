@@ -502,4 +502,11 @@ msgstr "最も面白い瞬間のタイムスタンプ"
 msgid "Featured"
 msgstr "特集"
 
+msgid "Site Metrics"
+msgstr "サイト指標"
+
+msgid "Blog"
+msgstr "ブログ (英語のみ)"
+
+
 

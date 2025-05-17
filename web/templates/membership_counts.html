@@ -244,8 +244,9 @@ $(document).ready(function() {
         $('#membershipChart').addClass('d-none');
 
         fetch(url)
-            .then(response => response.json())
+            .then(response => response.text())
             .then(data => {
+                data = JSON.parse(data);
                 if (data.error) {
                     console.error("API Error:", data.error);
                     return;

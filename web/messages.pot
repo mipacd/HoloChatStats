@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-12 14:06-0400\n"
+"POT-Creation-Date: 2025-05-17 13:54-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,20 +17,20 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:684 server.py:842 server.py:908 server.py:1012 server.py:1034
-#: server.py:1195 server.py:1243 server.py:1312 server.py:1388
+#: server.py:811 server.py:1008 server.py:1088 server.py:1199 server.py:1237
+#: server.py:1412 server.py:1466 server.py:1536 server.py:1622
 msgid "Missing required parameters"
 msgstr ""
 
-#: server.py:1227
+#: server.py:1444
 msgid "No data found"
 msgstr ""
 
-#: server.py:1391
+#: server.py:1625
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
-#: templates/channel_clustering.html:8 templates/menu.html:56
+#: templates/channel_clustering.html:8 templates/menu.html:60
 msgid "Channel Clusters by Common Users"
 msgstr ""
 
@@ -97,7 +97,7 @@ msgid "Failed to load clustering graph."
 msgstr ""
 
 #: templates/chat_leaderboards.html:8 templates/chat_leaderboards.html:42
-#: templates/menu.html:58
+#: templates/menu.html:62
 msgid "Chat Leaderboards"
 msgstr ""
 
@@ -154,7 +154,7 @@ msgid "Error fetching data. Please try again later."
 msgstr ""
 
 #: templates/chat_makeup.html:8 templates/chat_makeup.html:109
-#: templates/menu.html:74
+#: templates/menu.html:78
 msgid "Chat Makeup"
 msgstr ""
 
@@ -208,7 +208,7 @@ msgid "Download CSV"
 msgstr ""
 
 #: templates/common_members.html:8 templates/common_members.html:49
-#: templates/menu.html:55
+#: templates/menu.html:59
 msgid "Common Members by Channel / Month"
 msgstr ""
 
@@ -269,7 +269,7 @@ msgid "Source Channels"
 msgstr ""
 
 #: templates/common_users.html:6 templates/common_users.html:50
-#: templates/menu.html:54
+#: templates/menu.html:58
 msgid "Common Users by Channel / Month"
 msgstr ""
 
@@ -294,7 +294,7 @@ msgid "No common users found for the selected criteria."
 msgstr ""
 
 #: templates/engagement.html:8 templates/engagement.html:39
-#: templates/menu.html:60
+#: templates/menu.html:64
 msgid "Engagement Rates"
 msgstr ""
 
@@ -303,7 +303,7 @@ msgid "Average chat message count per user."
 msgstr ""
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:41
-#: templates/menu.html:59
+#: templates/menu.html:63
 msgid "Exclusive Chat Users"
 msgstr ""
 
@@ -380,12 +380,16 @@ msgstr ""
 msgid "BlueSky"
 msgstr ""
 
+#: templates/index.html:116
+msgid "Featured"
+msgstr ""
+
 #: templates/index.html:121
 msgid "Common User Channel Clusters"
 msgstr ""
 
 #: templates/index.html:127 templates/membership_counts.html:8
-#: templates/membership_counts.html:130 templates/menu.html:62
+#: templates/membership_counts.html:130 templates/menu.html:66
 msgid "Membership Counts"
 msgstr ""
 
@@ -405,48 +409,80 @@ msgstr ""
 msgid "Loading chat log count..."
 msgstr ""
 
-#: templates/index.html:158
+#: templates/index.html:153
+msgid "Loading user count..."
+msgstr ""
+
+#: templates/index.html:156
+msgid "Loading message count..."
+msgstr ""
+
+#: templates/index.html:164
 msgid "Latest Updates"
 msgstr ""
 
-#: templates/index.html:160 templates/index.html:207
+#: templates/index.html:166 templates/index.html:235
 msgid "No updates available."
 msgstr ""
 
-#: templates/index.html:177
+#: templates/index.html:183
 msgid "Start:"
 msgstr ""
 
-#: templates/index.html:178
+#: templates/index.html:184
 msgid "End:"
 msgstr ""
 
-#: templates/index.html:181
+#: templates/index.html:187
 msgid "Unable to fetch date ranges."
 msgstr ""
 
-#: templates/index.html:184
+#: templates/index.html:190
 msgid "Error fetching date ranges."
 msgstr ""
 
-#: templates/index.html:190
+#: templates/index.html:196
 msgid "Number of Chat Logs Processed:"
 msgstr ""
 
-#: templates/index.html:192
+#: templates/index.html:198
 msgid "Unable to fetch chat log count."
 msgstr ""
 
-#: templates/index.html:195
+#: templates/index.html:201
 msgid "Error fetching chat log count."
 msgstr ""
 
-#: templates/index.html:210
+#: templates/index.html:207
+msgid "Number of Unique Chatters Observed:"
+msgstr ""
+
+#: templates/index.html:209
+msgid "Unable to fetch chatter count."
+msgstr ""
+
+#: templates/index.html:212
+msgid "Error fetching chatter count."
+msgstr ""
+
+#: templates/index.html:218
+msgid "Number of Chat Messages Processed:"
+msgstr ""
+
+#: templates/index.html:220
+msgid "Unable to fetch message count."
+msgstr ""
+
+#: templates/index.html:223
+msgid "Error fetching message count."
+msgstr ""
+
+#: templates/index.html:238
 msgid "Error fetching updates."
 msgstr ""
 
 #: templates/jp_user_percents.html:8 templates/jp_user_percents.html:43
-#: templates/menu.html:76
+#: templates/menu.html:80
 msgid "JP User Percentages"
 msgstr ""
 
@@ -461,7 +497,7 @@ msgid "JP User Percentage"
 msgstr ""
 
 #: templates/membership_change.html:8 templates/membership_change.html:111
-#: templates/menu.html:64
+#: templates/menu.html:68
 msgid "Membership Gain / Loss"
 msgstr ""
 
@@ -490,7 +526,7 @@ msgid "Total Members:"
 msgstr ""
 
 #: templates/membership_percentages.html:8
-#: templates/membership_percentages.html:39 templates/menu.html:63
+#: templates/membership_percentages.html:39 templates/menu.html:67
 msgid "Membership Percentages"
 msgstr ""
 
@@ -502,62 +538,67 @@ msgstr ""
 msgid "Membership Percentage"
 msgstr ""
 
-#: templates/menu.html:45
+#: templates/menu.html:49
 msgid "Home"
 msgstr ""
 
-#: templates/menu.html:51
+#: templates/menu.html:55
 msgid "Users and Memberships"
 msgstr ""
 
-#: templates/menu.html:57
+#: templates/menu.html:61
 msgid "Active User Gain / Loss"
 msgstr ""
 
-#: templates/menu.html:61 templates/user_info.html:8
+#: templates/menu.html:65 templates/user_info.html:8
 #: templates/user_info.html:42
 msgid "Message Frequencies by User"
 msgstr ""
 
-#: templates/menu.html:71
+#: templates/menu.html:75
 msgid "Language Stats"
 msgstr ""
 
-#: templates/menu.html:75 templates/message_types.html:8
+#: templates/menu.html:79 templates/message_types.html:8
 #: templates/message_types.html:42
 msgid "Message Percentages and Rates by Language"
 msgstr ""
 
-#: templates/menu.html:83 templates/monthly_streaming_hours.html:95
+#: templates/menu.html:87 templates/monthly_streaming_hours.html:95
 #: templates/monthly_streaming_hours.html:152
 msgid "Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:86 templates/streaming_hours.html:8
+#: templates/menu.html:90 templates/streaming_hours.html:8
 #: templates/streaming_hours.html:61
 msgid "Total Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:87 templates/streaming_hours_avg.html:61
+#: templates/menu.html:91 templates/streaming_hours_avg.html:61
 msgid "Average Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:88 templates/streaming_hours_max.html:8
+#: templates/menu.html:92 templates/streaming_hours_max.html:8
 #: templates/streaming_hours_max.html:61
 msgid "Longest Stream Duration"
 msgstr ""
 
-#: templates/menu.html:89
+#: templates/menu.html:93
 msgid "Streaming Hour Change"
 msgstr ""
 
-#: templates/menu.html:90 templates/monthly_streaming_hours.html:8
+#: templates/menu.html:94 templates/monthly_streaming_hours.html:8
 #: templates/monthly_streaming_hours.html:41
 msgid "Monthly Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:95
+#: templates/menu.html:99
 msgid "Funniest Moments"
+msgstr ""
+
+#: templates/menu.html:105 templates/site_metrics.html:8
+#: templates/site_metrics.html:52
+msgid "Site Metrics"
 msgstr ""
 
 #: templates/message_types.html:44

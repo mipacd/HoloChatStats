@@ -136,12 +136,13 @@ $(document).ready(function() {
                         borderWidth: 1
                     }];
                     chart.update();
+                    $('#chartSpinner').hide();
                 },
                 error: function() {
                     $('#chartSpinner').hide();
                 }
             });
-            $('#chartSpinner').hide();
+            
         }
 
     // Set default values
