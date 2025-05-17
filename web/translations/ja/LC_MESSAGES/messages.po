@@ -508,5 +508,12 @@ msgstr "サイト指標"
 msgid "Blog"
 msgstr "ブログ (英語のみ)"
 
+msgid "Number of Unique Chatters Observed:"
+msgstr "観測されたユニークチャッター数:"
+
+msgid "Number of Chat Messages Processed:"
+msgstr "処理されたチャットメッセージ数:"
+
+
 
 

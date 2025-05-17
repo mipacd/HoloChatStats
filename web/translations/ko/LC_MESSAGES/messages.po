@@ -509,5 +509,12 @@ msgstr "사이트 지표"
 msgid "Blog"
 msgstr "블로그 (영어 전용)"
 
+msgid "Number of Unique Chatters Observed:"
+msgstr "관찰된 고유 채팅 사용자 수:"
+
+msgid "Number of Chat Messages Processed:"
+msgstr "처리된 채팅 메시지 수:"
+
+
 
 
