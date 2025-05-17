@@ -1,11 +1,11 @@
+import hashlib
 from flask import Flask, request, jsonify, render_template, session, redirect, g
 from flask_babel import Babel, _
+import pytz
 from werkzeug.middleware.proxy_fix import ProxyFix
-from flask_caching import Cache
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 import requests
-from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import configparser
 import os
@@ -24,6 +24,7 @@ from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Metric
 from functools import wraps
 import time
+import redis
 
 def get_config(key1, key2):
     """
@@ -66,7 +67,6 @@ os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = get_config("API", "GAAPIKeyFile")
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
-cache = Cache(app, config={"CACHE_TYPE": "filesystem", "CACHE_DIR": get_config("Settings", "CacheDir")})
 
 DB_CONFIG = {
     "dbname": get_config("Database", "DBName"),
@@ -80,6 +80,10 @@ LANGUAGES = {
     'en': 'English',
     'ja': '日本語',
     'ko': '한국어'
+}
+REDIS_CONFIG = {
+    "host": get_config("Redis", "Host"),
+    "port": get_config("Redis", "Port"),
 }
 
 # Setup logging
@@ -115,12 +119,6 @@ def get_google_analytics_visitors():
     
     return count
 
-@app.route('/api/visitor_count')
-@cache.cached(timeout=3600)
-def visitor_count():
-    count = get_google_analytics_visitors()
-    return jsonify({'count': count})
-
 # Access logging and detect language
 @app.before_request
 def before_request():
@@ -130,8 +128,18 @@ def before_request():
         user_lang = request.headers.get('Accept-Language', 'en').split(',')[0][:2]
         session['language'] = user_lang if user_lang in ['en', 'ja', 'ko'] else 'en'
     
-    g.db_conn = get_db_connection()
-    g.db_conn.cursor().execute("SET statement_timeout = '60s'")
+    # Initialize database connection
+    if not hasattr(g, 'db_conn'):
+        g.db_conn = get_db_connection()
+        g.db_conn.cursor().execute("SET statement_timeout = '120s'")
+    
+    # Initialize Redis connection
+    if not hasattr(g, 'redis_conn'):
+        g.redis_conn = redis.StrictRedis(
+            host=REDIS_CONFIG["host"],
+            port=REDIS_CONFIG["port"],
+            decode_responses=True
+        )
 
 @app.teardown_request
 def teardown_request(exception):
@@ -179,6 +187,90 @@ def get_sqlite_connection():
         """)
     return g.sqlite_conn
 
+# Track site metrics in Redis
+def track_metrics():
+    """Tracks unique visitors per country and aggregates page views over 30 days."""
+    country = request.headers.get("CF-IPCountry", "Unknown")
+    page = request.path
+    if any(path in page for path in ["/api/", "/static/", "/favicon.ico", "/set_language/"]):
+        return
+
+    # Get current UTC date in YYYY-MM-DD format
+    today = datetime.now(pytz.utc).strftime("%Y-%m-%d")
+    
+    visitor_ip = hashlib.sha256(request.headers.get("CF-Connecting-IP", request.remote_addr).encode()).hexdigest()
+
+    # Track unique visitors per country
+    g.redis_conn.sadd(f"unique_visitors_country:{country}:{today}", visitor_ip)
+
+    # Aggregate page views across 30 days instead of daily counts
+    g.redis_conn.hincrby("page_views_30d", page, 1)
+
+    # Ensure expiry for cleanup
+    expiry_time = 2592000  # 30 days in seconds
+    g.redis_conn.expire(f"unique_visitors_country:{country}:{today}", expiry_time)
+    g.redis_conn.expire("page_views_30d", expiry_time)
+    g.redis_conn.expire(f"cache_hits:{today}", expiry_time)
+    g.redis_conn.expire(f"cache_misses:{today}", expiry_time)
+
+@app.route('/api/metrics/<metric_type>', methods=['GET'])
+def get_metrics(metric_type):
+    """Retrieve aggregated metrics over the last 30 days."""
+    redis_conn = g.redis_conn
+    today = datetime.now(pytz.utc)
+    metrics = {}
+
+    if metric_type == "page_views":
+        # Page views over 30 days directly from aggregated storage
+        return jsonify(redis_conn.hgetall("page_views_30d"))
+
+    elif metric_type == "country_visits":
+        # Aggregating unique visitors per country across 30 days
+        country_counts = {}
+
+        for i in range(30):
+            date_str = (today - relativedelta(days=i)).strftime("%Y-%m-%d")
+            for country in redis_conn.keys(f"unique_visitors_country:*:{date_str}"):
+                country_code = country.split(":")[1]
+                unique_visitors = redis_conn.scard(country)
+                country_counts[country_code] = country_counts.get(country_code, 0) + unique_visitors
+
+        # Sorting results from highest to lowest
+        sorted_countries = dict(sorted(country_counts.items(), key=lambda x: x[1], reverse=True))
+        return jsonify(sorted_countries)
+
+    elif metric_type == "unique_visitors":
+        # Get unique visitor count per day over the last 30 days
+        for i in range(30):
+            date_str = (today - relativedelta(days=i)).strftime("%Y-%m-%d")
+            metrics[date_str] = redis_conn.scard(f"unique_visitors:{date_str}")
+        return jsonify(metrics)
+    elif metric_type == "cache_data":
+        # Get daily cache hit/miss counts for last 30 days
+        for i in range(30):
+            date_str = (today - relativedelta(days=i)).strftime("%Y-%m-%d")
+            cache_hits = redis_conn.get(f"cache_hits:{date_str}") or 0
+            cache_misses = redis_conn.get(f"cache_misses:{date_str}") or 0
+            metrics[date_str] = {
+                "cache_hits": int(cache_hits),
+                "cache_misses": int(cache_misses)
+            }
+        return jsonify(metrics)
+
+    return jsonify({"error": "Invalid metric type"}), 400
+
+def inc_cache_hit_count():
+    """Increment cache hit count in Redis."""
+    redis_conn = g.redis_conn
+    today = datetime.now(pytz.utc).strftime("%Y-%m-%d")
+    redis_conn.incr(f"cache_hits:{today}")
+
+def inc_cache_miss_count():
+    """Increment cache miss count in Redis."""
+    redis_conn = g.redis_conn
+    today = datetime.now(pytz.utc).strftime("%Y-%m-%d")
+    redis_conn.incr(f"cache_misses:{today}")
+
 @app.before_request
 def before_request():
     real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
@@ -191,6 +283,7 @@ def before_request():
     g.db_conn.cursor().execute("SET statement_timeout = '60s'")
     # Initialize SQLite connection for this request
     get_sqlite_connection()
+    track_metrics()
 
 @app.teardown_request
 def teardown_request(exception):
@@ -231,10 +324,13 @@ def check_rate_limit(ip):
     except Exception as e:
         app.logger.error(f"Rate limit check failed: {str(e)}")
         return app.config["DAILY_LIMIT"]  # Fail open by returning full limit
+    
+# Return current month in YYYY-MM format
+def get_current_month():
+    return datetime.utcnow().strftime('%Y-%m')
 
 @app.route('/api/llm/query', methods=['POST'])
 @timeout(300)
-@cache.cached(timeout=60, query_string=True)
 def llm_query():
     try:
         data = request.get_json()
@@ -250,6 +346,14 @@ def llm_query():
             }), 429
         if not data or 'question' not in data or 'chart_context' not in data:
             return jsonify({"error": "Invalid request format"}), 400
+        
+        question_hash = hash(data['question'])
+        redis_key = f"llm_query_{question_hash}"
+        cached_response = g.redis_conn.get(redis_key)
+        if cached_response:
+            inc_cache_hit_count()
+            return jsonify(json.loads(cached_response))
+        inc_cache_miss_count()
 
         # Format prompt based on chart type
         context = data['chart_context']
@@ -399,12 +503,17 @@ Answer:"""
         except Exception as e:
             app.logger.error(f"Failed to update usage count: {str(e)}")
 
-        return jsonify({
+        # Cache the response in Redis
+        output = {
             "answer": answer,
             "supporting_data": None,
             "error": None,
             "remaining_queries": remaining - 1
-        })
+        }
+        g.redis_conn.set(redis_key, json.dumps(output))
+
+        return jsonify(output)
+
 
     except requests.exceptions.RequestException as e:
         app.logger.error(f"OpenRouter connection error: {str(e)}")
@@ -441,7 +550,6 @@ def streaming_hours_query(aggregation_function, group=None):
     return base_query, params
 
 @app.route('/api/channel_clustering', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def channel_clustering():
     try:
         filter_month = request.args.get("month")
@@ -449,8 +557,17 @@ def channel_clustering():
         graph_type = request.args.get("type", "2d")  # Default to 2d if not specified
         if not filter_month:
             return jsonify({"error": "Month filter (e.g., '2025-03') is required"}), 400
+        redis_key = f"channel_clustering_{filter_month}_{percentile}_{graph_type}"
 
         cursor = g.db_conn.cursor()
+
+        # Check if data is cached in Redis
+        cached_data = g.redis_conn.get(redis_key)
+        if cached_data:
+            inc_cache_hit_count()
+            # If cached data is found, return it
+            return jsonify(json.loads(cached_data))
+        inc_cache_miss_count()
 
         cursor.execute("""
             SELECT ud.user_id, ch.channel_name, SUM(ud.total_message_count) AS message_weight
@@ -666,7 +783,11 @@ def channel_clustering():
 
         graph_json = json.dumps(fig, cls=PlotlyJSONEncoder)
 
-        return jsonify({"graph_json": graph_json})
+        output = { "graph_json": graph_json }
+
+        g.redis_conn.set(redis_key, json.dumps(output))
+
+        return jsonify(output)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -674,11 +795,18 @@ def channel_clustering():
 
 
 @app.route('/api/get_monthly_streaming_hours', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_monthly_streaming_hours():
     """API to fetch total streaming hours per month for a given channel."""
 
     channel_name = request.args.get('channel')
+    redis_key = f"monthly_streaming_hours_{channel_name}"
+    # Check if data is cached in Redis
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        # If cached data is found, return it
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     if not channel_name:
         return jsonify({"error": _("Missing required parameters")}), 400
@@ -700,12 +828,23 @@ def get_monthly_streaming_hours():
     cursor.close()
 
     # Convert results into JSON format
-    return jsonify([{"month": row[0].strftime('%Y-%m'), "total_streaming_hours": row[1]} for row in results])
+    output = jsonify([{"month": row[0].strftime('%Y-%m'), "total_streaming_hours": row[1]} for row in results])
+    g.redis_conn.set(redis_key, output.get_data(as_text=True))
+    return output
 
 
 @app.route('/api/get_group_total_streaming_hours', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_group_total_streaming_hours():
+    month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))
+    group = request.args.get('group', None)
+
+    redis_key = f"group_total_streaming_hours_{group}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
+    
     query, params = streaming_hours_query('SUM')
     try:
         with g.db_conn.cursor() as cur:
@@ -715,13 +854,24 @@ def get_group_total_streaming_hours():
             {"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)}
             for row in results if row[2] is not None
         ]
-        return jsonify({"success": True, "data": data})
+        output = jsonify({"success": True, "data": data})
+        g.redis_conn.set(redis_key, output.get_data(as_text=True))
+        return output
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/get_group_avg_streaming_hours', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_group_avg_streaming_hours():
+    month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))
+    group = request.args.get('group', None)
+
+    redis_key = f"group_avg_streaming_hours_{group}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
+    
     query, params = streaming_hours_query('AVG')
     try:
         with g.db_conn.cursor() as cur:
@@ -731,13 +881,24 @@ def get_group_avg_streaming_hours():
             {"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)}
             for row in results if row[2] is not None
         ]
-        return jsonify({"success": True, "data": data})
+        output = jsonify({"success": True, "data": data})
+        g.redis_conn.set(redis_key, output.get_data(as_text=True))
+        return output
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/get_group_max_streaming_hours', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_group_max_streaming_hours():
+    month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))
+    group = request.args.get('group', None)
+
+    redis_key = f"group_max_streaming_hours_{group}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
+    
     query, params = streaming_hours_query('MAX')
     try:
         with g.db_conn.cursor() as cur:
@@ -747,36 +908,41 @@ def get_group_max_streaming_hours():
             {"channel": row[0], "month": row[1].strftime('%Y-%m'), "hours": round(row[2], 2)}
             for row in results if row[2] is not None
         ]
-        return jsonify({"success": True, "data": data})
+        output = jsonify({"success": True, "data": data})
+        g.redis_conn.set(redis_key, output.get_data(as_text=True))
+        return output
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/api/get_group_chat_makeup', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_group_chat_makeup():
     """API to fetch chat makeup statistics per channel, with optional filtering."""
     group = request.args.get('group', None)  # "Hololive", "Indie", or None
     month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))  # Default: current month
-    timezone_offset = int(request.args.get('timezone', 0))  # Default: UTC (0)
+
+    redis_key = f"group_chat_makeup_{group}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     # Convert 'YYYY-MM' to 'YYYY-MM-01' and the end of that month ('YYYY-MM-01')
     start_month = datetime.strptime(month + "-01", '%Y-%m-%d').strftime('%Y-%m-01')
 
-    # Calculate time zone offset for INTERVAL
-    timezone_interval = f"{timezone_offset} hours"
 
     # SQL query to calculate rates
     query = """
         WITH streaming_time AS (
             SELECT 
                 v.channel_id,
-                DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC' + INTERVAL %s) AS observed_month,
+                DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC') AS observed_month,
                 SUM(EXTRACT(EPOCH FROM v.duration)) / 60 AS total_streaming_minutes
             FROM videos v
             WHERE duration IS NOT NULL 
             AND duration > INTERVAL '0 seconds'
             AND has_chat_log = 't'
-            AND DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC' + INTERVAL %s) = %s::DATE
+            AND DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC') = %s::DATE
             GROUP BY v.channel_id, observed_month
         )
         SELECT 
@@ -794,7 +960,7 @@ def get_group_chat_makeup():
             AND CAST(st.observed_month AS DATE) = CAST(cls.observed_month AS DATE)
     """
 
-    params = [timezone_interval, timezone_interval, start_month]
+    params = [start_month]
 
     # Group filtering
     if group:
@@ -823,14 +989,15 @@ def get_group_chat_makeup():
             for row in results
         ]
 
-        return jsonify({"success": True, "data": data})
+        output =  jsonify({"success": True, "data": data})
+        g.redis_conn.set(redis_key, output.get_data(as_text=True))
+        return output
 
     except Exception as e:
         print(f"Error: {e}")  # Print error message for debugging
         return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/api/get_common_users', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_common_users():
     """API to get common users between two (channel, month) pairs."""
     channel_a = request.args.get('channel_a')
@@ -840,6 +1007,13 @@ def get_common_users():
 
     if not (channel_a and month_a and channel_b and month_b):
         return jsonify({"error": _("Missing required parameters")}), 400
+    
+    redis_key = f"common_users_{channel_a}_{month_a}_{channel_b}_{month_b}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     month_a += "-01"
     month_b += "-01"
@@ -886,23 +1060,30 @@ def get_common_users():
             "channel_b": results[0][1],
             "month_a": results[0][2].strftime('%Y-%m'),
             "month_b": results[0][3].strftime('%Y-%m'),
-            "num_common_users": results[0][4],
-            "percent_A_to_B_users": round(results[0][5], 2) if results[0][5] is not None else None,
-            "percent_B_to_A_users": round(results[0][6], 2) if results[0][6] is not None else None
+            "num_common_users": int(results[0][4]),
+            "percent_A_to_B_users": float(round(results[0][5], 2)) if results[0][5] is not None else None,
+            "percent_B_to_A_users": float(round(results[0][6], 2)) if results[0][6] is not None else None
         }
+        g.redis_conn.set(redis_key, json.dumps(data))
     else:
         data = {}
 
     return jsonify(data)
 
 @app.route('/api/get_common_members', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_common_members():
     """API to get common members between two (channel, month) pairs."""
     channel_a = request.args.get('channel_a')
     month_a = request.args.get('month_a')  # YYYY-MM format
     channel_b = request.args.get('channel_b')
     month_b = request.args.get('month_b')  # YYYY-MM format
+
+    redis_key = f"common_members_{channel_a}_{month_a}_{channel_b}_{month_b}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     if not (channel_a and month_a and channel_b and month_b):
         return jsonify({"error": _("Missing required parameters")}), 400
@@ -990,10 +1171,11 @@ def get_common_members():
             "channel_b": results[0][1],
             "month_a": results[0][2].strftime('%Y-%m'),
             "month_b": results[0][3].strftime('%Y-%m'),
-            "num_common_members": results[0][4],
-            "percent_A_to_B_members": round(results[0][5], 2) if results[0][5] is not None else None,
-            "percent_B_to_A_members": round(results[0][6], 2) if results[0][6] is not None else None
+            "num_common_members": int(results[0][4]),
+            "percent_A_to_B_members": float(round(results[0][5], 2)) if results[0][5] is not None else None,
+            "percent_B_to_A_members": float(round(results[0][6], 2)) if results[0][6] is not None else None
         }
+        g.redis_conn.set(redis_key, json.dumps(data))
     else:
         data = {}
 
@@ -1002,11 +1184,17 @@ def get_common_members():
 
 
 @app.route('/api/get_group_membership_data', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_group_membership_counts():
     cursor = g.db_conn.cursor()
     channel_group = request.args.get('channel_group')
     month = request.args.get('month')  # Expected format: YYYY-MM
+
+    redis_key = f"group_membership_data_{channel_group}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     if not channel_group or not month:
         return jsonify({"error": _("Missing required parameters")}), 400
@@ -1017,18 +1205,34 @@ def get_group_membership_counts():
     results = cursor.fetchall()
     cursor.close()
 
-    return jsonify(results)
+    output = [
+        [
+            row[0],
+            int(row[1]),
+            float(row[2]),
+            float(row[3])
+        ] for row in results
+    ]
+
+    g.redis_conn.set(redis_key, json.dumps(output))
+
+    return jsonify(output)
 
 @app.route('/api/get_group_membership_changes', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_group_membership_changes():
     """API to fetch membership gains, losses, and differential by group and month."""
     cursor = g.db_conn.cursor()
 
     channel_group = request.args.get('channel_group')
     month = request.args.get('month')  # Expected format: YYYY-MM
-    
 
+    redis_key = f"group_membership_changes_{channel_group}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
+    
     # Validate required parameters
     if not channel_group or not month:
         return jsonify({"error": _("Missing required parameters")}), 400
@@ -1103,18 +1307,25 @@ def get_group_membership_changes():
         for row in results if row[1] is not None
     ]
 
+    g.redis_conn.set(redis_key, json.dumps(response_data))
+
     return jsonify(response_data)
 
 
 @app.route('/api/get_group_streaming_hours_diff', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_group_streaming_hours_diff():
     """API to fetch the change in streaming hours since the previous month for a given group and timezone."""
 
     # Get request parameters
     month = request.args.get('month')  # Expected format: YYYY-MM
-    timezone_offset = request.args.get('timezone', '0')  # Default to UTC
     channel_group = request.args.get('group', None)
+
+    redis_key = f"group_streaming_hours_diff_{channel_group}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     if not month:
         return jsonify({"success": False, "error": "Missing required parameter: month"}), 400
@@ -1122,7 +1333,6 @@ def get_group_streaming_hours_diff():
     try:
         # Convert month into correct format
         month_date = datetime.strptime(month, "%Y-%m")
-        prev_month_date = (month_date.replace(day=1) - timedelta(days=1)).replace(day=1)
     except ValueError:
         return jsonify({"success": False, "error": "Invalid month format. Use YYYY-MM."}), 400
 
@@ -1131,7 +1341,7 @@ def get_group_streaming_hours_diff():
         WITH monthly_streaming AS (
             SELECT
                 c.channel_name,
-                DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC' + INTERVAL %s) AS observed_month,
+                DATE_TRUNC('month', v.end_time AT TIME ZONE 'UTC') AS observed_month,
                 SUM(EXTRACT(EPOCH FROM v.duration)) / 3600 AS total_streaming_hours
             FROM videos v
             JOIN channels c ON v.channel_id = c.channel_id
@@ -1152,7 +1362,7 @@ def get_group_streaming_hours_diff():
 
     # Apply channel group filtering if provided
     group_filter = ""
-    params = [f"{timezone_offset} hours"]
+    params = ""
     if channel_group:
         group_filter = "WHERE c.channel_group = %s"
         params.append(channel_group)
@@ -1181,15 +1391,23 @@ def get_group_streaming_hours_diff():
         for row in results
     ]
 
+    g.redis_conn.set(redis_key, json.dumps(data))
+
     return jsonify({"success": True, "data": data})
 
 @app.route('/api/get_chat_leaderboard', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_chat_leaderboard():
     """API to fetch the top 10 chatters for a given channel and month."""
 
     channel_name = request.args.get('channel_name')
     month = request.args.get('month')  # Expected format: YYYY-MM
+
+    redis_key = f"chat_leaderboard_{channel_name}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     if not channel_name or not month:
         return jsonify({"error": _("Missing required parameters")}), 400
@@ -1225,14 +1443,20 @@ def get_chat_leaderboard():
 
     if not results:
         return jsonify({"error": _("No data found")}), 404
-
-    return jsonify([
-        {"user_name": row[0], "message_count": row[1]}
+    
+    output = [
+        {
+            "user_name": row[0],
+            "message_count": row[1]
+        }
         for row in results
-    ])
+    ]
+
+    g.redis_conn.set(redis_key, json.dumps(output))
+
+    return jsonify(output)
 
 @app.route('/api/get_user_changes', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_user_changes():
     """API to fetch user gains and losses per channel in a given group and month."""
 
@@ -1241,6 +1465,13 @@ def get_user_changes():
 
     if not (channel_group and month):
         return jsonify({"error": _("Missing required parameters")}), 400
+    
+    redis_key = f"user_changes_{channel_group}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     # Compute start dates
     current_month_start = f"{month}-01"
@@ -1248,38 +1479,31 @@ def get_user_changes():
 
     query = """
         WITH current_month_users AS (
-            SELECT user_id, channel_id
-            FROM mv_user_monthly_activity
-            WHERE observed_month = %s::DATE AND monthly_message_count >= 5
+        SELECT user_id, channel_id
+        FROM mv_user_monthly_activity
+        WHERE observed_month = %s::DATE AND monthly_message_count >= 5
         ),
         previous_month_users AS (
             SELECT user_id, channel_id
             FROM mv_user_monthly_activity
             WHERE observed_month = %s::DATE AND monthly_message_count >= 5
         ),
-        users_gained AS (
-            SELECT user_id, channel_id
-            FROM current_month_users
-            EXCEPT
-            SELECT user_id, channel_id
-            FROM previous_month_users
-        ),
-        users_lost AS (
-            SELECT user_id, channel_id
-            FROM previous_month_users
-            EXCEPT
-            SELECT user_id, channel_id
-            FROM current_month_users
+        channel_groups AS (
+            SELECT channel_id, channel_group
+            FROM channels
         )
         SELECT
             c.channel_name,
-            (SELECT COUNT(*) FROM users_gained WHERE channel_id = c.channel_id) AS users_gained,
-            (SELECT COUNT(*) FROM users_lost WHERE channel_id = c.channel_id) AS users_lost,
-            (SELECT COUNT(*) FROM users_gained WHERE channel_id = c.channel_id) -
-            (SELECT COUNT(*) FROM users_lost WHERE channel_id = c.channel_id) AS net_change
+            SUM(CASE WHEN uma1.user_id IS NOT NULL THEN 1 ELSE 0 END) AS users_gained,
+            SUM(CASE WHEN uma2.user_id IS NOT NULL THEN 1 ELSE 0 END) AS users_lost,
+            SUM(CASE WHEN uma1.user_id IS NOT NULL THEN 1 ELSE 0 END) - 
+            SUM(CASE WHEN uma2.user_id IS NOT NULL THEN 1 ELSE 0 END) AS net_change
         FROM channels c
-        WHERE c.channel_group = %s
-        ORDER BY net_change DESC;
+        JOIN channel_groups cg ON c.channel_id = cg.channel_id
+        LEFT JOIN current_month_users uma1 ON c.channel_id = uma1.channel_id
+        LEFT JOIN previous_month_users uma2 ON c.channel_id = uma2.channel_id AND uma1.user_id = uma2.user_id
+        WHERE cg.channel_group = %s
+        GROUP BY c.channel_name
     """
 
     cursor = g.db_conn.cursor()
@@ -1299,10 +1523,11 @@ def get_user_changes():
         if row[1] > 0 and row[2] > 0  # Exclude channels with no data for either month
     ]
 
+    g.redis_conn.set(redis_key, json.dumps(filtered_results))
+
     return jsonify(filtered_results)
 
 @app.route('/api/get_exclusive_chat_users', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_exclusive_chat_users():
     """API to fetch the percentage of exclusive chat users for a given channel per month."""
 
@@ -1310,6 +1535,13 @@ def get_exclusive_chat_users():
 
     if not channel_name:
         return jsonify({"error": _("Missing required parameters")}), 400
+    
+    redis_key = f"exclusive_chat_users_{channel_name}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
     
     cursor = g.db_conn.cursor()
     cursor.execute(
@@ -1368,11 +1600,14 @@ def get_exclusive_chat_users():
     results = cursor.fetchall()
     cursor.close()
 
-    # Convert results into JSON format
-    return jsonify([
-        {"month": row[0].strftime('%Y-%m'), "percent": row[1]}
+    output = [
+        {"month": row[0].strftime('%Y-%m'), "percent": float(row[1])}
         for row in results
-    ])
+    ]
+
+    g.redis_conn.set(redis_key, json.dumps(output))
+
+    return jsonify(output)
 
 @app.route('/api/get_message_type_percents', methods=['GET'])
 def get_message_type_percents():
@@ -1389,6 +1624,13 @@ def get_message_type_percents():
 
     if language not in ["EN", "JP", "KR", "RU"]:
         return jsonify({"error": _("Invalid language parameter. Must be one of: EN, JP, KR, RU.")}), 400
+    
+    redis_key = f"message_type_percents_{channel_name}_{language}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     # Map language codes to database columns
     language_column_map = {
@@ -1436,14 +1678,20 @@ def get_message_type_percents():
     results = cursor.fetchall()
     cursor.close()
 
-    # Convert results into JSON format
-    return jsonify([
-        {"month": row[0].strftime('%Y-%m'), "percent": row[1], "message_rate": row[2]}
+    output = [
+        {
+            "month": row[0].strftime('%Y-%m'),
+            "percent": float(row[1]),
+            "message_rate": float(row[2])
+        }
         for row in results
-    ])
+    ]
+
+    g.redis_conn.set(redis_key, json.dumps(output))
+
+    return jsonify(output)
 
 @app.route('/api/get_attrition_rates', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_attrition_rates():
     """API to calculate attrition rates of a channel's top chatters.
     Returns percentage of top 1000 chatters (from last 3 months) who continue chatting in Hololive channels."""
@@ -1453,6 +1701,13 @@ def get_attrition_rates():
 
     if not (channel_name and month):
         return jsonify({"error": "Missing required parameters"}), 400
+    
+    redis_key = f"attrition_rates_{channel_name}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     try:
         # Calculate date ranges - include full given month plus previous 2 months
@@ -1514,6 +1769,7 @@ def get_attrition_rates():
             current_month = current_month + relativedelta(months=1)
 
         cursor.close()
+        g.redis_conn.set(redis_key, json.dumps(results))
         return jsonify(results)
 
     except Exception as e:
@@ -1521,13 +1777,19 @@ def get_attrition_rates():
 
 
 @app.route('/api/get_jp_user_percent', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_jp_user_percent():
     """Returns the percentage of users using mostly Japanese (>50% of messages, excluding emoji-only messages) per month for a given channel."""
     channel_name = request.args.get('channel')
 
     if not channel_name:
         return jsonify({"error": "Missing required parameter: channel"}), 400
+    
+    redis_key = f"jp_user_percent_{channel_name}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     query = """
         WITH user_language_usage AS (
@@ -1572,7 +1834,9 @@ def get_jp_user_percent():
     cursor.close()
 
     # Format results for Chart.js
-    response = [{"month": row[0], "jp_user_percent": row[1]} for row in results]
+    response = [{"month": row[0], "jp_user_percent": float(row[1])} for row in results]
+
+    g.redis_conn.set(redis_key, json.dumps(response))
 
     return jsonify(response)
 
@@ -1597,17 +1861,31 @@ def get_latest_updates():
 
 
 @app.route('/api/get_channel_names', methods=['GET'])
-@cache.cached(timeout=86400)
 def get_channel_names():
+
+    redis_key = "channel_names"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
+    
     cursor = g.db_conn.cursor()
     cursor.execute("SELECT channel_name FROM channels ORDER BY channel_name")
     channel_names = [row[0] for row in cursor.fetchall()]
     cursor.close()
+    g.redis_conn.set(redis_key, json.dumps(channel_names))
     return jsonify(channel_names)
 
 @app.route('/api/get_date_ranges', methods=['GET'])
-@cache.cached(timeout=86400)
 def get_date_ranges():
+    redis_key = "date_ranges"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
+    
     cursor = g.db_conn.cursor()
 
     # Gets first and last date from video table using end_time
@@ -1615,19 +1893,61 @@ def get_date_ranges():
     
     date_range = cursor.fetchone()
     cursor.close()
-    return jsonify(date_range)
+
+    output = [
+        str(date_range[0]),
+        str(date_range[1])
+    ]
+    
+    g.redis_conn.set(redis_key, json.dumps(output))
+    return jsonify(output)
 
 @app.route('/api/get_number_of_chat_logs', methods=['GET'])
-@cache.cached(timeout=86400)
 def get_number_of_chat_logs():
+    redis_key = "number_of_chat_logs"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
     cursor = g.db_conn.cursor()
     cursor.execute("SELECT COUNT(*) from videos WHERE has_chat_log = 't'")
     num_chat_logs = cursor.fetchone()[0]
     cursor.close()
+    g.redis_conn.set(redis_key, json.dumps(num_chat_logs))
     return jsonify(num_chat_logs)
 
+@app.route('/api/get_num_chatters', methods=['GET'])
+def get_num_chatters():
+    redis_key = "num_chatters"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
+    cursor = g.db_conn.cursor()
+    cursor.execute("SELECT COUNT(DISTINCT user_id) FROM user_data")
+    num_chatters = cursor.fetchone()[0]
+    cursor.close()
+    g.redis_conn.set(redis_key, json.dumps(num_chatters))
+    return jsonify(num_chatters)
+
+@app.route('/api/get_num_messages', methods=['GET'])
+def get_num_messages():
+    redis_key = "num_messages"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
+    cursor = g.db_conn.cursor()
+    cursor.execute("SELECT SUM(total_message_count) FROM user_data")
+    num_messages = cursor.fetchone()[0]
+    cursor.close()
+    g.redis_conn.set(redis_key, json.dumps(num_messages))
+    return jsonify(num_messages)
+
 @app.route('/api/get_funniest_timestamps', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_funniest_timestamps():
     """API to fetch funniest timestamps using actual last chat message timestamp."""
 
@@ -1636,6 +1956,13 @@ def get_funniest_timestamps():
 
     if not (channel_name and month):
         return jsonify({"error": "Missing required parameters"}), 400
+    
+    redis_key = f"funniest_timestamps_{channel_name}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     # Convert month to a valid date range
     month_start = f"{month}-01"
@@ -1670,13 +1997,20 @@ def get_funniest_timestamps():
     results = cursor.fetchall()
     cursor.close()
 
-    return jsonify([
-        {"title": row[0], "video_id": row[1], "timestamp": int(row[2])}
+    output = [
+        {
+            "title": row[0],
+            "video_id": row[1],
+            "timestamp": int(row[2])
+        }
         for row in results if row[1] is not None and row[2] is not None
-    ])
+    ]
+
+    g.redis_conn.set(redis_key, json.dumps(output))
+
+    return jsonify(output)
 
 @app.route('/api/get_user_info', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_user_info():
     """API to fetch all channels a user chatted on in a given month,
     their total messages on that channel, and their frequency percentile."""
@@ -1686,6 +2020,13 @@ def get_user_info():
 
     if not (username and month):
         return jsonify({"error": "Missing required parameters"}), 400
+    
+    redis_key = f"user_info_{username}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     # Convert month to first day format for filtering
     month_start = f"{month}-01"
@@ -1755,14 +2096,22 @@ def get_user_info():
 
     cursor.close()
 
+    g.redis_conn.set(redis_key, json.dumps(results))
+
     return jsonify(results)
 
 @app.route('/api/get_chat_engagement', methods=['GET'])
-@cache.cached(timeout=86400, query_string=True)
 def get_chat_engagement():
     """API to fetch chat engagement statistics per channel, with optional filtering."""
     month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))  # Default: current month
     group = request.args.get('group', None)  # "Hololive", "Indie", or None
+
+    redis_key = f"chat_engagement_{month}_{group}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     # Convert 'YYYY-MM' to 'YYYY-MM-01'
     start_month = datetime.strptime(month + "-01", '%Y-%m-%d').strftime('%Y-%m-01')
@@ -1795,10 +2144,12 @@ def get_chat_engagement():
             cur.execute(query, (start_month, group, group))
             results = cur.fetchall()
         data = [
-            {"channel": row[0], "total_users": row[1], "total_messages": row[2], "avg_messages_per_user": row[3]}
+            {"channel": row[0], "total_users": int(row[1]), "total_messages": int(row[2]), "avg_messages_per_user": float(row[3])}
             for row in results if row[3] is not None
         ]
-        return jsonify({"success": True, "data": data})
+        output = {"success": True, "data": data}
+        g.redis_conn.set(redis_key, json.dumps(output))
+        return jsonify(output)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -1886,6 +2237,10 @@ def user_info_view():
 @app.route('/engagement')
 def engagement_redirect():
     return render_template('engagement.html', _=_, get_locale=get_locale)
+
+@app.route('/site_metrics')
+def site_metrics_view():
+    return render_template('site_metrics.html', _=_, get_locale=get_locale)
 
 #v1 redirects
 @app.route('/stream-time')

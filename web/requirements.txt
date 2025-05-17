@@ -1,6 +1,5 @@
 Flask
 Flask-Babel
-Flask-Caching
 psycopg2
 gunicorn
 python-dateutil
@@ -13,3 +12,4 @@ pytest
 pytest-cov
 leidenalg
 python-igraph
+redis
