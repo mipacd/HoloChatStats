@@ -192,7 +192,8 @@ def track_metrics():
     """Tracks unique visitors per country and aggregates page views over 30 days."""
     country = request.headers.get("CF-IPCountry", "Unknown")
     page = request.path
-    if any(path in page for path in ["/api/", "/static/", "/favicon.ico", "/set_language/"]):
+    if any(path in page for path in ["/api/", "/static/", "/favicon.ico", "/set_language/", "/robots.txt", "/xmlrpc.php", 
+                                     "/.vscode/", "/.well-known/", "/.sftp-config.json", "/wordpress/", "/wp-admin/"]):
         return
 
     # Get current UTC date in YYYY-MM-DD format
@@ -202,6 +203,7 @@ def track_metrics():
 
     # Track unique visitors per country
     g.redis_conn.sadd(f"unique_visitors_country:{country}:{today}", visitor_ip)
+    g.redis_conn.sadd(f"unique_visitors:{today}", visitor_ip)
 
     # Aggregate page views across 30 days instead of daily counts
     g.redis_conn.hincrby("page_views_30d", page, 1)
@@ -209,6 +211,7 @@ def track_metrics():
     # Ensure expiry for cleanup
     expiry_time = 2592000  # 30 days in seconds
     g.redis_conn.expire(f"unique_visitors_country:{country}:{today}", expiry_time)
+    g.redis_conn.expire(f"unique_visitors:{today}", expiry_time)
     g.redis_conn.expire("page_views_30d", expiry_time)
     g.redis_conn.expire(f"cache_hits:{today}", expiry_time)
     g.redis_conn.expire(f"cache_misses:{today}", expiry_time)
