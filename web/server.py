@@ -188,13 +188,14 @@ def get_sqlite_connection():
     return g.sqlite_conn
 
 # Track site metrics in Redis
-def track_metrics():
+def track_metrics(response):
     """Tracks unique visitors per country and aggregates page views over 30 days."""
+    if response.status_code != 200:
+        return response
     country = request.headers.get("CF-IPCountry", "Unknown")
     page = request.path
-    if any(path in page for path in ["/api/", "/static/", "/favicon.ico", "/set_language/", "/robots.txt", "/xmlrpc.php", 
-                                     "/.vscode/", "/.well-known/", "/.sftp-config.json", "/wordpress/", "/wp-admin/"]):
-        return
+    if any(path in page for path in ["/api/", "/static/", "/favicon.ico", "/set_language/"]):
+        return response
 
     # Get current UTC date in YYYY-MM-DD format
     today = datetime.now(pytz.utc).strftime("%Y-%m-%d")
@@ -215,6 +216,8 @@ def track_metrics():
     g.redis_conn.expire("page_views_30d", expiry_time)
     g.redis_conn.expire(f"cache_hits:{today}", expiry_time)
     g.redis_conn.expire(f"cache_misses:{today}", expiry_time)
+
+    return response
 
 @app.route('/api/metrics/<metric_type>', methods=['GET'])
 def get_metrics(metric_type):
@@ -286,7 +289,11 @@ def before_request():
     g.db_conn.cursor().execute("SET statement_timeout = '300s'")
     # Initialize SQLite connection for this request
     get_sqlite_connection()
-    track_metrics()
+
+@app.after_request
+def after_request(response):
+    track_metrics(response)
+    return response
 
 @app.teardown_request
 def teardown_request(exception):
