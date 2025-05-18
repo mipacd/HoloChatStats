@@ -10,6 +10,7 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id={{ GA_ID }}"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
@@ -49,7 +50,7 @@
 {% include 'menu.html' %}
 
 <div id="content" class="mt-3">
-    <h2 class="text-center mb-4">{{ _("Site Metrics") }}</h2>
+    <h2 class="text-center mb-4">{{ _("Live Site Metrics") }}</h2>
     
     <div class="row">
         <div class="col-md-6">
@@ -100,164 +101,145 @@
 
 <script>
 $(document).ready(function() {
+    const socket = io.connect(window.location.origin);
+
     // Page Views Chart
-    $('#pageViewsLoading').removeClass('d-none');
-    fetch('/api/metrics/page_views')
-        .then(response => response.json())
-        .then(data => {
-            const sortedPages = Object.entries(data).sort((a, b) => b[1] - a[1]);
-
-            new Chart(document.getElementById("pageViewsChart"), {
-                type: "bar",
-                data: {
-                    labels: sortedPages.map(([page]) => page),
-                    datasets: [{
-                        label: "Total Page Views (Last 30 Days)",
-                        data: sortedPages.map(([_, count]) => count),
-                        backgroundColor: "rgba(75, 192, 192, 0.6)"
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: { ticks: { color: "white" } },
-                        y: { ticks: { color: "white" } }
-                    },
-                    plugins: {
-                        title: { display: true, text: "Total Page Views (Last 30 Days)", color: "white" },
-                        legend: { labels: { color: "white" } }
-                    }
-                }
-            });
-
-            $('#pageViewsLoading').addClass('d-none');
-        })
-        .catch(error => {
-            console.error("Error loading page views:", error);
-            $('#pageViewsLoading').addClass('d-none');
-        });
-
+    let pageViewsChart = new Chart(document.getElementById("pageViewsChart"), {
+        type: "bar",
+        data: { labels: [], datasets: [{
+            label: "Total Page Views (Last 30 Days)",
+            data: [],
+            backgroundColor: "rgba(75, 192, 192, 0.6)"
+        }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { color: "white" } },
+                y: { ticks: { color: "white" } }
+            },
+            plugins: {
+                title: { display: true, text: "Total Page Views (Last 30 Days)", color: "white" },
+                legend: { labels: { color: "white" } }
+            }
+        }
+    });
 
     // Unique Visitors Chart
-    $('#uniqueVisitorsLoading').removeClass('d-none');
-    fetch('/api/metrics/unique_visitors')
-        .then(response => response.json())
-        .then(data => {
-            new Chart(document.getElementById("uniqueVisitorsChart"), {
-                type: "line",
-                data: {
-                    labels: Object.keys(data),
-                    datasets: [{
-                        label: "Unique Visitors", 
-                        data: Object.values(data), 
-                        borderColor: "blue", 
-                        fill: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: { ticks: { color: "white" } },
-                        y: { ticks: { color: "white" } }
-                    },
-                    plugins: {
-                        title: { display: true, text: "Unique Visitors", color: "white" },
-                        legend: { labels: { color: "white" } }
-                    }
-                }
-            });
-            $('#uniqueVisitorsLoading').addClass('d-none');
-        })
-        .catch(error => {
-            console.error("Error loading unique visitors:", error);
-            $('#uniqueVisitorsLoading').addClass('d-none');
-        });
+    let uniqueVisitorsChart = new Chart(document.getElementById("uniqueVisitorsChart"), {
+        type: "line",
+        data: { labels: [], datasets: [{
+            label: "Unique Visitors",
+            data: [],
+            borderColor: "blue",
+            fill: false
+        }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { color: "white" } },
+                y: { ticks: { color: "white" } }
+            },
+            plugins: {
+                title: { display: true, text: "Unique Visitors Over Time", color: "white" },
+                legend: { labels: { color: "white" } }
+            }
+        }
+    });
 
     // Country Visits Chart
-    $('#countryVisitsLoading').removeClass('d-none');
-    fetch('/api/metrics/country_visits')
-        .then(response => response.json())
-        .then(data => {
-            const sortedCountries = Object.entries(data).sort((a, b) => b[1] - a[1]);
-
-            new Chart(document.getElementById("countryVisitsChart"), {
-                type: "bar",
-                data: {
-                    labels: sortedCountries.map(([country]) => country),
-                    datasets: [{
-                        label: "Unique Visitors by Country",
-                        data: sortedCountries.map(([_, count]) => count),
-                        backgroundColor: "rgba(255, 99, 132, 0.6)"
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: { ticks: { color: "white" } },
-                        y: { ticks: { color: "white" } }
-                    },
-                    plugins: {
-                        title: { display: true, text: "Unique Visitors by Country (Last 30 Days)", color: "white" },
-                        legend: { labels: { color: "white" } }
-                    }
-                }
-            });
-
-            $('#countryVisitsLoading').addClass('d-none');
-        })
-        .catch(error => {
-            console.error("Error loading country visits:", error);
-            $('#countryVisitsLoading').addClass('d-none');
-        });
+    let countryVisitsChart = new Chart(document.getElementById("countryVisitsChart"), {
+        type: "bar",
+        data: { labels: [], datasets: [{
+            label: "Unique Visitors by Country",
+            data: [],
+            backgroundColor: "rgba(255, 99, 132, 0.6)"
+        }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { color: "white" } },
+                y: { ticks: { color: "white" } }
+            },
+            plugins: {
+                title: { display: true, text: "Unique Visitors by Country (Last 30 Days)", color: "white" },
+                legend: { labels: { color: "white" } }
+            }
+        }
+    });
 
     // Cache Data Stacked Bar Chart
-    $('#cacheDataLoading').removeClass('d-none');
-    fetch('/api/metrics/cache_data')
-        .then(response => response.json())
-        .then(data => {
-            const labels = Object.keys(data);
-            const datasets = [
-                {
-                    label: "Cache Hits",
-                    data: labels.map(label => data[label].cache_hits),
-                    backgroundColor: "rgba(75, 192, 192, 0.6)"
-                },
-                {
-                    label: "Cache Misses",
-                    data: labels.map(label => data[label].cache_misses),
-                    backgroundColor: "rgba(255, 99, 132, 0.6)"
-                }
-            ];
+    let cacheDataChart = new Chart(document.getElementById("cacheDataChart"), {
+        type: "bar",
+        data: { labels: [], datasets: [
+            { label: "Cache Hits", data: [], backgroundColor: "rgba(75, 192, 192, 0.6)" },
+            { label: "Cache Misses", data: [], backgroundColor: "rgba(255, 99, 132, 0.6)" }
+        ] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true, ticks: { color: "white" } },
+                y: { stacked: true, ticks: { color: "white" } }
+            },
+            plugins: {
+                title: { display: true, text: "Cache Data (Hits vs Misses)", color: "white" },
+                legend: { labels: { color: "white" } }
+            }
+        }
+    });
 
-            new Chart(document.getElementById("cacheDataChart"), {
-                type: "bar",
-                data: { labels, datasets },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: { stacked: true, ticks: { color: "white" } },
-                        y: { stacked: true, ticks: { color: "white" } }
-                    },
-                    plugins: {
-                        title: { display: true, text: "Cache Data (Hits vs Misses)", color: "white" },
-                        legend: { labels: { color: "white" } }
-                    }
-                }
-            });
+    // **Reusable Update Function**
+    function updateChart(chart, labels, data) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = data;
 
-            $('#cacheDataLoading').addClass('d-none');
-        })
-        .catch(error => {
-            console.error("Error loading cache data:", error);
-            $('#cacheDataLoading').addClass('d-none');
-        });
+        // Flash effect on update
+        chart.canvas.classList.add("chart-update-flash");
+        setTimeout(() => chart.canvas.classList.remove("chart-update-flash"), 300);
 
+        chart.update();
+    }
 
+    // **WebSocket Listener**
+    socket.on("metrics_update", (data) => {
+        const parsedData = JSON.parse(data);
+
+        // **Fix: Unique visitors ordered oldest to newest**
+        const sortedVisitors = Object.entries(parsedData.unique_visitors).sort((a, b) => new Date(a[0]) - new Date(b[0]));
+        updateChart(uniqueVisitorsChart, sortedVisitors.map(([date]) => date), sortedVisitors.map(([_, count]) => count));
+
+        // **Update Page Views Chart**
+        const sortedPages = Object.entries(parsedData.page_views).sort((a, b) => b[1] - a[1]);
+        updateChart(pageViewsChart, sortedPages.map(([page]) => page), sortedPages.map(([_, count]) => count));
+
+        // **Update Country Visits Chart**
+        const sortedCountries = Object.entries(parsedData.country_visits).sort((a, b) => b[1] - a[1]);
+        updateChart(countryVisitsChart, sortedCountries.map(([country]) => country), sortedCountries.map(([_, count]) => count));
+
+        // **Fix: Cache Graph - Ensure Dataset Format Matches Chart.js**
+        const sortedCacheData = Object.entries(parsedData.cache_data).sort((a, b) => new Date(a[0]) - new Date(b[0]));
+
+        const labels = sortedCacheData.map(([date]) => date);
+        const cacheHits = sortedCacheData.map(([_, values]) => parseInt(values.cache_hits || 0));
+        const cacheMisses = sortedCacheData.map(([_, values]) => parseInt(values.cache_misses || 0));
+
+        cacheDataChart.data.labels = labels;
+        cacheDataChart.data.datasets[0].data = cacheHits;
+        cacheDataChart.data.datasets[1].data = cacheMisses;
+
+        cacheDataChart.update();
+
+        // **Loading Spinner**
+        $("#pageViewsLoading").addClass("d-none");
+    });
+
+    // **Request Initial Data**
+    socket.emit("request_update");
 });
+
 </script>
 
 </body>

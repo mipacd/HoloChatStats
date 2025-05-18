@@ -505,6 +505,9 @@ msgstr "特集"
 msgid "Site Metrics"
 msgstr "サイト指標"
 
+msgid "Live Site Metrics"
+msgstr "ライブサイト指標"
+
 msgid "Blog"
 msgstr "ブログ (英語のみ)"
 

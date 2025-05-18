@@ -1,5 +1,6 @@
 Flask
 Flask-Babel
+Flask-SocketIO
 psycopg2
 gunicorn
 python-dateutil

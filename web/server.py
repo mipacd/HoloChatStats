@@ -1,6 +1,7 @@
 import hashlib
 from flask import Flask, request, jsonify, render_template, session, redirect, g
 from flask_babel import Babel, _
+from flask_socketio import SocketIO
 import pytz
 from werkzeug.middleware.proxy_fix import ProxyFix
 import sqlite3
@@ -52,6 +53,7 @@ def get_config(key1, key2):
         raise KeyError(f"Key not found in config.ini: {e}")
 
 app = Flask(__name__)
+socketio = SocketIO(app)
 # Setup session key and babel configuration
 app.config["SECRET_KEY"] = get_config("Settings", "SecretKey")
 app.config["SESSION_TYPE"] = "filesystem"
@@ -219,51 +221,52 @@ def track_metrics(response):
 
     return response
 
-@app.route('/api/metrics/<metric_type>', methods=['GET'])
-def get_metrics(metric_type):
-    """Retrieve aggregated metrics over the last 30 days."""
-    redis_conn = g.redis_conn
+def get_metrics():
+    """Retrieve latest metrics data."""
+    redis_conn = redis.StrictRedis(
+        host=REDIS_CONFIG["host"],
+        port=REDIS_CONFIG["port"],
+        decode_responses=True
+    )
     today = datetime.now(pytz.utc)
     metrics = {}
 
-    if metric_type == "page_views":
-        # Page views over 30 days directly from aggregated storage
-        return jsonify(redis_conn.hgetall("page_views_30d"))
+    metrics["page_views"] = redis_conn.hgetall("page_views_30d")
 
-    elif metric_type == "country_visits":
-        # Aggregating unique visitors per country across 30 days
-        country_counts = {}
+    # Aggregate country visits over 30 days
+    country_counts = {}
+    for i in range(30):
+        date_str = (today - relativedelta(days=i)).strftime("%Y-%m-%d")
+        for country in redis_conn.keys(f"unique_visitors_country:*:{date_str}"):
+            country_code = country.split(":")[1]
+            unique_visitors = redis_conn.scard(country)
+            country_counts[country_code] = country_counts.get(country_code, 0) + unique_visitors
 
-        for i in range(30):
-            date_str = (today - relativedelta(days=i)).strftime("%Y-%m-%d")
-            for country in redis_conn.keys(f"unique_visitors_country:*:{date_str}"):
-                country_code = country.split(":")[1]
-                unique_visitors = redis_conn.scard(country)
-                country_counts[country_code] = country_counts.get(country_code, 0) + unique_visitors
+    metrics["country_visits"] = dict(sorted(country_counts.items(), key=lambda x: x[1], reverse=True))
 
-        # Sorting results from highest to lowest
-        sorted_countries = dict(sorted(country_counts.items(), key=lambda x: x[1], reverse=True))
-        return jsonify(sorted_countries)
+    # Unique visitors per day
+    metrics["unique_visitors"] = { 
+        (today - relativedelta(days=i)).strftime("%Y-%m-%d"): redis_conn.scard(f"unique_visitors:{(today - relativedelta(days=i)).strftime('%Y-%m-%d')}")
+        for i in range(30)
+    }
 
-    elif metric_type == "unique_visitors":
-        # Get unique visitor count per day over the last 30 days
-        for i in range(30):
-            date_str = (today - relativedelta(days=i)).strftime("%Y-%m-%d")
-            metrics[date_str] = redis_conn.scard(f"unique_visitors:{date_str}")
-        return jsonify(metrics)
-    elif metric_type == "cache_data":
-        # Get daily cache hit/miss counts for last 30 days
-        for i in range(30):
-            date_str = (today - relativedelta(days=i)).strftime("%Y-%m-%d")
-            cache_hits = redis_conn.get(f"cache_hits:{date_str}") or 0
-            cache_misses = redis_conn.get(f"cache_misses:{date_str}") or 0
-            metrics[date_str] = {
-                "cache_hits": int(cache_hits),
-                "cache_misses": int(cache_misses)
-            }
-        return jsonify(metrics)
+    metrics["cache_data"] = {
+        (today - relativedelta(days=i)).strftime("%Y-%m-%d"): {
+            "cache_hits": int(redis_conn.get(f"cache_hits:{(today - relativedelta(days=i)).strftime('%Y-%m-%d')}") or 0),
+            "cache_misses": int(redis_conn.get(f"cache_misses:{(today - relativedelta(days=i)).strftime('%Y-%m-%d')}") or 0)
+        } for i in range(30)
+    }
 
-    return jsonify({"error": "Invalid metric type"}), 400
+    return metrics
+
+@socketio.on('request_update')
+def send_update():
+    while True:
+        with app.app_context():  # Ensures Flask context is active
+            metrics = get_metrics()
+            socketio.emit("metrics_update", json.dumps(metrics))
+        socketio.sleep(5)  # Adjust update interval as needed
+
 
 def inc_cache_hit_count():
     """Increment cache hit count in Redis."""

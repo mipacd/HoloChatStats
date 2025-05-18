@@ -506,6 +506,9 @@ msgstr "추천"
 msgid "Site Metrics"
 msgstr "사이트 지표"
 
+msgid "Live Site Metrics"
+msgstr "라이브 사이트 지표"
+
 msgid "Blog"
 msgstr "블로그 (영어 전용)"
 
