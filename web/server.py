@@ -261,6 +261,8 @@ def get_metrics():
 
 @socketio.on('request_update')
 def send_update():
+    with app.app_context():
+        socketio.emit("metrics_update", json.dumps(get_metrics()))
     while True:
         with app.app_context():  # Ensures Flask context is active
             metrics = get_metrics()

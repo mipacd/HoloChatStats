@@ -101,7 +101,13 @@
 
 <script>
 $(document).ready(function() {
-    const socket = io.connect(window.location.origin);
+    const socket = io.connect(window.location.origin, {
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
+        timeout: 5000
+    });
 
     // Page Views Chart
     let pageViewsChart = new Chart(document.getElementById("pageViewsChart"), {
