@@ -9,7 +9,7 @@ import time
 import pyyoutube
 from config.settings import get_config
 from utils.logging_utils import get_logger
-from utils.helpers import get_ignore_list
+from utils.helpers import get_ignore_list, is_video_past
 from db.queries import is_metadata_and_chat_log_processed
 from cacheutil.cache_manager import write_metadata_to_cache, load_channels
 from db.queries import insert_video_metadata
@@ -83,8 +83,8 @@ def get_metadata_for_channel(channel_name, channel_id, year, month, download_que
                 if start_month <= end_date < end_month:
 
                     # If video status is not past, skip it
-                    if video_data["status"] != "past":
-                        logger.info(f"Skipping {video_id} as it is not in the past. Status: {video_data['status']}")
+                    if not is_video_past(video_id):
+                        logger.info(f"Skipping {video_id} as it is not a concluded live stream.")
                         continue
 
                     duration = video_data["duration"] 

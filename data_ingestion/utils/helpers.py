@@ -1,5 +1,6 @@
 import os
-from chat_downloader import sites
+import sys
+import yt_dlp
 from utils.logging_utils import get_logger
 from config.settings import get_config
 
@@ -35,8 +36,32 @@ def deduplicate_batch(batch, key_indices):
     return deduplicated_batch
 
 def is_video_past(video_id):
-    video_data = sites.YouTubeChatDownloader().get_video_data(video_id=video_id)
-    return video_data["status"] == "past"
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "logger": None,
+        "outtmpl": os.devnull,
+        "verbose": False,
+    }
+
+    sys.stderr = open(os.devnull, "w")
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            video_data = ydl.extract_info(url, download=False)
+            if video_data.get("is_live"):
+                return False # stream is live
+            return True # stream has ended
+    except yt_dlp.utils.DownloadError as e:
+        if "This live event will begin in" in str(e):
+            return False # stream is upcoming
+    finally:
+        sys.stderr.close()
+        sys.stderr = sys.__stderr__
+
+    return False # other status
 
 # Returns list of streams to ignore (such as membership streams made public)
 def get_ignore_list():

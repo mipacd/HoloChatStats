@@ -6,3 +6,4 @@ isodate
 regex
 requests
 urllib3
+yt_dlp
