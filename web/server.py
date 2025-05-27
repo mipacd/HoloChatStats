@@ -133,7 +133,7 @@ def before_request():
     # Initialize database connection
     if not hasattr(g, 'db_conn'):
         g.db_conn = get_db_connection()
-        g.db_conn.cursor().execute("SET statement_timeout = '120s'")
+        g.db_conn.cursor().execute("SET statement_timeout = '300s'")
     
     # Initialize Redis connection
     if not hasattr(g, 'redis_conn'):
@@ -844,9 +844,9 @@ def recommend_channels():
             SELECT ud.user_id, ch.channel_name, SUM(ud.total_message_count) AS message_weight
             FROM user_data ud
             JOIN channels ch ON ud.channel_id = ch.channel_id
-            WHERE DATE_TRUNC('month', ud.last_message_at) IN (%s::DATE, %s::DATE)
+            WHERE DATE_TRUNC('month', ud.last_message_at) IN (%s::DATE)
             GROUP BY ud.user_id, ch.channel_name;
-        """, (months[0] + "-01", months[1] + "-01"))
+        """, (months[0] + "-01",))
         rows = cursor.fetchall()
         cursor.close()
         conn.close()
