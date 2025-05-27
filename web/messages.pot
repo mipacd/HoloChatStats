@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-17 13:54-0400\n"
+"POT-Creation-Date: 2025-05-27 15:40-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,16 +17,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:811 server.py:1008 server.py:1088 server.py:1199 server.py:1237
-#: server.py:1412 server.py:1466 server.py:1536 server.py:1622
+#: server.py:924 server.py:1121 server.py:1201 server.py:1312 server.py:1350
+#: server.py:1525 server.py:1579 server.py:1649 server.py:1735
 msgid "Missing required parameters"
 msgstr ""
 
-#: server.py:1444
+#: server.py:1557
 msgid "No data found"
 msgstr ""
 
-#: server.py:1625
+#: server.py:1738
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
@@ -84,7 +84,8 @@ msgstr ""
 
 #: templates/channel_clustering.html:86 templates/channel_clustering.html:92
 #: templates/chat_leaderboards.html:60 templates/common_members.html:81
-#: templates/common_users.html:83 templates/user_info.html:60
+#: templates/common_users.html:83 templates/recommendation_engine.html:59
+#: templates/user_info.html:60
 msgid "Loading..."
 msgstr ""
 
@@ -149,12 +150,13 @@ msgstr ""
 
 #: templates/chat_leaderboards.html:130 templates/common_members.html:171
 #: templates/common_users.html:171 templates/funniest_timestamps.html:181
-#: templates/funniest_timestamps.html:227 templates/user_info.html:121
+#: templates/funniest_timestamps.html:227
+#: templates/recommendation_engine.html:113 templates/user_info.html:121
 msgid "Error fetching data. Please try again later."
 msgstr ""
 
 #: templates/chat_makeup.html:8 templates/chat_makeup.html:109
-#: templates/menu.html:78
+#: templates/menu.html:79
 msgid "Chat Makeup"
 msgstr ""
 
@@ -410,79 +412,63 @@ msgid "Loading chat log count..."
 msgstr ""
 
 #: templates/index.html:153
-msgid "Loading user count..."
-msgstr ""
-
-#: templates/index.html:156
 msgid "Loading message count..."
 msgstr ""
 
-#: templates/index.html:164
+#: templates/index.html:161
 msgid "Latest Updates"
 msgstr ""
 
-#: templates/index.html:166 templates/index.html:235
+#: templates/index.html:163 templates/index.html:230
 msgid "No updates available."
 msgstr ""
 
-#: templates/index.html:183
+#: templates/index.html:189
 msgid "Start:"
 msgstr ""
 
-#: templates/index.html:184
+#: templates/index.html:190
 msgid "End:"
 msgstr ""
 
-#: templates/index.html:187
+#: templates/index.html:193
 msgid "Unable to fetch date ranges."
 msgstr ""
 
-#: templates/index.html:190
+#: templates/index.html:196
 msgid "Error fetching date ranges."
 msgstr ""
 
-#: templates/index.html:196
+#: templates/index.html:202
 msgid "Number of Chat Logs Processed:"
 msgstr ""
 
-#: templates/index.html:198
+#: templates/index.html:204
 msgid "Unable to fetch chat log count."
 msgstr ""
 
-#: templates/index.html:201
+#: templates/index.html:207
 msgid "Error fetching chat log count."
 msgstr ""
 
-#: templates/index.html:207
-msgid "Number of Unique Chatters Observed:"
-msgstr ""
-
-#: templates/index.html:209
-msgid "Unable to fetch chatter count."
-msgstr ""
-
-#: templates/index.html:212
-msgid "Error fetching chatter count."
-msgstr ""
-
-#: templates/index.html:218
+#: templates/index.html:213
 msgid "Number of Chat Messages Processed:"
 msgstr ""
 
-#: templates/index.html:220
+#: templates/index.html:215
 msgid "Unable to fetch message count."
 msgstr ""
 
-#: templates/index.html:223
+#: templates/index.html:218
 msgid "Error fetching message count."
 msgstr ""
 
-#: templates/index.html:238
+#: templates/index.html:233
 msgid "Error fetching updates."
 msgstr ""
 
 #: templates/jp_user_percents.html:8 templates/jp_user_percents.html:43
-#: templates/menu.html:80
+#: templates/menu.html:81
 msgid "JP User Percentages"
 msgstr ""
 
@@ -555,50 +541,58 @@ msgstr ""
 msgid "Message Frequencies by User"
 msgstr ""
 
-#: templates/menu.html:75
+#: templates/menu.html:69 templates/recommendation_engine.html:8
+#: templates/recommendation_engine.html:44
+msgid "Recommendation Engine"
+msgstr ""
+
+#: templates/menu.html:76
 msgid "Language Stats"
 msgstr ""
 
-#: templates/menu.html:79 templates/message_types.html:8
+#: templates/menu.html:80 templates/message_types.html:8
 #: templates/message_types.html:42
 msgid "Message Percentages and Rates by Language"
 msgstr ""
 
-#: templates/menu.html:87 templates/monthly_streaming_hours.html:95
+#: templates/menu.html:88 templates/monthly_streaming_hours.html:95
 #: templates/monthly_streaming_hours.html:152
 msgid "Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:90 templates/streaming_hours.html:8
+#: templates/menu.html:91 templates/streaming_hours.html:8
 #: templates/streaming_hours.html:61
 msgid "Total Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:91 templates/streaming_hours_avg.html:61
+#: templates/menu.html:92 templates/streaming_hours_avg.html:61
 msgid "Average Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:92 templates/streaming_hours_max.html:8
+#: templates/menu.html:93 templates/streaming_hours_max.html:8
 #: templates/streaming_hours_max.html:61
 msgid "Longest Stream Duration"
 msgstr ""
 
-#: templates/menu.html:93
+#: templates/menu.html:94
 msgid "Streaming Hour Change"
 msgstr ""
 
-#: templates/menu.html:94 templates/monthly_streaming_hours.html:8
+#: templates/menu.html:95 templates/monthly_streaming_hours.html:8
 #: templates/monthly_streaming_hours.html:41
 msgid "Monthly Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:99
+#: templates/menu.html:100
 msgid "Funniest Moments"
 msgstr ""
 
-#: templates/menu.html:105 templates/site_metrics.html:8
-#: templates/site_metrics.html:52
+#: templates/menu.html:106 templates/site_metrics.html:8
 msgid "Site Metrics"
+msgstr ""
+
+#: templates/menu.html:109
+msgid "Blog"
 msgstr ""
 
 #: templates/message_types.html:44
@@ -643,6 +637,45 @@ msgstr ""
 msgid "Only counts public archived streams from YouTube."
 msgstr ""
 
+#: templates/recommendation_engine.html:45
+msgid ""
+"Calculated using chat data from the previous two calendar months (not "
+"including the current month). Only shows channels where the user has no "
+"recorded interactions."
+msgstr ""
+
+#: templates/recommendation_engine.html:49 templates/user_info.html:46
+msgid "Username:"
+msgstr ""
+
+#: templates/recommendation_engine.html:50 templates/user_info.html:47
+msgid "Enter username"
+msgstr ""
+
+#: templates/recommendation_engine.html:52
+msgid "Get Recommendations"
+msgstr ""
+
+#: templates/recommendation_engine.html:67 templates/user_info.html:68
+msgid "Channel"
+msgstr ""
+
+#: templates/recommendation_engine.html:68
+msgid "Score (0-100)"
+msgstr ""
+
+#: templates/recommendation_engine.html:86
+msgid "Please enter a username."
+msgstr ""
+
+#: templates/recommendation_engine.html:98
+msgid "No data available for the selected user."
+msgstr ""
+
+#: templates/site_metrics.html:53
+msgid "Live Site Metrics"
+msgstr ""
+
 #: templates/streaming_hours.html:61 templates/streaming_hours_avg.html:61
 #: templates/streaming_hours_diff.html:61 templates/streaming_hours_max.html:61
 msgid "Archived, non-member streams from YouTube only."
@@ -674,20 +707,8 @@ msgstr ""
 msgid "Users Lost"
 msgstr ""
 
-#: templates/user_info.html:46
-msgid "Username:"
-msgstr ""
-
-#: templates/user_info.html:47
-msgid "Enter username"
-msgstr ""
-
 #: templates/user_info.html:55
 msgid "Get User Data"
-msgstr ""
-
-#: templates/user_info.html:68
-msgid "Channel"
 msgstr ""
 
 #: templates/user_info.html:70

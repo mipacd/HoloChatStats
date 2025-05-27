@@ -517,6 +517,19 @@ msgstr "観測されたユニークチャッター数:"
 msgid "Number of Chat Messages Processed:"
 msgstr "処理されたチャットメッセージ数:"
 
+msgid "Recommendation Engine"
+msgstr "推薦エンジン"
+
+msgid "Calculated using chat data from the previous two calendar months (not including the current month). Only shows channels where the user has no recorded interactions."
+msgstr "過去2カ月間のチャットデータを使用して計算（当月は含まれません）。ユーザーが記録されたやり取りを持たないチャンネルのみを表示。"
+
+msgid "Get Recommendations"
+msgstr "推薦を取得"
+
+msgid "Score (0-100)"
+msgstr "スコア (0-100)"
+
+
 
 
 

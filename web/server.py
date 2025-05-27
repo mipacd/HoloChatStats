@@ -5,7 +5,7 @@ from flask_socketio import SocketIO
 import pytz
 from werkzeug.middleware.proxy_fix import ProxyFix
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 import requests
 from dateutil.relativedelta import relativedelta
 import configparser
@@ -806,6 +806,103 @@ def channel_clustering():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+def get_previous_two_months():
+    today = datetime.today().replace(day=1)
+    prev_month = today - timedelta(days=1)
+    prev2_month = (prev_month.replace(day=1)) - timedelta(days=1)
+    return [prev2_month.strftime('%Y-%m'), prev_month.strftime('%Y-%m')]
+
+@app.route("/api/recommend", methods=["GET"])
+def recommend_channels():
+    try:
+        username = request.args.get("username", "")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        redis_key = f"channel_recommendations_{username}"
+        # Check if data is cached in Redis
+        cached_data = g.redis_conn.get(redis_key)
+        if cached_data:
+            inc_cache_hit_count()
+            # If cached data is found, return it
+            return jsonify(json.loads(cached_data))
+        inc_cache_miss_count()
+
+        # Get user_id from username
+        cursor.execute("SELECT user_id FROM users WHERE username = %s", (username,))
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({"error": "Username not found"}), 404
+        user_id = result[0]
+
+        # Get previous two months
+        months = get_previous_two_months()
+
+        # Query user activity for the last two months
+        cursor.execute(f"""
+            SELECT ud.user_id, ch.channel_name, SUM(ud.total_message_count) AS message_weight
+            FROM user_data ud
+            JOIN channels ch ON ud.channel_id = ch.channel_id
+            WHERE DATE_TRUNC('month', ud.last_message_at) IN (%s::DATE, %s::DATE)
+            GROUP BY ud.user_id, ch.channel_name;
+        """, (months[0] + "-01", months[1] + "-01"))
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # Convert to DataFrame
+        data = pd.DataFrame(rows, columns=['user_id', 'channel_name', 'message_weight'])
+        if data.empty:
+            return jsonify({"error": "No data for the past two months"}), 404
+
+        # Create user-channel interaction matrix
+        user_channel_matrix = data.pivot(index='user_id', columns='channel_name', values='message_weight').fillna(0)
+
+        # Compute cosine similarity between channels
+        similarity_matrix = cosine_similarity(user_channel_matrix.T)
+        channel_names = user_channel_matrix.columns
+        similarity_df = pd.DataFrame(similarity_matrix, index=channel_names, columns=channel_names)
+
+        # Get channels the user has interacted with
+        if user_id not in user_channel_matrix.index:
+            return jsonify({"error": "No activity for this user"}), 404
+
+        user_vector = user_channel_matrix.loc[user_id]
+        user_channels = user_vector[user_vector > 0].index
+
+        # Calculate a recommendation score by summing similarities to channels user has interacted with
+        recommendation_scores = similarity_df[user_channels].sum(axis=1)
+        recommendation_scores = recommendation_scores.drop(labels=user_channels, errors='ignore')  # Exclude already watched channels
+
+        # Compute top 5 recommendations
+        top_recommendations = recommendation_scores.sort_values(ascending=False).head(5)
+
+        # Compute ideal maximum for normalization
+        ideal_max = len(user_channels)  # could clamp this to a min of 1
+
+        # Normalize scores to a 0-100 scale
+        raw_normalized = (top_recommendations / ideal_max) * 100
+
+        # Scale scores to a 0-100 scale using log1p for better distribution 
+        normalized_scores = np.log1p(raw_normalized) / np.log1p(100) * 100
+
+        response = [
+            {"channel_name": channel, "score": round(score, 2)}
+            for channel, score in normalized_scores.items()
+        ]
+
+        output = { "recommended_channels": response }
+
+        # Cache the response in Redis
+        g.redis_conn.set(redis_key, json.dumps(output))
+
+        return jsonify(output)
+
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 
@@ -2241,6 +2338,10 @@ def engagement_redirect():
 @app.route('/site_metrics')
 def site_metrics_view():
     return render_template('site_metrics.html', _=_, get_locale=get_locale)
+
+@app.route('/recommendation_engine')
+def recommendation_engine_view():
+    return render_template('recommendation_engine.html', _=_, get_locale=get_locale)
 
 #v1 redirects
 @app.route('/stream-time')

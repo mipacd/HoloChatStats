@@ -518,6 +518,19 @@ msgstr "관찰된 고유 채팅 사용자 수:"
 msgid "Number of Chat Messages Processed:"
 msgstr "처리된 채팅 메시지 수:"
 
+msgid "Recommendation Engine"
+msgstr "추천 엔진"
+
+msgid "Calculated using chat data from the previous two calendar months (not including the current month). Only shows channels where the user has no recorded interactions."
+msgstr "지난 두 달 동안의 채팅 데이터를 기반으로 계산(현재 월 제외). 사용자가 기록된 상호 작용이 없는 채널만 표시."
+
+msgid "Get Recommendations"
+msgstr "추천 받기"
+
+msgid "Score (0-100)"
+msgstr "점수 (0-100)"
+
+
 
 
 

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Hololive and Indie message frequencies by user.">
+    <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat statistics, recommendation engine, user statistics">
+    <title>{{ _("Recommendation Engine") }}</title>
+    
+    <!-- jQuery & Bootstrap -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ GA_ID }}"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+
+    <style>
+        .recommend-container {
+            max-width: 400px;
+            margin: 20px auto;
+        }
+        .recommend-table {
+            margin-top: 20px;
+        }
+        /* Centering spinner */
+        .spinner-container {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .input-container {
+            justify-content: center;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+{% include 'menu.html' %}
+
+<!-- Main Content -->
+<div id="content" class="mt-3 recommend-container">
+    <h2 class="text-center mb-4">{{ _("Recommendation Engine") }}<sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" 
+        title="{{ _("Calculated using chat data from the previous two calendar months (not including the current month). Only shows channels where the user has no recorded interactions.") }}"></i></sup></h2>
+
+    <div class="row mb-3 input-container">
+        <div class="col-md-6">
+            <label for="usernameInput">{{ _("Username:") }}</label>
+            <input type="text" id="usernameInput" class="form-control" placeholder="{{ _("Enter username") }}">
+        </div>
+        <button id="fetchRecommendations" class="btn btn-primary mb-3">{{ _("Get Recommendations") }}</button>
+    </div>
+
+
+    <!-- Loading Spinner -->
+    <div id="spinnerContainer" class="spinner-container">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">{{ _("Loading...") }}</span>
+        </div>
+    </div>
+
+    <!-- User Data Table -->
+    <table id="recommendTable" class="table table-striped leaderboard-table" style="display: none;">
+        <thead>
+            <tr>
+                <th>{{ _("Channel") }}</th>
+                <th>{{ _("Score (0-100)") }}</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    $('#fetchRecommendations').on('click', function() {
+        const username = $('#usernameInput').val().trim();
+
+        if (!username) {
+            alert("{{ _('Please enter a username.') }}");
+            return;
+        }
+
+        // Show spinner and hide table
+        $('#spinnerContainer').show();
+        $('#recommendTable').hide();
+
+        $.get('/api/recommend', { username: username }, function(data) {
+            $('#spinnerContainer').hide(); // Hide spinner when data is received
+
+            if (!data || !data.recommended_channels || data.recommended_channels.length === 0) {
+                alert("{{ _('No data available for the selected user.') }}");
+                return;
+            }
+
+            let tbody = "";
+            data.recommended_channels.forEach(channel => {
+                tbody += `<tr>
+                    <td>${channel.channel_name}</td>
+                    <td>${channel.score.toFixed(2)}</td>
+                </tr>`;
+            });
+
+            $('#recommendTable tbody').html(tbody);
+            $('#recommendTable').show();
+        }).fail(function() {
+            alert("{{ _('Error fetching data. Please try again later.') }}");
+            $('#spinnerContainer').hide();
+        });
+    });
+});
+</script>
+
+</body>
+</html>
