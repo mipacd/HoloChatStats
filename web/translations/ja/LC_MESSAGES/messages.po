@@ -520,8 +520,8 @@ msgstr "処理されたチャットメッセージ数:"
 msgid "Recommendation Engine"
 msgstr "推薦エンジン"
 
-msgid "Calculated using chat data from the previous month. Only shows channels where the user has no recorded interactions. May take over a minute to load."
-msgstr "前月のチャットデータを使用して計算。ユーザーが記録されたやり取りを持たないチャンネルのみを表示。読み込みに1分以上かかる場合があります。"
+msgid "Calculated using chat data from the previous month. Only shows channels where the user has no recorded interactions."
+msgstr "前月のチャットデータを使用して計算。ユーザーが記録されたやり取りを持たないチャンネルのみを表示。"
 
 msgid "Get Recommendations"
 msgstr "推薦を取得"

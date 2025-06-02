@@ -839,17 +839,24 @@ def recommend_channels():
         # Get previous two months
         months = get_previous_two_months()
 
-        # Query user activity for the last two months
-        cursor.execute(f"""
-            SELECT ud.user_id, ch.channel_name, SUM(ud.total_message_count) AS message_weight
-            FROM user_data ud
-            JOIN channels ch ON ud.channel_id = ch.channel_id
-            WHERE DATE_TRUNC('month', ud.last_message_at) IN (%s::DATE)
-            GROUP BY ud.user_id, ch.channel_name;
-        """, (months[0] + "-01",))
-        rows = cursor.fetchall()
-        cursor.close()
-        conn.close()
+        redis_intermediate_key = f"channel_recommendation_data_{months[0]}"
+        cached_data = g.redis_conn.get(redis_intermediate_key)
+        if cached_data:
+            # If cached data is found, return it
+            rows = json.loads(cached_data)
+        else:
+            # Query user activity for the last two months
+            cursor.execute(f"""
+                SELECT ud.user_id, ch.channel_name, SUM(ud.total_message_count) AS message_weight
+                FROM user_data ud
+                JOIN channels ch ON ud.channel_id = ch.channel_id
+                WHERE DATE_TRUNC('month', ud.last_message_at) IN (%s::DATE)
+                GROUP BY ud.user_id, ch.channel_name;
+            """, (months[0] + "-01",))
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            g.redis_conn.set(redis_intermediate_key, json.dumps(rows))
 
         # Convert to DataFrame
         data = pd.DataFrame(rows, columns=['user_id', 'channel_name', 'message_weight'])
