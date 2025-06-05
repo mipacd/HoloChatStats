@@ -5,7 +5,7 @@ HoloChatStats is a platform for providing YouTube live chat language and user da
 This is a replacement (v2) for the original holochatstats.info site that launched in January 2021 and as a replacement for HoloAutoClip (clip.holochatstats.info) that launched in November 2020.
 HoloChatStats v1 will continue to be available as an archive at old.holochatstats.info.
 
-All data is derived from a combination of publically available chat logs and metadata from the YouTube API.
+All data is derived from a combination of publicly available chat logs and metadata from the YouTube API.
 
 ## Current Features
 * Membership Information
@@ -32,6 +32,7 @@ All data is derived from a combination of publically available chat logs and met
     * Exclusive Chat Users: The percentage of a channels chat users that did not participate in any other channel's chat within the channel's assigned group (e.g. Hololive, Indie). 
     * Message Frequencies by User: Given a username and a month, display counts and percentiles for each channel's chat that the user participated in.
     * Engagement Rates: Average number of messages per user by channel for a given month.
+    * Recommendation Engine: Given a username, determines the top 5 channels that other users with similar chat patterns have participated in, excluding any channels that the user has participated in, during the previous calendar month. This is calculated using cosine similarity, using a similar method to the channel clusters graph.
 * Streaming Hours (all streaming hours are calculated from archived, public streams only)
     * Total Streaming Hours: Total streaming hours by channel in a given month
     * Average Streaming Hours: Average stream duration for each channel in a given month
@@ -64,7 +65,7 @@ number of free daily queries from OpenRouter (50 per day).
 
 4. Rename data_ingestion/config.ini.sample to data_ingestion/config.ini and edit this file to include the above information.
 
-5. Deploy the included Dockerfile (optional) and configure the script to run at a regualar interval using cron or other scheduler
+5. Deploy the included Dockerfile (optional) and configure the script to run at a regular interval using cron or other scheduler
 
 6. If not using Docker, run `pip install requirements.txt`.
 
