@@ -53,7 +53,7 @@ def get_config(key1, key2):
         raise KeyError(f"Key not found in config.ini: {e}")
 
 app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_model='eventlet')
 # Setup session key and babel configuration
 app.config["SECRET_KEY"] = get_config("Settings", "SecretKey")
 app.config["SESSION_TYPE"] = "filesystem"

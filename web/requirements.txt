@@ -15,3 +15,4 @@ pytest-cov
 leidenalg
 python-igraph
 redis
+eventlet
