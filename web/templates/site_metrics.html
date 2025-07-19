@@ -197,7 +197,7 @@ $(document).ready(function() {
         }
     });
 
-    // **Reusable Update Function**
+    // Update Function
     function updateChart(chart, labels, data) {
         chart.data.labels = labels;
         chart.data.datasets[0].data = data;
@@ -209,23 +209,30 @@ $(document).ready(function() {
         chart.update();
     }
 
-    // **WebSocket Listener**
+    // WebSocket Listener
     socket.on("metrics_update", (data) => {
         const parsedData = JSON.parse(data);
 
-        // **Fix: Unique visitors ordered oldest to newest**
+        // Unique visitors ordered oldest to newest
         const sortedVisitors = Object.entries(parsedData.unique_visitors).sort((a, b) => new Date(a[0]) - new Date(b[0]));
         updateChart(uniqueVisitorsChart, sortedVisitors.map(([date]) => date), sortedVisitors.map(([_, count]) => count));
 
-        // **Update Page Views Chart**
+        // Update Page Views Chart
         const sortedPages = Object.entries(parsedData.page_views).sort((a, b) => b[1] - a[1]);
         updateChart(pageViewsChart, sortedPages.map(([page]) => page), sortedPages.map(([_, count]) => count));
 
-        // **Update Country Visits Chart**
-        const sortedCountries = Object.entries(parsedData.country_visits).sort((a, b) => b[1] - a[1]);
-        updateChart(countryVisitsChart, sortedCountries.map(([country]) => country), sortedCountries.map(([_, count]) => count));
+        // Update Country Visits Chart
+        const sortedCountries = Object.entries(parsedData.country_visits)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 20); // Limit to top 20
 
-        // **Fix: Cache Graph - Ensure Dataset Format Matches Chart.js**
+        updateChart(
+            countryVisitsChart,
+            sortedCountries.map(([country]) => country),
+            sortedCountries.map(([_, count]) => count)
+        );
+
+        // Update Cache Data Chart
         const sortedCacheData = Object.entries(parsedData.cache_data).sort((a, b) => new Date(a[0]) - new Date(b[0]));
 
         const labels = sortedCacheData.map(([date]) => date);
@@ -238,11 +245,11 @@ $(document).ready(function() {
 
         cacheDataChart.update();
 
-        // **Loading Spinner**
+        // Loading Spinner
         $("#pageViewsLoading").addClass("d-none");
     });
 
-    // **Request Initial Data**
+    // Request Initial Data
     socket.emit("request_update");
 });
 

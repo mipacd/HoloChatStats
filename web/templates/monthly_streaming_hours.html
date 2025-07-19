@@ -141,16 +141,44 @@
                         return;
                     }
 
-                    // Prepare data for the line chart
-                    let labels = data.map(d => d.month);
-                    let streamingHours = data.map(d => d.total_streaming_hours);
+                    // Helper function to fill in missing months with 0 values
+                    function fillMissingMonths(data) {
+                        if (data.length === 0) return { labels: [], values: [] };
+                        
+                        // Convert month strings to Date objects and find min/max
+                        const months = data.map(d => new Date(d.month + '-01'));
+                        const minDate = new Date(Math.min(...months));
+                        const maxDate = new Date(Math.max(...months));
+                        
+                        // Create a map of existing data for quick lookup
+                        const dataMap = new Map(data.map(d => [d.month, d.total_streaming_hours]));
+                        
+                        // Generate complete sequence of months
+                        const allMonths = [];
+                        const allValues = [];
+                        let currentDate = new Date(minDate);
+                        
+                        while (currentDate <= maxDate) {
+                            const monthStr = currentDate.toISOString().slice(0, 7);
+                            allMonths.push(monthStr);
+                            allValues.push(dataMap.get(monthStr) || 0);
+                            
+                            // Move to next month
+                            currentDate.setMonth(currentDate.getMonth() + 1);
+                        }
+                        
+                        return { labels: allMonths, values: allValues };
+                    }
+
+                    // Prepare data for the line chart with missing months filled
+                    const { labels, values } = fillMissingMonths(data);
 
                     // Update chart datasets
                     chart.data.labels = labels;
                     chart.data.datasets = [
                         {
                             label: '{{ _("Streaming Hours") }}',
-                            data: streamingHours,
+                            data: values,
                             backgroundColor: 'rgba(75, 192, 192, 0.2)',
                             borderColor: 'rgba(75, 192, 192, 1)',
                             borderWidth: 2
