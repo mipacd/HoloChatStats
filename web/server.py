@@ -1481,7 +1481,7 @@ def get_group_streaming_hours_diff():
 
     # Apply channel group filtering if provided
     group_filter = ""
-    params = ""
+    params = []
     if channel_group:
         group_filter = "WHERE c.channel_group = %s"
         params.append(channel_group)
