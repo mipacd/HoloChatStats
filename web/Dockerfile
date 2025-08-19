@@ -7,4 +7,4 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-CMD [ "gunicorn", "-k", "gevent", "-w", "5", "--bind", "0.0.0.0:80", "--timeout", "120", "server:app" ]
+CMD [ "gunicorn", "-k", "eventlet", "-w", "5", "--bind", "0.0.0.0:80", "--timeout", "120", "server:app" ]
