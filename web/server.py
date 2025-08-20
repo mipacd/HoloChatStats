@@ -1,5 +1,5 @@
 import hashlib
-from flask import Flask, request, jsonify, render_template, session, redirect, g
+from flask import Flask, request, jsonify, render_template, session, redirect, g, Response
 from flask_babel import Babel, _
 from flask_socketio import SocketIO
 import pytz
@@ -132,7 +132,20 @@ def before_request():
     real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
     query = request.query_string.decode()
     query_str = f"?{query}" if query else ""
-    app.logger.info(f"Request from {real_ip} to {request.path}{query_str}")
+
+    # Non-browser and bot traffic blocking
+    ua = request.headers.get("User-Agent", "").lower()
+    allowed_bots = ["googlebot", "bingbot", "duckduckbot", "applebot", "facebookexternalhit"]
+
+    is_browser_like = "mozilla" in ua
+    is_known_bot = any(bot in ua for bot in allowed_bots)
+
+    if not ua or (not is_browser_like and not is_known_bot):
+        app.logger.warning(f"Blocked non-browser request from {real_ip} to {request.path}{query_str}")
+        return Response("Access denied", status=403)
+    else:
+        app.logger.info(f"Request from {real_ip} to {request.path}{query_str}")
+
 
     if 'language' not in session:
         user_lang = request.headers.get('Accept-Language', 'en').split(',')[0][:2]
@@ -2410,6 +2423,24 @@ def stream_time_series_redirect():
 @app.route('/coverage')
 def coverage_redirect():
     return redirect("https://old.holochatstats.info/coverage")
+
+@app.route('/robots.txt')
+def robots_txt():
+    lines = [
+        "User-agent: GPTBot",
+        "Disallow: /",
+        "User-agent: ClaudeBot",
+        "Disallow: /",
+        "User-agent: ChatGPT-User",
+        "Disallow: /",
+        "User-agent: Amazonbot",
+        "Disallow: /",
+        "User-agent: CCBot",
+        "Disallow: /",
+        "User-agent: *",
+        "Allow: /"
+    ]
+    return Response("\n".join(lines), mimetype="text/plain")
 
 if __name__ == '__main__':
     app.run(debug=True)
