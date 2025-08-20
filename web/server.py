@@ -93,7 +93,12 @@ def setup_logging():
     handler = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
+    app.logger.handlers.clear()
     app.logger.addHandler(handler)
+    app.logger.setLevel(logging.INFO)
+
+    # Optional: silence werkzeug logs if you want full control
+    logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
 setup_logging()
 
@@ -125,7 +130,10 @@ def get_google_analytics_visitors():
 @app.before_request
 def before_request():
     real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
-    app.logger.info(f"Request from {real_ip} to {request.path}")
+    query = request.query_string.decode()
+    query_str = f"?{query}" if query else ""
+    app.logger.info(f"Request from {real_ip} to {request.path}{query_str}")
+
     if 'language' not in session:
         user_lang = request.headers.get('Accept-Language', 'en').split(',')[0][:2]
         session['language'] = user_lang if user_lang in ['en', 'ja', 'ko'] else 'en'
