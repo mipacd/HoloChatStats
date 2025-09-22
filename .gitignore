@@ -10,3 +10,5 @@ data_ingestion/youtube_cookies.txt
 news.txt
 google-secret.json
 usage.db
+venv/
+resume_state.json

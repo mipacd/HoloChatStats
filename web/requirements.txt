@@ -16,3 +16,4 @@ leidenalg
 python-igraph
 redis
 eventlet
+sentence-transformers

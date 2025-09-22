@@ -5,7 +5,7 @@ from flask_socketio import SocketIO
 import pytz
 from werkzeug.middleware.proxy_fix import ProxyFix
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import requests
 from dateutil.relativedelta import relativedelta
 import configparser
@@ -23,9 +23,11 @@ from plotly.utils import PlotlyJSONEncoder
 import json
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Metric
+from sentence_transformers import SentenceTransformer
 from functools import wraps
 import time
 import redis
+import re
 
 def get_config(key1, key2):
     """
@@ -66,6 +68,10 @@ app.config["OPENROUTER_MODEL"] = "deepseek/deepseek-chat-v3-0324:free"  # Defaul
 app.config["DAILY_LIMIT"] = 3  # 3 queries per user per day
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = get_config("API", "GAAPIKeyFile")
+
+print("Loading sentence transformer model for vector search...")
+EMBEDDER = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+print("Model loaded successfully.")
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
@@ -140,11 +146,11 @@ def before_request():
     is_browser_like = "mozilla" in ua
     is_known_bot = any(bot in ua for bot in allowed_bots)
 
-    if not ua or (not is_browser_like and not is_known_bot):
-        app.logger.warning(f"Blocked non-browser request from {real_ip} to {request.path}{query_str}")
-        return Response("Access denied", status=403)
-    else:
-        app.logger.info(f"Request from {real_ip} to {request.path}{query_str}")
+    #if not ua or (not is_browser_like and not is_known_bot):
+    #    app.logger.warning(f"Blocked non-browser request from {real_ip} to {request.path}{query_str}")
+        #return Response("Access denied", status=403)
+   # else:
+    #    app.logger.info(f"Request from {real_ip} to {request.path}{query_str}")
 
 
     if 'language' not in session:
@@ -2137,37 +2143,45 @@ def get_funniest_timestamps():
 
 @app.route('/api/get_user_info', methods=['GET'])
 def get_user_info():
-    """API to fetch all channels a user chatted on in a given month,
-    their total messages on that channel, and their frequency percentile."""
+    """
+    API to fetch all channels a user chatted on in a given month,
+    their total messages on that channel, and their frequency percentile,
+    using their unique user_id.
+    """
     
-    username = request.args.get('username')
+    # --- CHANGE 1: Accept 'user_id' instead of 'username' ---
+    user_id = request.args.get('identifier')
     month = request.args.get('month')  # YYYY-MM format
 
-    if not (username and month):
-        return jsonify({"error": "Missing required parameters"}), 400
+    if not (user_id and month):
+        return jsonify({"success": False, "error": "Missing required parameters: 'user_id' and 'month' are required."}), 400
     
-    redis_key = f"user_info_{username}_{month}"
-    cached_data = g.redis_conn.get(redis_key)
-    if cached_data:
-        inc_cache_hit_count()
-        return jsonify(json.loads(cached_data))
-    inc_cache_miss_count()
+    # --- CHANGE 2: Update the Redis key to use user_id ---
+    #redis_key = f"user_info_{user_id}_{month}"
+    #cached_data = g.redis_conn.get(redis_key)
+    #if cached_data:
+        # inc_cache_hit_count()
+    #    return jsonify(json.loads(cached_data))
+    # inc_cache_miss_count()
 
-    # Convert month to first day format for filtering
+    # If user_id starts with '@', lookup user_id from database
+    if user_id.startswith('@'):
+        cursor = g.db_conn.cursor()
+        cursor.execute("SELECT user_id FROM users WHERE username = %s", (user_id[1:],))
+        result = cursor.fetchone()
+        cursor.close()
+        if result:
+            user_id = result[0]
+        else:
+            return jsonify({"success": False, "error": "User not found."}), 404
+
     month_start = f"{month}-01"
     next_month_start = (datetime.strptime(month, "%Y-%m") + relativedelta(months=1)).strftime("%Y-%m-01")
 
     cursor = g.db_conn.cursor()
 
-    # Get the user's ID
-    cursor.execute("SELECT user_id FROM users WHERE username = %s", (username,))
-    user_row = cursor.fetchone()
-    
-    if not user_row:
-        cursor.close()
-        return jsonify({"error": "User not found"}), 404
-
-    user_id = user_row[0]
+    # --- CHANGE 3: The initial lookup for user_id is no longer needed ---
+    # The user_id is now provided directly in the API call.
 
     # Fetch user's chat activity per channel for the month
     cursor.execute("""
@@ -2185,16 +2199,18 @@ def get_user_info():
     
     user_chat_data = cursor.fetchall()
 
-    # If user has no messages
     if not user_chat_data:
         cursor.close()
-        return jsonify({"error": "No data available for the given user and month"}), 404
+        # It's better to return an empty success response than a 404 error
+        # This means the user exists, but had no activity in the selected month.
+        output = {"success": True, "data": []}
+        #g.redis_conn.set(redis_key, json.dumps(output), ex=3600) # Cache empty result for 1 hour
+        return jsonify(output)
 
-    # Prepare data structure
     results = []
 
     for channel_id, channel_name, user_message_count in user_chat_data:
-        # Compute user's percentile rank on this channel
+        # The percentile query remains the same, as it was already correct.
         cursor.execute("""
             WITH all_user_counts AS (
                 SELECT user_id, SUM(total_message_count) AS total_messages
@@ -2205,25 +2221,25 @@ def get_user_info():
                 GROUP BY user_id
             )
             SELECT 
-                100 * (SELECT COUNT(*) FROM all_user_counts WHERE total_messages < %s) 
+                100.0 * (SELECT COUNT(*) FROM all_user_counts WHERE total_messages <= %s) 
                 / NULLIF((SELECT COUNT(*) FROM all_user_counts), 0) AS percentile
         """, (channel_id, month_start, next_month_start, user_message_count))
 
         percentile_row = cursor.fetchone()
         percentile = percentile_row[0] if percentile_row and percentile_row[0] is not None else 0.0
 
-        # Append to results
         results.append({
             "channel_name": channel_name,
-            "message_count": user_message_count,
-            "percentile": round(percentile, 2)
+            "message_count": int(user_message_count),
+            "percentile": round(float(percentile), 2)
         })
 
     cursor.close()
+    
+    output = {"success": True, "data": results}
+    #g.redis_conn.set(redis_key, json.dumps(output), ex=86400) # Cache for 24 hours
 
-    g.redis_conn.set(redis_key, json.dumps(results))
-
-    return jsonify(results)
+    return jsonify(output)
 
 @app.route('/api/get_chat_engagement', methods=['GET'])
 def get_chat_engagement():
@@ -2277,6 +2293,239 @@ def get_chat_engagement():
         return jsonify(output)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/get_video_highlights', methods=['GET'])
+def get_video_highlights():
+    """
+    API endpoint to fetch AI-generated highlights for a specific channel and month.
+    The results are cached in Redis to improve performance.
+    """
+    # --- 1. Get and Validate Input Parameters ---
+    channel_name = request.args.get('channel_name')
+    month_str = request.args.get('month') # Expected format: "YYYY-MM"
+
+    if not channel_name or not month_str:
+        return jsonify({"success": False, "error": "Missing required parameters: 'channel_name' and 'month' are required."}), 400
+
+    try:
+        # Validate the month format and prepare for SQL query
+        month_start_dt = datetime.strptime(month_str, '%Y-%m')
+        month_start_sql = month_start_dt.strftime('%Y-%m-01')
+    except ValueError:
+        return jsonify({"success": False, "error": "Invalid month format. Please use 'YYYY-MM'."}), 400
+
+    # --- 2. Check Redis Cache ---
+    #redis_key = f"video_highlights_{channel_name.replace(' ', '_')}_{month_str}"
+    #try:
+    #    cached_data = g.redis_conn.get(redis_key)
+    #    if cached_data:
+            # inc_cache_hit_count()
+    #        return jsonify(json.loads(cached_data))
+        # inc_cache_miss_count()
+    #except Exception as e:
+        # Log the error but proceed to query DB; cache is not critical.
+    #    print(f"Redis cache check failed: {e}")
+
+
+    # --- 3. Query the Database (if cache miss) ---
+    # This query joins the three tables to get all the necessary information.
+    query = """
+        SELECT
+            vh.video_id,
+            v.title,
+            vh.topic_tag,
+            vh.generated_summary,
+            -- Calculate the video's true start time (end_time - duration)
+            -- Then find the difference between the highlight's time and the start time
+            -- to get the elapsed seconds for the URL.
+            EXTRACT(EPOCH FROM (TO_TIMESTAMP(vh.start_seconds) - (v.end_time - v.duration))) AS relative_seconds
+        FROM
+            video_highlights vh
+        JOIN
+            videos v ON vh.video_id = v.video_id
+        JOIN
+            channels c ON v.channel_id = c.channel_id
+        WHERE
+            c.channel_name = %s
+            AND DATE_TRUNC('month', v.end_time) = %s
+        ORDER BY
+            v.end_time DESC, vh.start_seconds ASC;
+    """
+
+    try:
+        with g.db_conn.cursor() as cur:
+            cur.execute(query, (channel_name, month_start_sql))
+            results = cur.fetchall()
+
+        if not results:
+            # Still cache the empty result to prevent repeated queries for months with no data
+            output = {"success": True, "data": []}
+            #g.redis_conn.set(redis_key, json.dumps(output), ex=3600) # Cache empty result for 1 hour
+            return jsonify(output)
+
+        # --- 4. Process and Structure the Data ---
+        # Group the flat list of highlights by video_id
+        videos_dict = {}
+        for row in results:
+            video_id, title, topic, summary, relative_seconds = row
+            # Ensure timestamp is not negative or past the end of the video
+            # (This is a safety check)
+            if relative_seconds < 0: continue
+            
+            if video_id not in videos_dict:
+                videos_dict[video_id] = { "video_id": video_id, "video_title": title, "timestamps": [] }
+            
+            videos_dict[video_id]["timestamps"].append({
+                "topic": topic,
+                "summary": summary,
+                "youtube_url": f"https://www.youtube.com/watch?v={video_id}&t={int(relative_seconds)}s"
+            })
+
+        # Convert the dictionary of videos into a list for the final JSON
+        data = list(videos_dict.values())
+        output = {"success": True, "data": data}
+
+        # --- 5. Store Result in Redis Cache ---
+        #g.redis_conn.set(redis_key, json.dumps(output))
+
+        return jsonify(output)
+
+    except Exception as e:
+        # Log the full error for debugging
+        print(f"An error occurred in get_video_highlights: {e}")
+        return jsonify({"success": False, "error": "An internal server error occurred."}), 500
+    
+def parse_search_query(raw_query: str):
+    """
+    Parses a raw search query to separate search operators from the main text.
+    
+    Returns:
+        A tuple containing:
+        - clean_query (str): The query text with operators removed.
+        - filters (dict): A dictionary of extracted filter values.
+        - error (str|None): An error message if validation fails.
+    """
+    filters = {
+        "channel_name": None,
+        "from_date": None,
+        "to_date": None,
+    }
+    
+    # Pattern to find channel:"quoted name" or channel:unquotedname
+    channel_pattern = r'channel:"([^"]+)"|channel:(\S+)'
+    from_pattern = r'from:(\d{4}-\d{2}-\d{2})'
+    to_pattern = r'to:(\d{4}-\d{2}-\d{2})'
+    
+    # --- Extract Channel ---
+    channel_match = re.search(channel_pattern, raw_query)
+    if channel_match:
+        # The first group is for quoted, the second for unquoted
+        filters["channel_name"] = channel_match.group(1) or channel_match.group(2)
+        raw_query = raw_query[:channel_match.start()] + raw_query[channel_match.end():]
+
+    # --- Extract From Date ---
+    from_match = re.search(from_pattern, raw_query)
+    if from_match:
+        try:
+            datetime.strptime(from_match.group(1), '%Y-%m-%d')
+            filters["from_date"] = from_match.group(1)
+            raw_query = raw_query[:from_match.start()] + raw_query[from_match.end():]
+        except ValueError:
+            return None, None, f"Invalid 'from' date format: {from_match.group(1)}. Use YYYY-MM-DD."
+
+    # --- Extract To Date ---
+    to_match = re.search(to_pattern, raw_query)
+    if to_match:
+        try:
+            datetime.strptime(to_match.group(1), '%Y-%m-%d')
+            filters["to_date"] = to_match.group(1)
+            raw_query = raw_query[:to_match.start()] + raw_query[to_match.end():]
+        except ValueError:
+            return None, None, f"Invalid 'to' date format: {to_match.group(1)}. Use YYYY-MM-DD."
+
+    clean_query = raw_query.strip()
+    return clean_query, filters, None
+    
+@app.route('/api/search_highlights', methods=['GET'])
+def search_highlights():
+    """
+    API endpoint to search for highlights using vector similarity and search operators.
+    Operators: channel:<name>, from:<YYYY-MM-DD>, to:<YYYY-MM-DD>
+    """
+    raw_query = request.args.get('query')
+    if not raw_query:
+        return jsonify({"success": False, "error": "Missing required parameter: 'query' is required."}), 400
+
+    clean_query, filters, error = parse_search_query(raw_query)
+    if error:
+        return jsonify({"success": False, "error": error}), 400
+    
+    if not clean_query:
+        return jsonify({"success": False, "error": "Search query cannot be empty after removing operators."}), 400
+
+    try:
+        query_vector = EMBEDDER.encode(clean_query).tolist()
+
+        sql_select = """
+        SELECT
+            vh.generated_summary, vh.topic_tag, vh.video_id,
+            v.title, v.end_time, v.duration, vh.start_seconds, 
+            vh.summary_embedding <=> %s AS distance
+        """
+        params = [json.dumps(query_vector)]
+        sql_from = "FROM video_highlights vh JOIN videos v ON vh.video_id = v.video_id"
+        where_clauses = []
+
+        if filters["channel_name"]:
+            sql_from += " JOIN channels c ON v.channel_id = c.channel_id"
+            where_clauses.append("c.channel_name ILIKE %s")
+            params.append(f"%{filters['channel_name']}%")
+
+        if filters["from_date"]:
+            where_clauses.append("v.end_time >= %s")
+            params.append(filters["from_date"])
+
+        if filters["to_date"]:
+            where_clauses.append("v.end_time < (%s::date + interval '1 day')")
+            params.append(filters["to_date"])
+        
+        sql_where = ""
+        if where_clauses:
+            sql_where = "WHERE " + " AND ".join(where_clauses)
+
+        sql_order_limit = "ORDER BY distance ASC LIMIT 10;"
+        
+        full_query = " ".join([sql_select, sql_from, sql_where, sql_order_limit])
+
+        with g.db_conn.cursor() as cur:
+            cur.execute(full_query, tuple(params))
+            results = cur.fetchall()
+
+        data = []
+        for row in results:
+            summary, topic, video_id, title, end_time, duration, start_seconds, distance = row
+            
+            # --- NEW: Calculate relative_seconds in Python for simplicity ---
+            # (Alternatively, you can use the same SQL EXTRACT logic as above)
+            video_start_time = end_time - duration
+            highlight_time = datetime.fromtimestamp(start_seconds, tz=timezone.utc)
+            relative_seconds = (highlight_time - video_start_time).total_seconds()
+
+            if relative_seconds < 0: continue
+
+            data.append({
+                "summary": summary, "topic": topic, "video_id": video_id,
+                "video_title": title, "date": end_time.strftime('%Y-%m-%d'),
+                "youtube_url": f"https://www.youtube.com/watch?v={video_id}&t={int(relative_seconds)}s",
+                "similarity_score": 1 - distance
+            })
+
+        output = {"success": True, "data": data}
+        return jsonify(output)
+
+    except Exception as e:
+        print(f"An error occurred in search_highlights: {e}")
+        return jsonify({"success": False, "error": "An internal server error occurred."}), 500
 
 
 @app.route('/streaming_hours')
@@ -2370,6 +2619,14 @@ def site_metrics_view():
 @app.route('/recommendation_engine')
 def recommendation_engine_view():
     return render_template('recommendation_engine.html', _=_, get_locale=get_locale)
+
+@app.route('/highlights')
+def highlights_view():
+    return render_template('highlights.html', _=_, get_locale=get_locale)
+
+@app.route('/highlight_search')
+def highlight_search_view():
+    return render_template('highlight_search.html', _=_, get_locale=get_locale)
 
 #v1 redirects
 @app.route('/stream-time')

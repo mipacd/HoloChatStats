@@ -5,6 +5,7 @@ import time
 import gc
 import os
 import sys
+import json
 from db.connection import get_db_connection, release_db_connection
 from cacheutil.cache_manager import write_chat_log_to_cache
 from config.settings import get_config
@@ -32,6 +33,24 @@ def download_chat_log(channel_id, video_id, queue, year, month):
     """
 
     logger = get_logger()
+
+    duration_seconds = None
+    try:
+        # Construct the path to the channel's metadata cache file
+        cache_file = os.path.join(
+            os.path.dirname(os.path.abspath(sys.argv[0])), 
+            'cache', 'videos', f'{channel_id}.json'
+        )
+        if os.path.exists(cache_file):
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+                # Get the duration for the specific video we are processing
+                if video_id in metadata and 'duration' in metadata[video_id]:
+                    duration_seconds = metadata[video_id]['duration']
+    except Exception as e:
+        logger.warning(f"Could not read duration from cache for {video_id}: {e}")
+
+
     retry_delay = 5
     retry_count = 0
     while retry_count < int(get_config("Settings", "MaxRetries")):
@@ -106,6 +125,15 @@ def download_chat_log(channel_id, video_id, queue, year, month):
                     "message_category": message_category,
                     "message": chat_message
                 })
+
+            if duration_seconds is not None:
+                # If the last message is earlier than the video's end minus a 60s tolerance,
+                # it means the download likely stalled and timed out prematurely.
+                if last_message_time < (duration_seconds - 60):
+                    raise TimeoutError(
+                        f"Chat download for {video_id} timed out prematurely. "
+                        f"Last message at {int(last_message_time)}s, video duration is {int(duration_seconds)}s."
+                    )
 
             feature_dict["humor"].append((last_message_time, 0))
             if last_message_time > 0:

@@ -7,17 +7,19 @@
     <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat statistics, message frequencies, user statistics">
     <title>{{ _("Message Frequencies by User") }}</title>
     
-    <!-- jQuery & Bootstrap -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ GA_ID }}"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css">
 
-    <!-- Bootstrap Datepicker -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
 
     <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+        }
         .leaderboard-container {
             max-width: 800px;
             margin: 20px auto;
@@ -25,7 +27,6 @@
         .leaderboard-table {
             margin-top: 20px;
         }
-        /* Centering spinner */
         .spinner-container {
             display: none;
             text-align: center;
@@ -37,32 +38,37 @@
 
 {% include 'menu.html' %}
 
-<!-- Main Content -->
 <div id="content" class="mt-3 leaderboard-container">
     <h2 class="text-center mb-4">{{ _("Message Frequencies by User") }}</h2>
 
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <label for="usernameInput">{{ _("Username:") }}</label>
-            <input type="text" id="usernameInput" class="form-control" placeholder="{{ _("Enter username") }}">
+    <div class="alert alert-info small" role="alert">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        Your YouTube Channel ID can be found at the end of the URL when you visit the 
+        <a href="https://studio.youtube.com/" target="_blank" class="alert-link">YouTube Studio</a> 
+        page (e.g., UC...). Handles (e.g., @username) may not yet be in the database, so providing a Channel ID is the most reliable method.
+    </div>
+
+    <div class="row mb-3 align-items-end">
+        <div class="col-md-5">
+            <label for="identifierInput">{{ _("Channel ID or @handle:") }}</label>
+            <input type="text" id="identifierInput" class="form-control" placeholder="{{ _("Enter Channel ID or handle") }}">
         </div>
-        <div class="col-md-6">
+        <div class="col-md-5">
             <label for="monthPicker">{{ _("Month:") }}</label>
             <input type="text" id="monthPicker" class="form-control">
         </div>
+        <div class="col-md-2">
+            <button id="fetchUserStats" class="btn btn-primary w-100">{{ _("Get Data") }}</button>
+        </div>
     </div>
 
-    <button id="fetchUserStats" class="btn btn-primary mb-3">{{ _("Get User Data") }}</button>
-
-    <!-- Loading Spinner -->
     <div id="spinnerContainer" class="spinner-container">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">{{ _("Loading...") }}</span>
         </div>
     </div>
 
-    <!-- User Data Table -->
-    <table id="userStatsTable" class="table table-striped leaderboard-table" style="display: none;">
+    <table id="userStatsTable" class="table table-dark table-striped leaderboard-table" style="display: none;">
         <thead>
             <tr>
                 <th>{{ _("Channel") }}</th>
@@ -86,28 +92,30 @@ $(document).ready(function() {
 
     // Fetch user message statistics
     $('#fetchUserStats').on('click', function() {
-        const username = $('#usernameInput').val().trim();
+        const identifier = $('#identifierInput').val().trim();
         const month = $('#monthPicker').val();
 
-        if (!username || !month) {
-            alert("{{ _("Please enter a username and select a month.") }}");
+        if (!identifier || !month) {
+            alert("{{ _("Please enter a Channel ID or handle and select a month.") }}");
             return;
         }
 
-        // Show spinner and hide table
         $('#spinnerContainer').show();
         $('#userStatsTable').hide();
+        
+        // --- JAVASCRIPT FIX 1: Use the 'identifier' parameter for the API call ---
+        $.get('/api/get_user_info', { identifier: identifier, month: month }, function(response) {
+            $('#spinnerContainer').hide();
 
-        $.get('/api/get_user_info', { username: username, month: month }, function(data) {
-            $('#spinnerContainer').hide(); // Hide spinner when data is received
-
-            if (!data || data.length === 0) {
+            // --- JAVASCRIPT FIX 2: Check response.success and response.data ---
+            if (!response.success || !response.data || response.data.length === 0) {
                 alert("{{ _("No data available for the selected user and month.") }}");
                 return;
             }
 
             let tbody = "";
-            data.forEach((channel, index) => {
+            // --- JAVASCRIPT FIX 3: Iterate over response.data, not the top-level object ---
+            response.data.forEach((channel, index) => {
                 tbody += `<tr>
                     <td>${channel.channel_name}</td>
                     <td>${channel.message_count}</td>
@@ -117,8 +125,13 @@ $(document).ready(function() {
 
             $('#userStatsTable tbody').html(tbody);
             $('#userStatsTable').show();
-        }).fail(function() {
-            alert("{{ _("Error fetching data. Please try again later.") }}");
+        }).fail(function(jqXHR) {
+            // Provide a more detailed error message if possible
+            let errorMsg = "{{ _("Error fetching data. Please try again later.") }}";
+            if(jqXHR.responseJSON && jqXHR.responseJSON.error) {
+                errorMsg = jqXHR.responseJSON.error;
+            }
+            alert(errorMsg);
             $('#spinnerContainer').hide();
         });
     });

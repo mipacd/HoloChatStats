@@ -6,7 +6,6 @@ import asyncio
 import re
 
 # --- Ollama Client Initialization ---
-# Using the official, native Ollama async client
 client = ollama.AsyncClient(host='http://localhost:11434', timeout=60.0)
 
 # --- Embedding Model Initialization ---
@@ -21,7 +20,6 @@ def clean_model_output(raw_text: str) -> str:
     Uses a regular expression to find and remove the <think>...</think> block,
     including multi-line thoughts.
     """
-    # re.DOTALL makes '.' match newlines, so it can span multiple lines.
     clean_text = re.sub(r'<think>.*?</think>', '', raw_text, flags=re.DOTALL)
     return clean_text.strip()
 
@@ -35,16 +33,15 @@ class ProcessRequest(BaseModel):
 async def process_single_context(context: Context):
     """Processes a single chat log using the channel name as context."""
     try:
-        # --- NEW: The system prompt now includes the VTuber's name ---
         summary_messages = [
             {
                 'role': 'system',
                 'content': (
                     f"You are an expert AI assistant analyzing a YouTube live stream chat log from the female VTuber, {context.channel_name}. "
-                    "Your task is to analyze the following live stream chat log and write a single, engaging, "
-                    "narrative sentence in English that summarizes the most likely event that caused this reaction. "
-                    "Your response must be a maximum of two sentences and must not contain any bullet points. "
-                    "Respond with only the summary sentence."
+                    f"The video's title is '{context.video_title}', which may provide additional context. "
+                    "Your task is to analyze the following live stream chat log and write an engaging, "
+                    "narrative summary in English only that states the most likely event that caused this reaction. "
+                    "IMPORTANT: Your response must be a maximum of two sentences. It must not contain any bullet points or lists."
                 )
             },
             {'role': 'user', 'content': context.text}
@@ -55,9 +52,8 @@ async def process_single_context(context: Context):
 
         if not summary: return None
         
-        # The topic prompt remains the same, using the generated summary
         topic_messages = [
-            {'role': 'system', 'content': 'You are an AI tagger. Read a sentence and generate a concise, two or three-word topic label for it in English. Respond with only the topic label.'},
+            {'role': 'system', 'content': 'You are an AI tagger. Read a sentence and generate a concise, two or three-word topic label for it in English only. Respond with only the topic label and nothing else.'},
             {'role': 'user', 'content': summary}
         ]
         topic_response = await client.chat(model='deepseek-r1:8b-llama-distill-q4_K_M', messages=topic_messages)

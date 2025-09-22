@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-03-20 16:03-0400\n"
+"POT-Creation-Date: 2025-09-22 09:36-0400\n"
 "PO-Revision-Date: 2025-03-20 16:03-0400\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ko\n"
@@ -18,519 +18,832 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:203 server.py:286 server.py:333
+#: server.py:958 server.py:1155 server.py:1235 server.py:1346 server.py:1384
+#: server.py:1559 server.py:1613 server.py:1683 server.py:1769
 msgid "Missing required parameters"
 msgstr "필수 매개변수가 누락되었습니다"
 
-#: server.py:306
+#: server.py:1591
 msgid "No data found"
 msgstr "데이터를 찾을 수 없습니다"
 
-#: templates/chat_makeup.html:6 templates/chat_makeup.html:33
-#: templates/menu.html:27
-msgid "Chat Makeup"
-msgstr "채팅 구성"
-
-#: templates/chat_makeup.html:35
-msgid ""
-"Rates per minute using character set detection. Emote category counts "
-"both Unicode and YouTube style emote-only messages."
-msgstr "문자 세트 감지를 사용한 분당 비율. 이모티콘 카테고리는 유니코드 및 유튜브 스타일의 이모티콘 전용 메시지를 포함합니다."
-
-#: templates/chat_makeup.html:41 templates/common_chat_heatmap.html:37
-#: templates/membership_counts.html:52 templates/membership_percentages.html:36
-#: templates/streaming_hours.html:58 templates/streaming_hours_avg.html:58
-#: templates/streaming_hours_diff.html:58 templates/streaming_hours_max.html:58
-msgid "Channel Group:"
-msgstr "채널 그룹:"
-
-#: templates/chat_makeup.html:43 templates/streaming_hours.html:60
-#: templates/streaming_hours_avg.html:60 templates/streaming_hours_diff.html:60
-#: templates/streaming_hours_max.html:60
-msgid "All"
-msgstr "전체"
-
-#: templates/chat_makeup.html:44 templates/common_chat_heatmap.html:39
-#: templates/membership_counts.html:54 templates/membership_percentages.html:38
-#: templates/streaming_hours.html:61 templates/streaming_hours_avg.html:61
-#: templates/streaming_hours_diff.html:61 templates/streaming_hours_max.html:61
-msgid "Hololive"
-msgstr "홀로라이브"
-
-#: templates/chat_makeup.html:45 templates/common_chat_heatmap.html:40
-#: templates/membership_counts.html:55 templates/membership_percentages.html:39
-#: templates/streaming_hours.html:62 templates/streaming_hours_avg.html:62
-#: templates/streaming_hours_diff.html:62 templates/streaming_hours_max.html:62
-msgid "Indie"
-msgstr "인디"
-
-#: templates/chat_makeup.html:49 templates/common_chat_heatmap.html:44
-#: templates/membership_counts.html:59 templates/membership_percentages.html:43
-#: templates/streaming_hours.html:66 templates/streaming_hours_avg.html:66
-#: templates/streaming_hours_diff.html:66 templates/streaming_hours_max.html:66
-msgid "Month:"
-msgstr "월:"
-
-#: templates/chat_makeup.html:53 templates/streaming_hours.html:70
-#: templates/streaming_hours_avg.html:70 templates/streaming_hours_diff.html:70
-#: templates/streaming_hours_max.html:70
-msgid "Timezone (UTC Offset):"
-msgstr "시간대 (UTC 오프셋):"
-
-#: templates/chat_makeup.html:59 templates/common_chat_heatmap.html:49
-#: templates/membership_counts.html:65 templates/membership_percentages.html:49
-#: templates/streaming_hours.html:76 templates/streaming_hours_avg.html:76
-#: templates/streaming_hours_diff.html:76 templates/streaming_hours_max.html:76
-msgid "Download CSV"
-msgstr "CSV 다운로드"
-
-#: templates/common_chat_heatmap.html:6 templates/common_chat_heatmap.html:33
-msgid "Common Chat Heatmap"
-msgstr "공통 사용자 히트맵"
-
-#: templates/common_chat_heatmap.html:101
-msgid "Common Chat Percentages Between Channels"
-msgstr "채널 간 공통 사용자 비율"
-
-#: templates/common_chat_heatmap.html:103
-msgid "Target Channels"
-msgstr "대상 채널"
-
-#: templates/common_chat_heatmap.html:108
-msgid "Source Channels"
-msgstr "소스 채널"
-
-#: templates/common_users.html:6 templates/common_users.html:27
-#: templates/menu.html:21
-msgid "Common Users by Channel / Month"
-msgstr "채널 / 월별 공통 사용자"
-
-#: templates/common_users.html:31
-msgid "Channel A:"
-msgstr "채널 A:"
-
-#: templates/common_users.html:35
-msgid "Month for A:"
-msgstr "A의 월:"
-
-#: templates/common_users.html:42
-msgid "Channel B:"
-msgstr "채널 B:"
-
-#: templates/common_users.html:46
-msgid "Month for B:"
-msgstr "B의 월:"
-
-#: templates/common_users.html:51
-msgid "Calculate"
-msgstr "계산"
-
-#: templates/common_users.html:65 templates/common_users.html:125
-msgid "Number of common users:"
-msgstr "공통 사용자 수:"
-
-#: templates/common_users.html:91
-msgid "Select Channel"
-msgstr "채널 선택"
-
-#: templates/common_users.html:107
-msgid "Please fill in all fields."
-msgstr "모든 항목을 입력하세요."
-
-#: templates/common_users.html:113
-msgid "No common users found for the selected criteria."
-msgstr "선택한 기준에 대한 공통 사용자를 찾을 수 없습니다."
-
-#: templates/common_users.html:130
-msgid "Error fetching data. Please try again later."
-msgstr "데이터를 가져오는 중 오류가 발생했습니다. 나중에 다시 시도하세요."
-
-#: templates/index.html:6 templates/index.html:36
-msgid "Welcome to HoloChatStats v2"
-msgstr "HoloChatStats v2에 오신 것을 환영합니다!"
-
-#: templates/index.html:37
-msgid "Since this is a beta, data may be incomplete or inaccurate."
-msgstr "이것은 베타 버전이므로 데이터가 불완전하거나 부정확할 수 있습니다."
-
-#: templates/index.html:40
-msgid "View on GitHub"
-msgstr "GitHub에서 보기"
-
-#: templates/index.html:67
-msgid "Current Date Ranges Available (UTC):"
-msgstr "현재 사용 가능한 날짜 범위 (UTC):"
-
-#: templates/index.html:68
-msgid "Start:"
-msgstr "시작:"
-
-#: templates/index.html:69
-msgid "End:"
-msgstr "종료:"
-
-#: templates/membership_counts.html:6 templates/membership_counts.html:48
-#: templates/menu.html:22
-msgid "Membership Counts"
-msgstr "멤버십 수"
-
-#: templates/membership_counts.html:117
-msgid "Total Members:"
-msgstr "총 멤버 수:"
-
-#: templates/membership_percentages.html:124
-msgid "Membership Percentage"
-msgstr "멤버십 비율"
-
-#: templates/menu.html:8
-msgid "Language"
-msgstr "언어"
-
-#: templates/menu.html:16
-msgid "Home"
-msgstr "홈"
-
-#: templates/menu.html:18
-msgid "Users and Memberships"
-msgstr "사용자 및 멤버십"
-
-#: templates/menu.html:29
-msgid "Streaming Hours"
-msgstr "스트리밍 시간"
-
-#: templates/streaming_hours.html:6 templates/streaming_hours.html:53
-msgid "Total Streaming Hours"
-msgstr "총 스트리밍 시간"
-
-msgid "Language Stats"
-msgstr "언어 통계"
-
-msgid "Average Streaming Hours"
-msgstr "평균 스트리밍 시간"
-
-msgid "Longest Stream Duration"
-msgstr "최장 스트리밍 시간"
-
-msgid "Streaming Hour Change"
-msgstr "스트리밍 시간 변화"
-
-msgid "Number of Chat Logs Processed:"
-msgstr "처리된 채팅 로그 수:"
-
-msgid "Common User Heatmap"
-msgstr "공통 사용자 히트맵"
-
-msgid "Membership Percentages"
-msgstr "멤버십 비율"
-
-msgid "Streaming Hour Change Since Previous Month"
-msgstr "전월 대비 스트리밍 시간 변화"
-
-msgid "Membership Gain / Loss"
-msgstr "멤버십 증감"
-
-msgid ""
-"Determined using the last recorded message for each user between the "
-"specified month and the previous month."
-msgstr ""
-"지정된 월과 이전 월 사이의 각 사용자의 마지막 기록된 메시지를 기준으로 결정됩니다."
-
-msgid "Gains"
-msgstr "증가"
-
-msgid "Losses"
-msgstr "감소"
-
-msgid "Chat Leaderboards"
-msgstr "채팅 리더보드"
-
-msgid "Channel:"
-msgstr "채널:"
-
-msgid "Get Leaderboard"
-msgstr "리더보드 가져오기"
-
-msgid "Username"
-msgstr "사용자 이름"
-
-msgid "Message Count"
-msgstr "메시지 수"
-
-msgid "Select Channel"
-msgstr "채널 선택"
-
-msgid "No data available for the selected criteria."
-msgstr "선택한 기준에 대한 데이터가 없습니다."
-
-msgid "Number of common members:"
-msgstr "공통 멤버 수:"
-
-msgid "Active User Gains / Losses"
-msgstr "활동 사용자 증감"
-
-msgid ""
-"Determined by users who met a 5 message threshold in one month but not in"
-" the other. Channels that didn't stream in either month are not included."
-msgstr "한 달 동안 5개의 메시지 임계값을 충족했지만 다른 달에는 충족하지 않은 사용자에 의해 결정됩니다. 두 달 모두 스트리밍하지 않은 채널은 포함되지 않습니다."
-
-msgid "Users Gained"
-msgstr "획득한 사용자"
-
-msgid "Users Lost"
-msgstr "잃은 사용자"
-
-msgid "Monthly Streaming Hours"
-msgstr "월간 스트리밍 시간"
-
-msgid ""
-"Emote messages are excluded from the total count. Total duration is "
-"computed using only streams with available chat logs."
-msgstr "이모티콘 메시지는 총계에서 제외됩니다. 총 지속 시간은 사용 가능한 채팅 로그가 있는 스트림만 사용하여 계산됩니다."
-
-msgid "Language:"
-msgstr "언어:"
-
-msgid "English (or none of the others)"
-msgstr "영어(또는 기타 언어 없음)"
-
-msgid "Japanese"
-msgstr "일본어"
-
-msgid "Korean"
-msgstr "한국어"
-
-msgid "Russian"
-msgstr "러시아어"
-
-msgid "Percentage"
-msgstr "백분율"
-
-msgid "Rate (messages/min)"
-msgstr "비율 (메시지/분)"
-
-msgid "Please select both a channel and a language."
-msgstr "채널과 언어를 모두 선택해주세요."
-
-msgid "Only counts public archived streams from YouTube."
-msgstr "YouTube의 공개 아카이브 스트림만 계산됩니다."
-
+#: server.py:1772
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr "잘못된 언어 매개변수입니다. EN, JP, KR, RU 중 하나여야 합니다."
 
-msgid "Active User Gain / Loss"
-msgstr "활동 사용자 증감"
-
-msgid "Exclusive Chat Users"
-msgstr "독점 채팅 사용자"
-
-msgid "Message Percentages and Rates by Language"
-msgstr "언어별 메시지 비율 및 속도"
-
-msgid "Monthly Streaming Hours"
-msgstr "월간 스트리밍 시간"
-
-msgid "Explore statistics and insights for Hololive and Indie VTuber chats."
-msgstr "홀로라이브 및 인디 VTuber 채팅에 대한 통계와 통찰력을 탐색하세요."
-
-msgid "Data Coverage"
-msgstr "데이터 범위"
-
-msgid "Latest Updates"
-msgstr "최신 업데이트"
-
+#: templates/channel_clustering.html:8 templates/menu.html:60
 msgid "Channel Clusters by Common Users"
 msgstr "공통 사용자 기반 채널 클러스터"
 
+#: templates/channel_clustering.html:56
 msgid "Channel Clustering"
 msgstr "채널 클러스터링"
 
+#: templates/channel_clustering.html:58
 msgid ""
 "Determined by common chat users using cosine similarity and Leiden "
 "community detection. Channels must meet a similarity threshold with at "
 "least one other channel to appear. Click and drag to zoom. Double click "
 "to reset."
-msgstr "코사인 유사도와 Leiden 커뮤니티 탐지를 사용하여 공통 채팅 사용자에 따라 클러스터를 결정합니다. 표시되려면 최소한 다른 채널과 유사도 임계값을 충족해야 합니다. 클릭하여 드래그로 확대하고, 더블 클릭으로 초기화합니다."
+msgstr ""
+"코사인 유사도와 Leiden 커뮤니티 탐지를 사용하여 공통 채팅 사용자에 따라 클러스터를 결정합니다. 표시되려면 최소한 다른 채널과"
+" 유사도 임계값을 충족해야 합니다. 클릭하여 드래그로 확대하고, 더블 클릭으로 초기화합니다."
 
+#: templates/channel_clustering.html:63
 msgid "Select Month:"
 msgstr "월 선택:"
 
+#: templates/channel_clustering.html:64
 msgid "YYYY-MM"
 msgstr "YYYY-MM"
 
+#: templates/channel_clustering.html:67
+msgid "Threshold:"
+msgstr "임계값:"
+
+#: templates/channel_clustering.html:69
+msgid "High (Top 5%)"
+msgstr "높음 (상위 5%)"
+
+#: templates/channel_clustering.html:70
+msgid "Medium (Top 10%)"
+msgstr "중간 (상위 10%)"
+
+#: templates/channel_clustering.html:71
+msgid "Low (Top 20%)"
+msgstr "낮음 (상위 20%)"
+
+#: templates/channel_clustering.html:75
+msgid "3D View:"
+msgstr "3D 뷰:"
+
+#: templates/channel_clustering.html:76
+msgid "Click and drag to rotate. Mouse wheel to zoom."
+msgstr "클릭 후 드래그하면 회전, 마우스 휠로 확대/축소."
+
+#: templates/channel_clustering.html:81
 msgid "Load Clustering Graph"
 msgstr "클러스터링 그래프 로드"
 
+#: templates/channel_clustering.html:86 templates/channel_clustering.html:92
+#: templates/chat_leaderboards.html:60 templates/common_members.html:81
+#: templates/common_users.html:83 templates/recommendation_engine.html:59
+#: templates/user_info.html:67
 msgid "Loading..."
 msgstr "로딩 중..."
 
+#: templates/channel_clustering.html:115
 msgid "Please select a month."
 msgstr "월을 선택하세요."
 
+#: templates/channel_clustering.html:136
 msgid "Failed to load clustering graph."
 msgstr "클러스터링 그래프를 로드하지 못했습니다."
 
+#: templates/chat_leaderboards.html:8 templates/chat_leaderboards.html:42
+#: templates/menu.html:62
+msgid "Chat Leaderboards"
+msgstr "채팅 리더보드"
+
+#: templates/chat_leaderboards.html:46 templates/exclusive_chat.html:48
+#: templates/funniest_timestamps.html:106 templates/highlights.html:97
+#: templates/jp_user_percents.html:50 templates/message_types.html:49
+#: templates/monthly_streaming_hours.html:48
+msgid "Channel:"
+msgstr "채널:"
+
+#: templates/chat_leaderboards.html:50 templates/chat_makeup.html:138
+#: templates/common_user_heatmap.html:45 templates/engagement.html:50
+#: templates/funniest_timestamps.html:112 templates/highlights.html:101
+#: templates/membership_change.html:126 templates/membership_counts.html:141
+#: templates/membership_percentages.html:50 templates/streaming_hours.html:74
+#: templates/streaming_hours_avg.html:74 templates/streaming_hours_diff.html:74
+#: templates/streaming_hours_max.html:74 templates/user_change.html:132
+#: templates/user_info.html:57
+msgid "Month:"
+msgstr "월:"
+
+#: templates/chat_leaderboards.html:55
+msgid "Get Leaderboard"
+msgstr "리더보드 가져오기"
+
+#: templates/chat_leaderboards.html:69
+msgid "Username"
+msgstr "사용자 이름"
+
+#: templates/chat_leaderboards.html:70 templates/user_info.html:75
+msgid "Message Count"
+msgstr "메시지 수"
+
+#: templates/chat_leaderboards.html:89 templates/common_members.html:125
+#: templates/common_users.html:125 templates/exclusive_chat.html:50
+#: templates/funniest_timestamps.html:108
+#: templates/funniest_timestamps.html:140 templates/highlights.html:147
+#: templates/jp_user_percents.html:52 templates/message_types.html:51
+#: templates/monthly_streaming_hours.html:50
+msgid "Select Channel"
+msgstr "채널 선택"
+
+#: templates/chat_leaderboards.html:102 templates/common_members.html:141
+#: templates/common_users.html:141
+msgid "Please fill in all fields."
+msgstr "모든 항목을 입력하세요."
+
+#: templates/chat_leaderboards.html:114
+msgid "No data available for the selected criteria."
+msgstr "선택한 기준에 대한 데이터가 없습니다."
+
+#: templates/chat_leaderboards.html:130 templates/common_members.html:171
+#: templates/common_users.html:171 templates/funniest_timestamps.html:181
+#: templates/funniest_timestamps.html:227 templates/highlight_search.html:168
+#: templates/highlights.html:210 templates/recommendation_engine.html:113
+#: templates/user_info.html:130
+msgid "Error fetching data. Please try again later."
+msgstr "데이터를 가져오는 중 오류가 발생했습니다. 나중에 다시 시도하세요."
+
+#: templates/chat_makeup.html:8 templates/chat_makeup.html:109
+#: templates/menu.html:79
+msgid "Chat Makeup"
+msgstr "채팅 구성"
+
+#: templates/chat_makeup.html:111
+msgid ""
+"Rates per minute using character set detection. Emote category counts "
+"both Unicode and YouTube style emote-only messages."
+msgstr "문자 세트 감지를 사용한 분당 비율. 이모티콘 카테고리는 유니코드 및 유튜브 스타일의 이모티콘 전용 메시지를 포함합니다."
+
+#: templates/chat_makeup.html:117 templates/common_user_heatmap.html:38
+#: templates/engagement.html:43 templates/membership_change.html:118
+#: templates/membership_counts.html:134
+#: templates/membership_percentages.html:43 templates/streaming_hours.html:66
+#: templates/streaming_hours_avg.html:66 templates/streaming_hours_diff.html:66
+#: templates/streaming_hours_max.html:66 templates/user_change.html:124
+msgid "Channel Group:"
+msgstr "채널 그룹:"
+
+#: templates/chat_makeup.html:119 templates/membership_change.html:120
+#: templates/streaming_hours.html:68 templates/streaming_hours_avg.html:68
+#: templates/streaming_hours_diff.html:68 templates/streaming_hours_max.html:68
+#: templates/user_change.html:126
+msgid "All"
+msgstr "전체"
+
+#: templates/chat_makeup.html:120 templates/common_user_heatmap.html:40
+#: templates/engagement.html:45 templates/membership_change.html:121
+#: templates/membership_counts.html:136
+#: templates/membership_percentages.html:45 templates/streaming_hours.html:69
+#: templates/streaming_hours_avg.html:69 templates/streaming_hours_diff.html:69
+#: templates/streaming_hours_max.html:69 templates/user_change.html:127
+msgid "Hololive"
+msgstr "홀로라이브"
+
+#: templates/chat_makeup.html:121 templates/common_user_heatmap.html:41
+#: templates/engagement.html:46 templates/membership_change.html:122
+#: templates/membership_counts.html:137
+#: templates/membership_percentages.html:46 templates/streaming_hours.html:70
+#: templates/streaming_hours_avg.html:70 templates/streaming_hours_diff.html:70
+#: templates/streaming_hours_max.html:70 templates/user_change.html:128
+msgid "Indie"
+msgstr "인디"
+
+#: templates/chat_makeup.html:144 templates/common_user_heatmap.html:50
+#: templates/engagement.html:56 templates/funniest_timestamps.html:118
+#: templates/membership_change.html:132 templates/membership_counts.html:147
+#: templates/membership_percentages.html:56 templates/streaming_hours.html:80
+#: templates/streaming_hours_avg.html:80 templates/streaming_hours_diff.html:80
+#: templates/streaming_hours_max.html:80 templates/user_change.html:138
+msgid "Download CSV"
+msgstr "CSV 다운로드"
+
+#: templates/common_members.html:8 templates/common_members.html:49
+#: templates/menu.html:59
 msgid "Common Members by Channel / Month"
 msgstr "채널/월별 공통 멤버"
 
+#: templates/common_members.html:54 templates/common_users.html:55
 msgid "Channel A:"
 msgstr "채널 A:"
 
+#: templates/common_members.html:58 templates/common_users.html:59
 msgid "Month for A:"
-msgstr "채널 A의 월:"
+msgstr "A의 월:"
 
+#: templates/common_members.html:65 templates/common_users.html:66
 msgid "Channel B:"
 msgstr "채널 B:"
 
+#: templates/common_members.html:69 templates/common_users.html:70
 msgid "Month for B:"
-msgstr "채널 B의 월:"
+msgstr "B의 월:"
 
+#: templates/common_members.html:75 templates/common_users.html:76
 msgid "Calculate"
 msgstr "계산"
 
+#: templates/common_members.html:90
 msgid ""
 "Percent of Channel A's members in Month A that are also members of "
 "Channel B in Month B:"
 msgstr "월 A의 채널 A 멤버 중 월 B의 채널 B 멤버인 비율:"
 
+#: templates/common_members.html:94
 msgid ""
 "Percent of Channel B's members in Month B that are also members of "
 "Channel A in Month A:"
 msgstr "월 B의 채널 B 멤버 중 월 A의 채널 A 멤버인 비율:"
 
+#: templates/common_members.html:98
 msgid "Number of common members:"
 msgstr "공통 멤버 수:"
 
+#: templates/common_members.html:151
 msgid "No common members found for the selected criteria."
 msgstr "선택한 조건에 대한 공통 멤버를 찾을 수 없습니다."
 
-msgid "Funniest Timestamps"
-msgstr "가장 웃긴 타임스탬프"
+#: templates/common_user_heatmap.html:6 templates/common_user_heatmap.html:34
+msgid "Common User Heatmap"
+msgstr "공통 사용자 히트맵"
 
-msgid "Fetch Funniest Moments"
-msgstr "가장 웃긴 순간 가져오기"
+#: templates/common_user_heatmap.html:102
+msgid "Common Chat Percentages Between Channels"
+msgstr "채널 간 공통 사용자 비율"
 
+#: templates/common_user_heatmap.html:104
+msgid "Target Channels"
+msgstr "대상 채널"
 
+#: templates/common_user_heatmap.html:109
+msgid "Source Channels"
+msgstr "소스 채널"
+
+#: templates/common_users.html:6 templates/common_users.html:50
+#: templates/menu.html:58
+msgid "Common Users by Channel / Month"
+msgstr "채널 / 월별 공통 사용자"
+
+#: templates/common_users.html:91
+#, fuzzy
 msgid ""
-"Determined using the highest concentration of humerous reactions by chat "
-"for each stream.<br><br>"
-"Each link opens YouTube in a new window.<br><br>"
-"CSV Download contains timestamps in HH:MM:SS format for use with yt-dlp, "
-"ffmpeg, etc. for clipping."
-msgstr ""
-"각 스트림에서 채팅에서 가장 웃긴 반응이 집중된 타임스탬프를 사용하여 결정됩니다.<br><br>"
-"각 링크는 YouTube에서 새 창으로 열립니다.<br><br>"
-"CSV 다운로드에는 yt-dlp, ffmpeg 등에서 클리핑에 사용할 수 있는 HH:MM:SS 형식의 타임스탬프가 포함되어 있습니다."
+"Percent of Channel A's chat in Month A that participated in Channel B's "
+"chat in Month B:"
+msgstr "월 A의 채널 A 멤버 중 월 B의 채널 B 멤버인 비율:"
 
-msgid "JP User Percentages"
-msgstr "일본어 사용자 비율"
-
+#: templates/common_users.html:95
+#, fuzzy
 msgid ""
-"Percentage of users who primarily use Japanese (>50%) in chat across all "
-"channels, excluding emoji-only messages."
-msgstr ""
-"모든 채널에서 주로 일본어(>50%)를 사용하여 채팅하는 사용자 비율입니다. "
-"이모지 전용 메시지는 제외됩니다."
+"Percent of Channel B's chat in Month B that participated in Channel A's "
+"chat in Month A:"
+msgstr "월 B의 채널 B 멤버 중 월 A의 채널 A 멤버인 비율:"
 
-msgid "JP User Percentage"
-msgstr "일본어 사용자 비율"
+#: templates/common_users.html:99
+msgid "Number of common users:"
+msgstr "공통 사용자 수:"
 
-msgid "Username:"
-msgstr "사용자 이름:"
+#: templates/common_users.html:151
+msgid "No common users found for the selected criteria."
+msgstr "선택한 기준에 대한 공통 사용자를 찾을 수 없습니다."
 
-msgid "Enter username"
-msgstr "사용자 이름을 입력하세요"
-
-msgid "Get User Data"
-msgstr "사용자 데이터 가져오기"
-
-msgid "Channel"
-msgstr "채널"
-
-msgid "Percentile"
-msgstr "백분위"
-
-msgid "Please enter a username and select a month."
-msgstr "사용자 이름을 입력하고 월을 선택하세요."
-
-msgid "No data available for the selected user and month."
-msgstr "선택한 사용자 및 월에 대한 데이터가 없습니다."
-
-msgid "Message Frequencies by User"
-msgstr "사용자별 메시지 빈도"
-
-msgid "Visitor Count in the Past Year:"
-msgstr "지난 1년간 방문자 수:"
-
-msgid "Only counts members that participated in chat."
-msgstr "채팅에 참여한 멤버만 집계됩니다."
-
-msgid "Average Streaming Duration"
-msgstr "평균 스트리밍 시간"
-
-msgid "Threshold:"
-msgstr "임계값:"
-
-msgid "High (Top 5%)"
-msgstr "높음 (상위 5%)"
-
-msgid "Medium (Top 10%)"
-msgstr "중간 (상위 10%)"
-
-msgid "Low (Top 20%)"
-msgstr "낮음 (상위 20%)"
-
-msgid "3D View:"
-msgstr "3D 뷰:"
-
-msgid "Click and drag to rotate. Mouse wheel to zoom."
-msgstr "클릭 후 드래그하면 회전, 마우스 휠로 확대/축소."
-
+#: templates/engagement.html:8 templates/engagement.html:39
+#: templates/menu.html:64
 msgid "Engagement Rates"
 msgstr "참여율"
 
+#: templates/engagement.html:39
 msgid "Average chat message count per user."
 msgstr "사용자당 평균 채팅 메시지 수."
 
-msgid "Funniest Moments"
-msgstr "가장 재미있는 순간"
+#: templates/exclusive_chat.html:8 templates/exclusive_chat.html:41
+#: templates/menu.html:63
+msgid "Exclusive Chat Users"
+msgstr "독점 채팅 사용자"
 
-msgid "Common User Channel Clusters"
-msgstr "일반적인 사용자 채널 클러스터"
+#: templates/exclusive_chat.html:43
+msgid ""
+"Percentage of chat users exclusive to this channel each month, within the"
+" same group (e.g. Hololive, Indie)."
+msgstr ""
 
-msgid "Funniest Moment Timestamps"
-msgstr "가장 재미있는 순간의 타임스탬프"
+#: templates/exclusive_chat.html:91 templates/jp_user_percents.html:89
+#: templates/message_types.html:103 templates/monthly_streaming_hours.html:91
+#, fuzzy
+msgid "Month"
+msgstr "월:"
 
+#: templates/exclusive_chat.html:95 templates/exclusive_chat.html:151
+#, fuzzy
+msgid "Exclusive Users (%)"
+msgstr "독점 채팅 사용자"
+
+#: templates/exclusive_chat.html:125 templates/jp_user_percents.html:122
+#: templates/monthly_streaming_hours.html:126
+#, fuzzy
+msgid "Please select a channel."
+msgstr "월을 선택하세요."
+
+#: templates/funniest_timestamps.html:8 templates/funniest_timestamps.html:101
+msgid "Funniest Timestamps"
+msgstr "가장 웃긴 타임스탬프"
+
+#: templates/funniest_timestamps.html:102
+#, fuzzy
+msgid ""
+"Determined using the highest concentration of humerous reactions by chat "
+"for each stream.<br><br>\n"
+"    Each link opens YouTube in a new window.<br><br>CSV Download contains"
+" timestamps in HH:MM:SS format for use with yt-dlp, ffmpeg, etc. for "
+"clipping."
+msgstr ""
+"각 스트림에서 채팅에서 가장 웃긴 반응이 집중된 타임스탬프를 사용하여 결정됩니다.<br><br>각 링크는 YouTube에서 새 "
+"창으로 열립니다.<br><br>CSV 다운로드에는 yt-dlp, ffmpeg 등에서 클리핑에 사용할 수 있는 HH:MM:SS 형식의"
+" 타임스탬프가 포함되어 있습니다."
+
+#: templates/funniest_timestamps.html:117
+msgid "Fetch Funniest Moments"
+msgstr "가장 웃긴 순간 가져오기"
+
+#: templates/funniest_timestamps.html:151 templates/highlights.html:159
+#, fuzzy
+msgid "Please select a channel and a month."
+msgstr "채널과 언어를 모두 선택해주세요."
+
+#: templates/funniest_timestamps.html:161
+msgid "No data available."
+msgstr "데이터가 없습니다."
+
+#: templates/funniest_timestamps.html:193
+#, fuzzy
+msgid "Please select a channel and a month before downloading."
+msgstr "채널과 언어를 모두 선택해주세요."
+
+#: templates/funniest_timestamps.html:199
+#, fuzzy
+msgid "No data available for export."
+msgstr "선택한 기준에 대한 데이터가 없습니다."
+
+#: templates/highlight_search.html:8 templates/highlight_search.html:86
+msgid "AI Highlight Search"
+msgstr ""
+
+#: templates/highlight_search.html:87
+msgid ""
+"Search for moments using semantic meaning. You can use operators like "
+"channel:<name>, from:<YYYY-MM-DD>, and to:<YYYY-MM-DD>."
+msgstr ""
+
+#: templates/highlight_search.html:95
+msgid "e.g., paper boat channel:saba from:2025-08-01"
+msgstr ""
+
+#: templates/highlight_search.html:96
+msgid "Search"
+msgstr ""
+
+#: templates/highlight_search.html:100
+msgid "Search for highlights to see results."
+msgstr ""
+
+#: templates/highlight_search.html:131
+msgid "Please enter a search query."
+msgstr ""
+
+#: templates/highlight_search.html:142
+#, fuzzy
+msgid "No results found."
+msgstr "데이터를 찾을 수 없습니다"
+
+#: templates/highlights.html:8 templates/highlights.html:87
+msgid "AI Video Highlights"
+msgstr ""
+
+#: templates/highlights.html:88
+msgid ""
+"AI-generated summaries of the most interesting moments in a stream, "
+"determined by analyzing chat reactions."
+msgstr ""
+
+#: templates/highlights.html:105
+msgid "Fetch Highlights"
+msgstr ""
+
+#: templates/highlights.html:170
+#, fuzzy
+msgid "No highlights available for this selection."
+msgstr "선택한 기준에 대한 데이터가 없습니다."
+
+#: templates/index.html:96
+#, fuzzy
+msgid "Welcome to HoloChatStats v2!"
+msgstr "HoloChatStats v2에 오신 것을 환영합니다!"
+
+#: templates/index.html:97
+msgid "Explore statistics and insights for Hololive and Indie VTuber chats."
+msgstr "홀로라이브 및 인디 VTuber 채팅에 대한 통계와 통찰력을 탐색하세요."
+
+#: templates/index.html:101
+#, fuzzy
+msgid "GitHub"
+msgstr "GitHub에서 보기"
+
+#: templates/index.html:104
+msgid "Twitter/X"
+msgstr ""
+
+#: templates/index.html:107
+msgid "BlueSky"
+msgstr ""
+
+#: templates/index.html:116
 msgid "Featured"
 msgstr "추천"
 
-msgid "Site Metrics"
-msgstr "사이트 지표"
+#: templates/index.html:121
+msgid "Common User Channel Clusters"
+msgstr "일반적인 사용자 채널 클러스터"
 
-msgid "Live Site Metrics"
-msgstr "라이브 사이트 지표"
+#: templates/index.html:127 templates/membership_counts.html:8
+#: templates/membership_counts.html:130 templates/menu.html:66
+msgid "Membership Counts"
+msgstr "멤버십 수"
 
-msgid "Blog"
-msgstr "블로그 (영어 전용)"
+#: templates/index.html:133
+msgid "Funniest Moment Timestamps"
+msgstr "가장 재미있는 순간의 타임스탬프"
 
-msgid "Number of Unique Chatters Observed:"
-msgstr "관찰된 고유 채팅 사용자 수:"
+#: templates/index.html:145
+msgid "Data Coverage"
+msgstr "데이터 범위"
 
+#: templates/index.html:147
+#, fuzzy
+msgid "Loading date ranges..."
+msgstr "로딩 중..."
+
+#: templates/index.html:150
+msgid "Loading chat log count..."
+msgstr "채팅 로그 수를 불러오는 중..."
+
+#: templates/index.html:153
+#, fuzzy
+msgid "Loading message count..."
+msgstr "메시지 수"
+
+#: templates/index.html:161
+msgid "Latest Updates"
+msgstr "최신 업데이트"
+
+#: templates/index.html:163 templates/index.html:230
+msgid "No updates available."
+msgstr "새로운 업데이트가 없습니다."
+
+#: templates/index.html:189
+msgid "Start:"
+msgstr "시작:"
+
+#: templates/index.html:190
+msgid "End:"
+msgstr "종료:"
+
+#: templates/index.html:193
+msgid "Unable to fetch date ranges."
+msgstr "날짜 범위를 가져올 수 없습니다."
+
+#: templates/index.html:196
+#, fuzzy
+msgid "Error fetching date ranges."
+msgstr "데이터를 가져오는 중 오류가 발생했습니다. 나중에 다시 시도하세요."
+
+#: templates/index.html:202
+msgid "Number of Chat Logs Processed:"
+msgstr "처리된 채팅 로그 수:"
+
+#: templates/index.html:204
+msgid "Unable to fetch chat log count."
+msgstr "채팅 로그 수를 가져올 수 없습니다."
+
+#: templates/index.html:207
+msgid "Error fetching chat log count."
+msgstr "채팅 로그 수를 가져오는 중 오류가 발생했습니다."
+
+#: templates/index.html:213
 msgid "Number of Chat Messages Processed:"
 msgstr "처리된 채팅 메시지 수:"
 
+#: templates/index.html:215
+#, fuzzy
+msgid "Unable to fetch message count."
+msgstr "사용자당 평균 채팅 메시지 수."
+
+#: templates/index.html:218
+#, fuzzy
+msgid "Error fetching message count."
+msgstr "메시지 수"
+
+#: templates/index.html:233
+msgid "Error fetching updates."
+msgstr "업데이트를 가져오는 중 오류가 발생했습니다."
+
+#: templates/jp_user_percents.html:8 templates/jp_user_percents.html:43
+#: templates/menu.html:81
+msgid "JP User Percentages"
+msgstr "일본어 사용자 비율"
+
+#: templates/jp_user_percents.html:45
+msgid ""
+"Percentage of users who primarily use Japanese (>50%) in chat across all "
+"channels, excluding emoji-only messages."
+msgstr "모든 채널에서 주로 일본어(>50%)를 사용하여 채팅하는 사용자 비율입니다. 이모지 전용 메시지는 제외됩니다."
+
+#: templates/jp_user_percents.html:93 templates/jp_user_percents.html:147
+msgid "JP User Percentage"
+msgstr "일본어 사용자 비율"
+
+#: templates/membership_change.html:8 templates/membership_change.html:111
+#: templates/menu.html:68
+msgid "Membership Gain / Loss"
+msgstr "멤버십 증감"
+
+#: templates/membership_change.html:113
+msgid ""
+"Determined using the last recorded message for each user between the "
+"specified month and the previous month."
+msgstr "지정된 월과 이전 월 사이의 각 사용자의 마지막 기록된 메시지를 기준으로 결정됩니다."
+
+#: templates/membership_change.html:234
+msgid "Gains"
+msgstr "증가"
+
+#: templates/membership_change.html:241
+msgid "Losses"
+msgstr "감소"
+
+#: templates/membership_counts.html:130
+msgid ""
+"Only counts members that participated in chat. Membership durations are "
+"based on available badges for each channel."
+msgstr "채팅에 참여한 멤버만 계산됩니다. 멤버십 기간은 각 채널에서 사용 가능한 배지를 기준으로 합니다."
+
+#: templates/membership_counts.html:223
+msgid "Total Members:"
+msgstr "총 멤버 수:"
+
+#: templates/membership_percentages.html:8
+#: templates/membership_percentages.html:39 templates/menu.html:67
+msgid "Membership Percentages"
+msgstr "멤버십 비율"
+
+#: templates/membership_percentages.html:39
+msgid "Only counts members that participated in chat."
+msgstr "채팅에 참여한 멤버만 집계됩니다."
+
+#: templates/membership_percentages.html:138
+msgid "Membership Percentage"
+msgstr "멤버십 비율"
+
+#: templates/menu.html:49
+msgid "Home"
+msgstr "홈"
+
+#: templates/menu.html:55
+msgid "Users and Memberships"
+msgstr "사용자 및 멤버십"
+
+#: templates/menu.html:61
+msgid "Active User Gain / Loss"
+msgstr "활동 사용자 증감"
+
+#: templates/menu.html:65 templates/user_info.html:8
+#: templates/user_info.html:42
+msgid "Message Frequencies by User"
+msgstr "사용자별 메시지 빈도"
+
+#: templates/menu.html:69 templates/recommendation_engine.html:8
+#: templates/recommendation_engine.html:44
 msgid "Recommendation Engine"
 msgstr "추천 엔진"
 
-msgid "Calculated using chat data from the previous month. Only shows channels where the user has no recorded interactions. May take over a minute to load."
+#: templates/menu.html:76
+msgid "Language Stats"
+msgstr "언어 통계"
+
+#: templates/menu.html:80 templates/message_types.html:8
+#: templates/message_types.html:42
+msgid "Message Percentages and Rates by Language"
+msgstr "언어별 메시지 비율 및 속도"
+
+#: templates/menu.html:88 templates/monthly_streaming_hours.html:95
+#: templates/monthly_streaming_hours.html:180
+msgid "Streaming Hours"
+msgstr "스트리밍 시간"
+
+#: templates/menu.html:91 templates/streaming_hours.html:8
+#: templates/streaming_hours.html:61
+msgid "Total Streaming Hours"
+msgstr "총 스트리밍 시간"
+
+#: templates/menu.html:92 templates/streaming_hours_avg.html:61
+msgid "Average Streaming Hours"
+msgstr "평균 스트리밍 시간"
+
+#: templates/menu.html:93 templates/streaming_hours_max.html:8
+#: templates/streaming_hours_max.html:61
+msgid "Longest Stream Duration"
+msgstr "최장 스트리밍 시간"
+
+#: templates/menu.html:94
+msgid "Streaming Hour Change"
+msgstr "스트리밍 시간 변화"
+
+#: templates/menu.html:95 templates/monthly_streaming_hours.html:8
+#: templates/monthly_streaming_hours.html:41
+msgid "Monthly Streaming Hours"
+msgstr "월간 스트리밍 시간"
+
+#: templates/menu.html:101
+msgid "Highlights"
+msgstr "하이라이트"
+
+#: templates/menu.html:104
+msgid "Funniest Moments"
+msgstr "가장 재미있는 순간"
+
+#: templates/menu.html:105
+msgid "AI Summarized Highlights (BETA)"
+msgstr "AI 요약 하이라이트 (베타, 영어 전용)"
+
+#: templates/menu.html:106
+msgid "Search AI Highlights (BETA)"
+msgstr "AI 하이라이트 검색 (베타, 영어 전용)"
+
+#: templates/menu.html:113 templates/site_metrics.html:8
+msgid "Site Metrics"
+msgstr "사이트 지표"
+
+#: templates/menu.html:116
+msgid "Blog"
+msgstr "블로그 (영어 전용)"
+
+#: templates/message_types.html:44
+msgid ""
+"Emote messages are excluded from the total count. Total duration is "
+"computed using only streams with available chat logs."
+msgstr "이모티콘 메시지는 총계에서 제외됩니다. 총 지속 시간은 사용 가능한 채팅 로그가 있는 스트림만 사용하여 계산됩니다."
+
+#: templates/message_types.html:55
+msgid "Language:"
+msgstr "언어:"
+
+#: templates/message_types.html:57
+msgid "English (or none of the others)"
+msgstr "영어(또는 기타 언어 없음)"
+
+#: templates/message_types.html:58
+msgid "Japanese"
+msgstr "일본어"
+
+#: templates/message_types.html:59
+msgid "Korean"
+msgstr "한국어"
+
+#: templates/message_types.html:60
+msgid "Russian"
+msgstr "러시아어"
+
+#: templates/message_types.html:109 templates/message_types.html:175
+msgid "Percentage"
+msgstr "백분율"
+
+#: templates/message_types.html:115 templates/message_types.html:183
+msgid "Rate (messages/min)"
+msgstr "비율 (메시지/분)"
+
+#: templates/message_types.html:148
+msgid "Please select both a channel and a language."
+msgstr "채널과 언어를 모두 선택해주세요."
+
+#: templates/monthly_streaming_hours.html:43
+msgid "Only counts public archived streams from YouTube."
+msgstr "YouTube의 공개 아카이브 스트림만 계산됩니다."
+
+#: templates/recommendation_engine.html:45
+#, fuzzy
+msgid ""
+"Calculated using chat data from the previous month. Only shows channels "
+"where the user has no recorded interactions."
 msgstr "지난 달의 채팅 데이터를 기반으로 계산. 사용자가 기록된 상호 작용이 없는 채널만 표시."
 
+#: templates/recommendation_engine.html:49
+msgid "Username:"
+msgstr "사용자 이름:"
+
+#: templates/recommendation_engine.html:50
+msgid "Enter username"
+msgstr "사용자 이름을 입력하세요"
+
+#: templates/recommendation_engine.html:52
 msgid "Get Recommendations"
 msgstr "추천 받기"
 
+#: templates/recommendation_engine.html:67 templates/user_info.html:74
+msgid "Channel"
+msgstr "채널"
+
+#: templates/recommendation_engine.html:68
 msgid "Score (0-100)"
 msgstr "점수 (0-100)"
 
+#: templates/recommendation_engine.html:86
+#, fuzzy
+msgid "Please enter a username."
+msgstr "사용자 이름을 입력하세요"
 
+#: templates/recommendation_engine.html:98
+#, fuzzy
+msgid "No data available for the selected user."
+msgstr "선택한 기준에 대한 데이터가 없습니다."
 
+#: templates/site_metrics.html:53
+msgid "Live Site Metrics"
+msgstr "라이브 사이트 지표"
 
+#: templates/streaming_hours.html:61 templates/streaming_hours_avg.html:61
+#: templates/streaming_hours_diff.html:61 templates/streaming_hours_max.html:61
+#, fuzzy
+msgid "Archived, non-member streams from YouTube only."
+msgstr "YouTube의 공개 아카이브 스트림만 계산됩니다."
+
+#: templates/streaming_hours_avg.html:8
+msgid "Average Streaming Duration"
+msgstr "평균 스트리밍 시간"
+
+#: templates/streaming_hours_diff.html:8 templates/streaming_hours_diff.html:61
+msgid "Streaming Hour Change Since Previous Month"
+msgstr "전월 대비 스트리밍 시간 변화"
+
+#: templates/user_change.html:8 templates/user_change.html:117
+msgid "Active User Gains / Losses"
+msgstr "활동 사용자 증감"
+
+#: templates/user_change.html:119
+msgid ""
+"Determined by users who met a 5 message threshold in one month but not in"
+" the other. Channels that didn't stream in either month are not included."
+msgstr ""
+"한 달 동안 5개의 메시지 임계값을 충족했지만 다른 달에는 충족하지 않은 사용자에 의해 결정됩니다. 두 달 모두 스트리밍하지 않은 "
+"채널은 포함되지 않습니다."
+
+#: templates/user_change.html:234
+msgid "Users Gained"
+msgstr "획득한 사용자"
+
+#: templates/user_change.html:241
+msgid "Users Lost"
+msgstr "잃은 사용자"
+
+#: templates/user_info.html:53
+#, fuzzy
+msgid "Channel ID or @handle:"
+msgstr "채널 A:"
+
+#: templates/user_info.html:54
+msgid "Enter Channel ID or handle"
+msgstr "채널 ID 또는 핸들 입력"
+
+#: templates/user_info.html:61
+#, fuzzy
+msgid "Get Data"
+msgstr "사용자 데이터 가져오기"
+
+#: templates/user_info.html:76
+msgid "Percentile"
+msgstr "백분위"
+
+#: templates/user_info.html:99
+#, fuzzy
+msgid "Please enter a Channel ID or handle and select a month."
+msgstr "사용자 이름을 입력하고 월을 선택하세요."
+
+#: templates/user_info.html:112
+msgid "No data available for the selected user and month."
+msgstr "선택한 사용자 및 월에 대한 데이터가 없습니다."
+
+#~ msgid "Timezone (UTC Offset):"
+#~ msgstr "시간대 (UTC 오프셋):"
+
+#~ msgid "Common Chat Heatmap"
+#~ msgstr "공통 사용자 히트맵"
+
+#~ msgid "Since this is a beta, data may be incomplete or inaccurate."
+#~ msgstr "이것은 베타 버전이므로 데이터가 불완전하거나 부정확할 수 있습니다."
+
+#~ msgid "Current Date Ranges Available (UTC):"
+#~ msgstr "현재 사용 가능한 날짜 범위 (UTC):"
+
+#~ msgid "Language"
+#~ msgstr "언어"
+
+#~ msgid "Visitor Count in the Past Year:"
+#~ msgstr "지난 1년간 방문자 수:"
+
+#~ msgid "Number of Unique Chatters Observed:"
+#~ msgstr "관찰된 고유 채팅 사용자 수:"
 

@@ -10,6 +10,12 @@ import requests
 import psycopg2
 import psycopg2.extras
 from pathlib import Path
+
+# 1. Get the absolute path to the project's root directory (one level up from 'utils')
+PROJECT_ROOT = Path(__file__).parent.parent
+# 2. Add the project root to Python's path
+sys.path.append(str(PROJECT_ROOT))
+# 3. Now we can reliably import from the config module
 from config.settings import get_config
 
 # --- Configuration ---
@@ -26,7 +32,6 @@ except (FileNotFoundError, KeyError) as e:
     print(f"FATAL: Could not load settings from config.ini. Error: {e}")
     sys.exit(1) # Exit if configuration is missing
 
-PROJECT_ROOT = Path(__file__).parent.parent
 CACHE_DIR = PROJECT_ROOT / "cache"
 VIDEO_CACHE_DIR = CACHE_DIR / "videos"
 CHAT_LOG_DIR = CACHE_DIR / "chat_logs"
@@ -76,68 +81,97 @@ def get_videos_for_month(year: int, month: int) -> dict:
                     continue
     return target_videos
 
-def process_video_chat_log(video_id: str, duration_seconds: float, channel_name: str, channel_id: str):
+def process_video_chat_log(video_id: str, duration_seconds: float, channel_name: str, channel_id: str, video_title: str, video_end_time: datetime.datetime):
     """
-    Finds a dynamic number of highlights, qualifies them for substance,
-    and prepares them for database insertion.
+    The definitive, corrected function. It combines all successful logic:
+    1.  Calculates the true video start time from metadata.
+    2.  Uses a robust integer-based bucketing method (not resample).
+    3.  Filters for the "safe zone" to avoid intros/outros.
+    4.  Applies the requested 10-second lead-up to the final timestamp.
     """
+    # --- Setup and Pre-checks ---
     duration_minutes = duration_seconds / 60.0
     if duration_minutes < 10:
         return []
-    elif duration_minutes < 30:
+    
+    num_highlights = min(5, math.floor(duration_minutes / 30))
+    if num_highlights == 0 and duration_minutes >= 10:
         num_highlights = 1
-    else:
-        num_highlights = math.floor(duration_minutes / 30)
 
     log_file = CHAT_LOG_DIR / f"{video_id}.jsonl.gz"
     if not log_file.exists(): return []
 
-    with gzip.open(log_file, 'rt', encoding='utf-8') as f:
-        chat_data = [json.loads(line) for line in f.read().strip().split('\n') if line]
+    try:
+        with gzip.open(log_file, 'rt', encoding='utf-8') as f:
+            chat_data = [json.loads(line) for line in f.read().strip().split('\n') if line]
+    except (json.JSONDecodeError, EOFError):
+        print(f"  -> Corrupt chat log for {video_id}. Skipping.")
+        return []
+        
     if not chat_data: return []
 
     df = pd.DataFrame(chat_data)
-    df['cleaned_message'] = df['message'].apply(clean_chat_for_ai)
-    df = df[df['cleaned_message'] != '']
+
+    # --- Definitive Timestamp and Bucketing Logic ---
+
+    # 1. Convert the microsecond UTC timestamp into a proper datetime index.
     df['datetime'] = pd.to_datetime(df['timestamp'], unit='us', utc=True)
     df = df.set_index('datetime').sort_index()
-    stream_start_time = df.index[0]
 
-    activity = df.resample('15s').size()
-    top_bursts = activity.nlargest(num_highlights)[activity.nlargest(num_highlights) > 9]
-    if top_bursts.empty: return []
+    # 2. Calculate the video's true start time from its metadata (our reliable anchor).
+    video_duration_timedelta = datetime.timedelta(seconds=duration_seconds)
+    true_video_start_time = video_end_time - video_duration_timedelta
+
+    # 3. Calculate the TRUE elapsed seconds for each message using the anchor.
+    df['elapsed_seconds'] = (df.index - true_video_start_time).total_seconds()
     
-    contexts_to_process = []
-    timestamps_to_process = []
-    noise_words = {'laughing', 'w', 'lol', 'lmao', 'nice', 'cute', 'gg', 'rip'}
+    # 4. Filter to the "safe zone" using the correct elapsed_seconds.
+    BUFFER_PERCENTAGE = 0.05
+    start_buffer_seconds = duration_seconds * BUFFER_PERCENTAGE
+    end_buffer_seconds = duration_seconds * (1 - BUFFER_PERCENTAGE)
+    df_safezone = df[(df['elapsed_seconds'] >= start_buffer_seconds) & (df['elapsed_seconds'] <= end_buffer_seconds)].copy()
 
-    for timestamp, _ in top_bursts.items():
-        window_df = df[(df.index >= timestamp) & (df.index < timestamp + pd.Timedelta(seconds=15))]
-        words = " ".join(window_df['cleaned_message'].tolist()).lower().split()
-        substantive_words = [word for word in words if word not in noise_words and len(word) > 2]
-        
-        if len(set(substantive_words)) >= 5:
-            full_context = " ".join(window_df['message'].tolist())
-            contexts_to_process.append({"text": full_context, "channel_name": channel_name})
-            timestamps_to_process.append(timestamp)
-
-    if not contexts_to_process: 
-        print(f"  -> No substantive highlights found for {video_id}.")
+    if df_safezone.empty:
+        print(f"  -> No chat data available within the safe zone for {video_id}.")
         return []
 
-    ai_results = generate_ai_results_batch(contexts_to_process)
-    if not ai_results: return []
-
+    # 5. Use the proven integer-based bucketing method (replaces resample).
+    df_safezone['bucket'] = (df_safezone['elapsed_seconds'] // 15).astype(int)
+    activity = df_safezone.groupby('bucket').size()
+    
+    top_bursts = activity.nlargest(num_highlights)
+    top_bursts = top_bursts[top_bursts > 9]
+    if top_bursts.empty: return []
+    
+    # --- AI Processing and Final Timestamp Calculation ---
     highlights_to_insert = []
-    for i, ai_data in enumerate(ai_results):
-        TIMESTAMP_OFFSET_SECONDS = 10
-        raw_start_seconds = (timestamps_to_process[i] - stream_start_time).total_seconds()
-        final_start_seconds = max(0, int(raw_start_seconds - TIMESTAMP_OFFSET_SECONDS))
+    for bucket_index, _ in top_bursts.items():
+        # Calculate the absolute time of the spike's start from the bucket index.
+        spike_start_seconds = bucket_index * 15
+        spike_datetime = true_video_start_time + datetime.timedelta(seconds=spike_start_seconds)
 
+        # Get context for the AI from the full dataframe.
+        window_df = df[(df.index >= spike_datetime) & (df.index < spike_datetime + pd.Timedelta(seconds=15))]
+        full_context = " ".join(window_df['message'].tolist())
+        
+        # (Substance check could go here if needed)
+
+        # Generate AI results for this specific highlight
+        ai_result = generate_ai_results_batch([{"text": full_context, "channel_name": channel_name, "video_title": video_title}])
+        if not ai_result or not ai_result[0]:
+            continue
+
+        # 6. Apply the requested 10-second lead-up time.
+        adjusted_spike_datetime = spike_datetime - datetime.timedelta(seconds=10)
+        
+        # 7. Convert to a Unix timestamp to be saved.
+        final_unix_timestamp = int(adjusted_spike_datetime.timestamp())
+
+        ai_data = ai_result[0]
         if ai_data.get("topic") and ai_data.get("summary"):
             highlights_to_insert.append((
                 video_id,
-                final_start_seconds,
+                final_unix_timestamp,
                 ai_data["topic"],
                 ai_data["summary"],
                 ai_data["embedding"],
@@ -201,8 +235,12 @@ def populate_video_highlights(year: int, month: int):
 
             channel_id = data['channel_id']
             channel_name = channel_map.get(channel_id, "Unknown Streamer")
-            video_highlights = process_video_chat_log(video_id, data['metadata']['duration'], channel_name, channel_id)
-            
+            video_title = data['metadata'].get('title', "Untitled Video")
+            video_duration = data['metadata']['duration']
+            video_end_time = datetime.datetime.fromisoformat(data['metadata']['end_time'])
+
+            # Pass the new parameters to the processing function
+            video_highlights = process_video_chat_log(video_id, video_duration, channel_name, channel_id, video_title, video_end_time)
             if video_highlights:
                 total_highlights_generated += len(video_highlights)
                 print(f"-> ✅ Generated {len(video_highlights)} highlights. Inserting now...")

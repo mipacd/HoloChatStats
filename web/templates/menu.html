@@ -96,8 +96,15 @@
                     </ul>
                 </li>
 
-                <li class="nav-item">
-                    <a class="nav-link" href="/funniest_timestamps">{{ _("Funniest Moments") }}</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="streamingDropdown" role="button" data-bs-toggle="dropdown">
+                        {{ _("Highlights") }}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/funniest_timestamps">{{ _("Funniest Moments") }}</a></li>
+                        <li><a class="dropdown-item" href="/highlights">{{ _("AI Summarized Highlights (BETA)") }}</a></li>
+                        <li><a class="dropdown-item" href="/highlight_search">{{ _("Search AI Highlights (BETA)") }}</a></li>
+                    </ul>
                 </li>
                 
             </ul>

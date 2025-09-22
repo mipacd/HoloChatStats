@@ -4,24 +4,21 @@ import sys
 
 def get_config(key1, key2):
     """
-    Reads a value from config.ini.
-
-    Args:
-        key1 (str): Section name in config.ini.
-        key2 (str): Option name in config.ini.
-
-    Returns:
-        str: Value associated with key1 and key2 in config.ini.
-
-    Raises:
-        FileNotFoundError: If config.ini is not found.
-        KeyError: If key1 or key2 are not found in config.ini.
+    Reads a value from config.ini, reliably finding the file from the project root.
     """
     config = configparser.ConfigParser()
-    caller_script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    ini_file = os.path.join(caller_script_dir, 'config.ini')
+    
+    # --- MODIFIED LOGIC ---
+    # 1. Get the directory of this file (config/settings.py)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 2. Go up one level to find the project's root directory
+    project_root = os.path.dirname(current_dir)
+    # 3. Construct the definitive path to config.ini
+    ini_file = os.path.join(project_root, 'config.ini')
+    
     if not config.read(ini_file):
-        raise FileNotFoundError("config.ini not found.")
+        raise FileNotFoundError(f"config.ini not found. Looked for it at: {ini_file}")
+        
     try:
         return config[key1][key2]
     except KeyError as e:

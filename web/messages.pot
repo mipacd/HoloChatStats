@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-27 15:40-0400\n"
+"POT-Creation-Date: 2025-09-22 09:36-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,16 +17,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:924 server.py:1121 server.py:1201 server.py:1312 server.py:1350
-#: server.py:1525 server.py:1579 server.py:1649 server.py:1735
+#: server.py:958 server.py:1155 server.py:1235 server.py:1346 server.py:1384
+#: server.py:1559 server.py:1613 server.py:1683 server.py:1769
 msgid "Missing required parameters"
 msgstr ""
 
-#: server.py:1557
+#: server.py:1591
 msgid "No data found"
 msgstr ""
 
-#: server.py:1738
+#: server.py:1772
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
@@ -85,7 +85,7 @@ msgstr ""
 #: templates/channel_clustering.html:86 templates/channel_clustering.html:92
 #: templates/chat_leaderboards.html:60 templates/common_members.html:81
 #: templates/common_users.html:83 templates/recommendation_engine.html:59
-#: templates/user_info.html:60
+#: templates/user_info.html:67
 msgid "Loading..."
 msgstr ""
 
@@ -103,19 +103,20 @@ msgid "Chat Leaderboards"
 msgstr ""
 
 #: templates/chat_leaderboards.html:46 templates/exclusive_chat.html:48
-#: templates/funniest_timestamps.html:106 templates/jp_user_percents.html:50
-#: templates/message_types.html:49 templates/monthly_streaming_hours.html:48
+#: templates/funniest_timestamps.html:106 templates/highlights.html:97
+#: templates/jp_user_percents.html:50 templates/message_types.html:49
+#: templates/monthly_streaming_hours.html:48
 msgid "Channel:"
 msgstr ""
 
 #: templates/chat_leaderboards.html:50 templates/chat_makeup.html:138
 #: templates/common_user_heatmap.html:45 templates/engagement.html:50
-#: templates/funniest_timestamps.html:112 templates/membership_change.html:126
-#: templates/membership_counts.html:141
+#: templates/funniest_timestamps.html:112 templates/highlights.html:101
+#: templates/membership_change.html:126 templates/membership_counts.html:141
 #: templates/membership_percentages.html:50 templates/streaming_hours.html:74
 #: templates/streaming_hours_avg.html:74 templates/streaming_hours_diff.html:74
 #: templates/streaming_hours_max.html:74 templates/user_change.html:132
-#: templates/user_info.html:50
+#: templates/user_info.html:57
 msgid "Month:"
 msgstr ""
 
@@ -127,15 +128,16 @@ msgstr ""
 msgid "Username"
 msgstr ""
 
-#: templates/chat_leaderboards.html:70 templates/user_info.html:69
+#: templates/chat_leaderboards.html:70 templates/user_info.html:75
 msgid "Message Count"
 msgstr ""
 
 #: templates/chat_leaderboards.html:89 templates/common_members.html:125
 #: templates/common_users.html:125 templates/exclusive_chat.html:50
 #: templates/funniest_timestamps.html:108
-#: templates/funniest_timestamps.html:140 templates/jp_user_percents.html:52
-#: templates/message_types.html:51 templates/monthly_streaming_hours.html:50
+#: templates/funniest_timestamps.html:140 templates/highlights.html:147
+#: templates/jp_user_percents.html:52 templates/message_types.html:51
+#: templates/monthly_streaming_hours.html:50
 msgid "Select Channel"
 msgstr ""
 
@@ -150,8 +152,9 @@ msgstr ""
 
 #: templates/chat_leaderboards.html:130 templates/common_members.html:171
 #: templates/common_users.html:171 templates/funniest_timestamps.html:181
-#: templates/funniest_timestamps.html:227
-#: templates/recommendation_engine.html:113 templates/user_info.html:121
+#: templates/funniest_timestamps.html:227 templates/highlight_search.html:168
+#: templates/highlights.html:210 templates/recommendation_engine.html:113
+#: templates/user_info.html:130
 msgid "Error fetching data. Please try again later."
 msgstr ""
 
@@ -346,7 +349,7 @@ msgstr ""
 msgid "Fetch Funniest Moments"
 msgstr ""
 
-#: templates/funniest_timestamps.html:151
+#: templates/funniest_timestamps.html:151 templates/highlights.html:159
 msgid "Please select a channel and a month."
 msgstr ""
 
@@ -360,6 +363,54 @@ msgstr ""
 
 #: templates/funniest_timestamps.html:199
 msgid "No data available for export."
+msgstr ""
+
+#: templates/highlight_search.html:8 templates/highlight_search.html:86
+msgid "AI Highlight Search"
+msgstr ""
+
+#: templates/highlight_search.html:87
+msgid ""
+"Search for moments using semantic meaning. You can use operators like "
+"channel:<name>, from:<YYYY-MM-DD>, and to:<YYYY-MM-DD>."
+msgstr ""
+
+#: templates/highlight_search.html:95
+msgid "e.g., paper boat channel:saba from:2025-08-01"
+msgstr ""
+
+#: templates/highlight_search.html:96
+msgid "Search"
+msgstr ""
+
+#: templates/highlight_search.html:100
+msgid "Search for highlights to see results."
+msgstr ""
+
+#: templates/highlight_search.html:131
+msgid "Please enter a search query."
+msgstr ""
+
+#: templates/highlight_search.html:142
+msgid "No results found."
+msgstr ""
+
+#: templates/highlights.html:8 templates/highlights.html:87
+msgid "AI Video Highlights"
+msgstr ""
+
+#: templates/highlights.html:88
+msgid ""
+"AI-generated summaries of the most interesting moments in a stream, "
+"determined by analyzing chat reactions."
+msgstr ""
+
+#: templates/highlights.html:105
+msgid "Fetch Highlights"
+msgstr ""
+
+#: templates/highlights.html:170
+msgid "No highlights available for this selection."
 msgstr ""
 
 #: templates/index.html:96
@@ -556,7 +607,7 @@ msgid "Message Percentages and Rates by Language"
 msgstr ""
 
 #: templates/menu.html:88 templates/monthly_streaming_hours.html:95
-#: templates/monthly_streaming_hours.html:152
+#: templates/monthly_streaming_hours.html:180
 msgid "Streaming Hours"
 msgstr ""
 
@@ -583,15 +634,27 @@ msgstr ""
 msgid "Monthly Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:100
+#: templates/menu.html:101
+msgid "Highlights"
+msgstr ""
+
+#: templates/menu.html:104
 msgid "Funniest Moments"
 msgstr ""
 
-#: templates/menu.html:106 templates/site_metrics.html:8
+#: templates/menu.html:105
+msgid "AI Summarized Highlights (BETA)"
+msgstr ""
+
+#: templates/menu.html:106
+msgid "Search AI Highlights (BETA)"
+msgstr ""
+
+#: templates/menu.html:113 templates/site_metrics.html:8
 msgid "Site Metrics"
 msgstr ""
 
-#: templates/menu.html:109
+#: templates/menu.html:116
 msgid "Blog"
 msgstr ""
 
@@ -639,16 +702,15 @@ msgstr ""
 
 #: templates/recommendation_engine.html:45
 msgid ""
-"Calculated using chat data from the previous two calendar months (not "
-"including the current month). Only shows channels where the user has no "
-"recorded interactions."
+"Calculated using chat data from the previous month. Only shows channels "
+"where the user has no recorded interactions."
 msgstr ""
 
-#: templates/recommendation_engine.html:49 templates/user_info.html:46
+#: templates/recommendation_engine.html:49
 msgid "Username:"
 msgstr ""
 
-#: templates/recommendation_engine.html:50 templates/user_info.html:47
+#: templates/recommendation_engine.html:50
 msgid "Enter username"
 msgstr ""
 
@@ -656,7 +718,7 @@ msgstr ""
 msgid "Get Recommendations"
 msgstr ""
 
-#: templates/recommendation_engine.html:67 templates/user_info.html:68
+#: templates/recommendation_engine.html:67 templates/user_info.html:74
 msgid "Channel"
 msgstr ""
 
@@ -707,19 +769,341 @@ msgstr ""
 msgid "Users Lost"
 msgstr ""
 
-#: templates/user_info.html:55
-msgid "Get User Data"
+#: templates/user_info.html:53
+msgid "Channel ID or @handle:"
 msgstr ""
 
-#: templates/user_info.html:70
+#: templates/user_info.html:54
+msgid "Enter Channel ID or handle"
+msgstr ""
+
+#: templates/user_info.html:61
+msgid "Get Data"
+msgstr ""
+
+#: templates/user_info.html:76
 msgid "Percentile"
 msgstr ""
 
-#: templates/user_info.html:93
-msgid "Please enter a username and select a month."
+#: templates/user_info.html:99
+msgid "Please enter a Channel ID or handle and select a month."
 msgstr ""
 
-#: templates/user_info.html:105
+#: templates/user_info.html:112
 msgid "No data available for the selected user and month."
+msgstr ""
+
+#: venv/Lib/site-packages/click/_termui_impl.py:608
+#, python-brace-format
+msgid "{editor}: Editing failed"
+msgstr ""
+
+#: venv/Lib/site-packages/click/_termui_impl.py:612
+#, python-brace-format
+msgid "{editor}: Editing failed: {e}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:1104
+#: venv/Lib/site-packages/click/core.py:1141
+#, python-brace-format
+msgid "{text} {deprecated_message}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:1160
+msgid "Options"
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:1222
+#, python-brace-format
+msgid "Got unexpected extra argument ({args})"
+msgid_plural "Got unexpected extra arguments ({args})"
+msgstr[0] ""
+msgstr[1] ""
+
+#: venv/Lib/site-packages/click/core.py:1241
+#, python-brace-format
+msgid "DeprecationWarning: The command {name!r} is deprecated.{extra_message}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:1425
+msgid "Aborted!"
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:1799
+msgid "Commands"
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:1830
+msgid "Missing command."
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:1908
+#, python-brace-format
+msgid "No such command {name!r}."
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:2332
+msgid "Value must be an iterable."
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:2355
+#, python-brace-format
+msgid "Takes {nargs} values but 1 was given."
+msgid_plural "Takes {nargs} values but {len} were given."
+msgstr[0] ""
+msgstr[1] ""
+
+#: venv/Lib/site-packages/click/core.py:2505
+#, python-brace-format
+msgid ""
+"DeprecationWarning: The {param_type} {name!r} is "
+"deprecated.{extra_message}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:2956
+#, python-brace-format
+msgid "env var: {var}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:2959
+#, python-brace-format
+msgid "default: {default}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:2963
+msgid "required"
+msgstr ""
+
+#: venv/Lib/site-packages/click/core.py:3023
+msgid "(dynamic)"
+msgstr ""
+
+#: venv/Lib/site-packages/click/decorators.py:465
+#, python-format
+msgid "%(prog)s, version %(version)s"
+msgstr ""
+
+#: venv/Lib/site-packages/click/decorators.py:522
+msgid "Show the version and exit."
+msgstr ""
+
+#: venv/Lib/site-packages/click/decorators.py:548
+msgid "Show this message and exit."
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:50
+#: venv/Lib/site-packages/click/exceptions.py:89
+#, python-brace-format
+msgid "Error: {message}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:81
+#, python-brace-format
+msgid "Try '{command} {option}' for help."
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:130
+#, python-brace-format
+msgid "Invalid value: {message}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:132
+#, python-brace-format
+msgid "Invalid value for {param_hint}: {message}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:190
+msgid "Missing argument"
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:192
+msgid "Missing option"
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:194
+msgid "Missing parameter"
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:196
+#, python-brace-format
+msgid "Missing {param_type}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:203
+#, python-brace-format
+msgid "Missing parameter: {param_name}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:223
+#, python-brace-format
+msgid "No such option: {name}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:235
+#, python-brace-format
+msgid "Did you mean {possibility}?"
+msgid_plural "(Possible options: {possibilities})"
+msgstr[0] ""
+msgstr[1] ""
+
+#: venv/Lib/site-packages/click/exceptions.py:282
+msgid "unknown error"
+msgstr ""
+
+#: venv/Lib/site-packages/click/exceptions.py:289
+#, python-brace-format
+msgid "Could not open file {filename!r}: {message}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/formatting.py:156
+msgid "Usage:"
+msgstr ""
+
+#: venv/Lib/site-packages/click/parser.py:199
+#, python-brace-format
+msgid "Argument {name!r} takes {nargs} values."
+msgstr ""
+
+#: venv/Lib/site-packages/click/parser.py:381
+#, python-brace-format
+msgid "Option {name!r} does not take a value."
+msgstr ""
+
+#: venv/Lib/site-packages/click/parser.py:444
+#, python-brace-format
+msgid "Option {name!r} requires an argument."
+msgid_plural "Option {name!r} requires {nargs} arguments."
+msgstr[0] ""
+msgstr[1] ""
+
+#: venv/Lib/site-packages/click/shell_completion.py:332
+msgid "Shell completion is not supported for Bash versions older than 4.4."
+msgstr ""
+
+#: venv/Lib/site-packages/click/shell_completion.py:339
+msgid "Couldn't detect Bash version, shell completion is not supported."
+msgstr ""
+
+#: venv/Lib/site-packages/click/termui.py:162
+msgid "Repeat for confirmation"
+msgstr ""
+
+#: venv/Lib/site-packages/click/termui.py:178
+msgid "Error: The value you entered was invalid."
+msgstr ""
+
+#: venv/Lib/site-packages/click/termui.py:180
+#, python-brace-format
+msgid "Error: {e.message}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/termui.py:191
+msgid "Error: The two entered values do not match."
+msgstr ""
+
+#: venv/Lib/site-packages/click/termui.py:247
+msgid "Error: invalid input"
+msgstr ""
+
+#: venv/Lib/site-packages/click/termui.py:866
+msgid "Press any key to continue..."
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:332
+#, python-brace-format
+msgid ""
+"Choose from:\n"
+"\t{choices}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:369
+#, python-brace-format
+msgid "{value!r} is not {choice}."
+msgid_plural "{value!r} is not one of {choices}."
+msgstr[0] ""
+msgstr[1] ""
+
+#: venv/Lib/site-packages/click/types.py:460
+#, python-brace-format
+msgid "{value!r} does not match the format {format}."
+msgid_plural "{value!r} does not match the formats {formats}."
+msgstr[0] ""
+msgstr[1] ""
+
+#: venv/Lib/site-packages/click/types.py:482
+#, python-brace-format
+msgid "{value!r} is not a valid {number_type}."
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:538
+#, python-brace-format
+msgid "{value} is not in the range {range}."
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:719
+#, python-brace-format
+msgid "{value!r} is not a valid boolean. Recognized values: {states}"
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:747
+#, python-brace-format
+msgid "{value!r} is not a valid UUID."
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:937
+msgid "file"
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:939
+msgid "directory"
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:941
+msgid "path"
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:988
+#, python-brace-format
+msgid "{name} {filename!r} does not exist."
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:997
+#, python-brace-format
+msgid "{name} {filename!r} is a file."
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:1005
+#, python-brace-format
+msgid "{name} {filename!r} is a directory."
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:1014
+#, python-brace-format
+msgid "{name} {filename!r} is not readable."
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:1023
+#, python-brace-format
+msgid "{name} {filename!r} is not writable."
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:1032
+#, python-brace-format
+msgid "{name} {filename!r} is not executable."
+msgstr ""
+
+#: venv/Lib/site-packages/click/types.py:1099
+#, python-brace-format
+msgid "{len_type} values are required, but {len_value} was given."
+msgid_plural "{len_type} values are required, but {len_value} were given."
+msgstr[0] ""
+msgstr[1] ""
+
+#: venv/Lib/site-packages/sympy/solvers/simplex.py:563
+msgid "x"
+msgstr ""
+
+#: venv/Lib/site-packages/sympy/solvers/simplex.py:564
+msgid "y"
 msgstr ""
 

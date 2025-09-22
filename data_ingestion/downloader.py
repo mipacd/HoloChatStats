@@ -40,6 +40,10 @@ def parse_args():
         "--month", type=int, default=default_month,
         help="Month to process (default: current month unless 1st of month)"
     )
+    parser.add_argument(
+        "--disable_ai_summarization", "-d", action="store_true",
+        help="Disable AI summarization for video highlights"
+    )
     return parser.parse_args()
     
 # --- Proxy setup for testing (if needed) ---
@@ -54,6 +58,7 @@ def main():
     args = parse_args()
     YEAR = args.year
     MONTH = args.month
+    DISABLE_AI_SUMMARIZATION = args.disable_ai_summarization
 
     # --- Setup ---
     logger = get_logger()
@@ -93,13 +98,14 @@ def main():
     refresh_materialized_views()
     logger.info("Chat log download and DB processing complete.")
 
-    # --- NEW: Step 3: Generate AI Highlights ---
-    logger.info("Starting AI highlight generation for the month...")
-    try:
-        populate_video_highlights(YEAR, MONTH)
-        logger.info("AI highlight generation complete.")
-    except Exception as e:
-        logger.error(f"An error occurred during AI highlight generation: {e}", exc_info=True)
+    if not DISABLE_AI_SUMMARIZATION:
+        # --- NEW: Step 3: Generate AI Highlights ---
+        logger.info("Starting AI highlight generation for the month...")
+        try:
+            populate_video_highlights(YEAR, MONTH)
+            logger.info("AI highlight generation complete.")
+        except Exception as e:
+            logger.error(f"An error occurred during AI highlight generation: {e}", exc_info=True)
 
     logger.info("All tasks are complete.")
 
