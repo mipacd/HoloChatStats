@@ -177,6 +177,8 @@ $(document).ready(function() {
     }).on('changeDate', function() {
         fetchData();
     });
+    Chart.defaults.color = 'white';
+
 
     let ctx = document.getElementById('membershipChart').getContext('2d');
     let chart = new Chart(ctx, {
@@ -185,6 +187,11 @@ $(document).ready(function() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            // This makes the tooltip show all datasets for the hovered bar.
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
             scales: {
                 x: {
                     stacked: true,
@@ -203,37 +210,94 @@ $(document).ready(function() {
             },
             plugins: {
                 tooltip: {
+                    usePointStyle: true, // This enables the color squares
                     callbacks: {
+                        // The 'label' callback now handles filtering zero values
                         label: function(tooltipItem) {
-                            let dataset = tooltipItem.dataset;
-                            let index = tooltipItem.dataIndex;
-                            let total = dataset.totalMemberships[index];
+                            if (tooltipItem.raw === 0) return null;
+                            return `${tooltipItem.dataset.label}: ${tooltipItem.formattedValue}`;
+                        },
+                        // The 'footer' callback now handles all totals
+                        footer: function(tooltipItems) {
+                            const dataIndex = tooltipItems[0].dataIndex;
+                            let totalMembers = 0;
+                            let totalChatters = 0;
+                            
+                            const nonMembersDataset = chart.data.datasets.find(d => d.label === 'Non-Members');
+                            const nonMembersVisible = nonMembersDataset && !nonMembersDataset.hidden;
 
-                            let rankValues = dataset.tooltipData[index];
-                            let tooltipText = "";
-
-                            // Sort ranks numerically
-                            let sortedRanks = Object.entries(rankValues)
-                                .sort((a, b) => rankSortOrder(a[0]) - rankSortOrder(b[0]));
-
-                            sortedRanks.forEach(([label, count]) => {
-                                tooltipText += `${label}: ${count}\n`;
+                            chart.data.datasets.forEach(function(dataset) {
+                                const value = dataset.data[dataIndex] || 0;
+                                if (dataset.label !== 'Non-Members') {
+                                    totalMembers += value;
+                                }
+                                // Only add to totalChatters if the dataset is visible
+                                if (!dataset.hidden) {
+                                    totalChatters += value;
+                                }
                             });
-
-                            tooltipText += `\n{{ _("Total Members:") }} ${total}`;
-
-                            return tooltipText.trim().split("\n");
+                            
+                            if (nonMembersVisible) {
+                                return `\nTotal Members: ${totalMembers}\nTotal Chatters: ${totalChatters}`;
+                            } else {
+                                return `\nTotal Members: ${totalMembers}`;
+                            }
                         }
                     }
                 },
                 legend: { 
                     display: true, 
                     position: 'top',
-                    labels: { color: "white" }
+                    labels: { color: "white" },
+                    onClick: function(e, legendItem, legend) {
+                        // Default toggle behavior
+                        Chart.defaults.plugins.legend.onClick(e, legendItem, legend);
+                        
+                        // If Non-Members was toggled, resort the chart
+                        if (legendItem.text === 'Non-Members') {
+                            sortChartData(chart);
+                        }
+                    }
                 }
             }
         }
     });
+
+    function sortChartData(chartInstance) {
+        // Safeguard against recursion
+        if (chartInstance._sorting) return;
+        chartInstance._sorting = true;
+
+        const nonMembersDataset = chartInstance.data.datasets.find(d => d.label === 'Non-Members');
+        const includeNonMembers = nonMembersDataset && !nonMembersDataset.hidden;
+
+        const channelTotals = chartInstance.data.labels.map((label, index) => {
+            let total = 0;
+            chartInstance.data.datasets.forEach(dataset => {
+                // Only include visible datasets in the sort calculation
+                if (!dataset.hidden && (dataset.label !== 'Non-Members' || includeNonMembers)) {
+                    total += dataset.data[index] || 0;
+                }
+            });
+            return { label: label, total: total };
+        });
+
+        channelTotals.sort((a, b) => b.total - a.total);
+
+        const newLabels = channelTotals.map(item => item.label);
+        
+        chartInstance.data.datasets.forEach(dataset => {
+            const reorderedData = newLabels.map(label => {
+                const oldIndex = chartInstance.data.labels.indexOf(label);
+                return dataset.data[oldIndex];
+            });
+            dataset.data = reorderedData;
+        });
+
+        chartInstance.data.labels = newLabels;
+        chartInstance.update();
+        chartInstance._sorting = false;
+    }
 
     function fetchData() {
         let group = $('#groupSelect').val();
@@ -255,7 +319,14 @@ $(document).ready(function() {
                 let processedData = processMembershipData(data);
                 chart.data.labels = processedData.labels;
                 chart.data.datasets = processedData.datasets;
-                chart.update();
+
+                const nonMembersDataset = chart.data.datasets.find(d => d.label === 'Non-Members');
+                if (nonMembersDataset) {
+                    // Initialize the tracker for our plugin
+                    chart._lastNonMembersVisible = !nonMembersDataset.hidden;
+                }
+
+                sortChartData(chart);
                 
                 $('#chartLoading').addClass('d-none');
                 $('#membershipChart').removeClass('d-none');
@@ -314,25 +385,19 @@ $(document).ready(function() {
         let datasets = rankLabels.map(rank => ({
             label: rank,
             data: labels.map(channel => groupedData[channel].membership_counts[rank] || 0),
-            totalMemberships: labels.map(channel => groupedData[channel].total || 0),
-            tooltipData: labels.map(channel => groupedData[channel].membership_counts),
             backgroundColor: colorPalette[rankLabels.indexOf(rank) % colorPalette.length],
             stack: 'Stack 0'
         }));
 
-        // Add special rank = -1 dataset, hidden by default
         let specialLabel = formatMembershipLabel(-1);
         let specialDataset = {
             label: specialLabel,
             data: labels.map(channel => groupedData[channel].special_counts?.[specialLabel] || 0),
-            totalMemberships: labels.map(channel => groupedData[channel].total || 0),
-            tooltipData: labels.map(channel => groupedData[channel].special_counts || {}),
             backgroundColor: '#666666', 
             stack: 'Stack 0',
             hidden: true
         };
-
-        datasets.push(specialDataset);
+        datasets.unshift(specialDataset);
 
 
         return { labels, datasets };
@@ -368,21 +433,15 @@ $(document).ready(function() {
 
         $('#downloadCSV').on('click', function() {
             let data = chart.data;
-            let csvContent = "data:text/csv;charset=utf-8,Channel,Non-Members,New Members,1 Months,2 Months,6 Months,1 Year,2 Years,3 Years,4 Years,5 Years\n"; // Adjusted header order
+            let header = "Channel," + data.datasets.map(dataset => dataset.label).join(',');
+            let csvContent = "data:text/csv;charset=utf-8," + header + "\n";
 
             for (let i = 0; i < data.labels.length; i++) {
-                csvContent += `${data.labels[i]}`;
-
-                // Assuming Non-Members corresponds to the last dataset in the original order
-                csvContent += `,${data.datasets[data.datasets.length - 1].data[i]}`; // Non-Members
-                csvContent += `,${data.datasets[0].data[i]}`; // New Members
-
-                // Adding the rest of the datasets in their original order (skipping the first and last)
-                for (let j = 1; j < data.datasets.length - 1; j++) {
-                    csvContent += `,${data.datasets[j].data[i]}`;
+                let row = data.labels[i];
+                for (let j = 0; j < data.datasets.length; j++) {
+                    row += `,${data.datasets[j].data[i]}`;
                 }
-
-                csvContent += `\n`;
+                csvContent += row + "\n";
             }
 
             var encodedUri = encodeURI(csvContent);
@@ -396,7 +455,7 @@ $(document).ready(function() {
         });
 
 
-            // Chat toggle functionality
+        // Chat toggle functionality
         // Initialize chat toggle
         const toggleChat = () => {
             const chat = document.getElementById('chat-container');
@@ -432,14 +491,15 @@ $(document).ready(function() {
 
         function formatChartData() {
             const data = chart.data;
-            let csvContent = "Channel,New Members,1 Months,2 Months,6 Months,1 Year,2 Years,3 Years,4 Years,5 Years\n";
+            let header = "Channel," + data.datasets.map(dataset => dataset.label).join(',');
+            let csvContent = header + "\n";
             
             for (let i = 0; i < data.labels.length; i++) {
-                csvContent += `${data.labels[i]}`;
+                let row = data.labels[i];
                 for (let j = 0; j < data.datasets.length; j++) {
-                    csvContent += `,${data.datasets[j].data[i]}`;
+                    row += `,${data.datasets[j].data[i]}`;
                 }
-                csvContent += `\n`;
+                csvContent += row + "\n";
             }
             
             return csvContent;

@@ -69,7 +69,6 @@ def main():
     gzip_uncompressed_chat_logs()
     setup_cache_dir()
 
-    # --- Step 1: Download Metadata and Chat Logs ---
     with multiprocessing.Manager() as manager:
         download_queue = manager.list()
         queue = manager.Queue()
@@ -94,12 +93,10 @@ def main():
         queue.put(None)
         db_worker_process.join()
 
-    # --- Step 2: Finalize Database ---
     refresh_materialized_views()
     logger.info("Chat log download and DB processing complete.")
 
     if not DISABLE_AI_SUMMARIZATION:
-        # --- NEW: Step 3: Generate AI Highlights ---
         logger.info("Starting AI highlight generation for the month...")
         try:
             populate_video_highlights(YEAR, MONTH)

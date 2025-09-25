@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ _("Common User Heatmap") }}</title>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+    
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+        }
+        .form-select, .form-control, .form-check-input {
+            background-color: #222;
+            color: white;
+            border-color: #444;
+        }
+        .form-check-input:checked {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+
+        .chart-container {
+            margin-top: 20px;
+            width: 100%; /* Fill the fluid container */
+            height: 80vh;  /* Use viewport height to fit on screen vertically */
+            margin-left: auto;
+            margin-right: auto;
+            position: relative;
+        }
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 8px;
+            font: 12px sans-serif;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .cell-text {
+            font-size: 10px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+{% include 'menu.html' %}
+
+<div id="content" class="container-fluid mt-3">
+    <h2 class="text-center mb-4">{{ _("Common User Heatmap") }}</h2>
+    
+    <div class="row g-3 align-items-center justify-content-center mb-4">
+        <div class="col-auto">
+            <label for="groupSelect" class="form-label">{{ _("Channel Group:") }}</label>
+            <select id="groupSelect" class="form-select"></select>
+        </div>
+        <div class="col-auto">
+            <label for="monthSelect" class="form-label">{{ _("Month:") }}</label>
+            <input type="text" id="monthSelect" class="form-control">
+        </div>
+        <div class="col-auto">
+            <label class="form-label">&nbsp;</label>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="membersOnlySwitch">
+                <label class="form-check-label" for="membersOnlySwitch">{{ _("Members Only") }}</label>
+            </div>
+        </div>
+    </div>
+
+    <div id="heatmapContainer" class="chart-container">
+        <div id="chartLoading" class="position-absolute top-50 start-50 translate-middle d-none">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+$(document).ready(function() {
+
+    const channelGroups = {
+        "Hololive EN": "Calli,Kiara,Ina,Gura,Amelia,Irys,Fauna,Mumei,Kronii,Baelz,Shiori,Bijou,Nerissa,FuwaMoco,Elizabeth,Gigi,Cecilia,Raora",
+        "Hololive JP & ReGloss": "Sora,Roboco,Suisei,Miko,Azki,Haato,Fubuki,Aki,Matsuri,Choco,Ayame,Subaru,Shion,Korone,Mio,Okayu,Pekora,Marine,Noel,Flare,Towa,Watame,Kanata,Nene,Lamy,Polka,Botan,Koyori,Laplus,Chloe,Lui,Iroha,Hajime,Raden,Ao,Ririka,Kanade,Riona,Vivi,Su,Chihaya,Niko",
+        "Hololive ID": "Iofi,Risu,Moona,Anya,Reine,Ollie,Kobo,Zeta,Kaela",
+        "Indie (EN)": "Dooby,Nimi,Saba,Mint,Dokibird",
+        "Indie (JP)": "Sakuna,Rica,Ruka,Rei,Roa",
+        "Hololive EN + Select Indies": "Calli,Kiara,Ina,Gura,Amelia,Irys,Fauna,Mumei,Kronii,Baelz,Shiori,Bijou,Nerissa,FuwaMoco,Elizabeth,Gigi,Cecilia,Raora,Dooby,Nimi,Saba"
+    };
+
+    const groupSelect = $('#groupSelect');
+    Object.keys(channelGroups).forEach(groupName => {
+        groupSelect.append(new Option(groupName, groupName));
+    });
+
+    $('#monthSelect').datepicker({
+        format: "yyyy-mm",
+        startView: "months", 
+        minViewMode: "months",
+        autoclose: true
+    });
+
+    function fetchData() {
+    const group = $('#groupSelect').val();
+    const channels = channelGroups[group];
+    const month = $('#monthSelect').val();
+    const membersOnly = $('#membersOnlySwitch').is(':checked');
+
+    if (!group || !channels || !month) return;
+
+    $('#chartLoading').removeClass('d-none');
+    d3.select("#heatmapContainer svg").remove(); // Clear previous chart
+
+    const url = `/api/get_common_users_matrix?month=${month}&channels=${encodeURIComponent(channels)}&members_only=${membersOnly}`;
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            $('#chartLoading').addClass('d-none');
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            // 1. Find indices of channels that have users (diagonal > 0)
+            const validIndices = new Set();
+            data.labels.forEach((label, i) => {
+                if (data.matrix[i][i] > 0) {
+                    validIndices.add(i);
+                }
+            });
+
+            // 2. Create new labels array from the valid indices
+            const filteredLabels = data.labels.filter((_, i) => validIndices.has(i));
+
+            // 3. Create a new matrix using a clear, explicit loop
+            const filteredMatrix = [];
+            data.matrix.forEach((row, i) => {
+                // If the row is valid, build a new row with only valid columns
+                if (validIndices.has(i)) {
+                    const newRow = row.filter((_, j) => validIndices.has(j));
+                    filteredMatrix.push(newRow);
+                }
+            });
+
+            // 4. Create a new data object to pass to the drawing function
+            const filteredData = {
+                labels: filteredLabels,
+                matrix: filteredMatrix
+            };
+            
+            // 5. Draw the heatmap with the filtered data
+            if (filteredData.labels.length > 0) {
+                drawHeatmap(filteredData);
+            } else {
+                d3.select("#heatmapContainer svg").remove(); // Clear chart if no data
+            }
+        })
+        .catch(error => {
+            console.error("Fetch Error:", error);
+            $('#chartLoading').addClass('d-none');
+        });
+}
+
+    function drawHeatmap(data) {
+        const labels = data.labels;
+        const matrix = data.matrix;
+
+        const margin = {top: 100, right: 50, bottom: 100, left: 100};
+        
+        // Use the container's full available space
+       const containerRect = d3.select("#heatmapContainer").node().getBoundingClientRect();
+        const width = containerRect.width - margin.left - margin.right;
+        const height = containerRect.height - margin.top - margin.bottom;
+
+        d3.select("#heatmapContainer svg").remove();
+        
+        const svg = d3.select("#heatmapContainer")
+            .append("svg")
+            .attr("width", containerRect.width)
+            .attr("height", containerRect.height)
+            .append("g")
+            .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        const xScale = d3.scaleBand().range([0, width]).domain(labels).padding(0.05);
+        const yScale = d3.scaleBand().range([height, 0]).domain(labels).padding(0.05);
+
+        const colorScaleArray = ["#23171b","#271a28","#2b1c33","#2f1e3f","#32204a","#362354","#39255f","#3b2768","#3e2a72","#402c7b","#422f83","#44318b","#453493","#46369b","#4839a2","#493ca8","#493eaf","#4a41b5","#4a44bb","#4b46c0","#4b49c5","#4b4cca","#4b4ecf","#4b51d3","#4a54d7","#4a56db","#4959de","#495ce2","#485fe5","#4761e7","#4664ea","#4567ec","#446aee","#446df0","#426ff2","#4172f3","#4075f5","#3f78f6","#3e7af7","#3d7df7","#3c80f8","#3a83f9","#3985f9","#3888f9","#378bf9","#368df9","#3590f8","#3393f8","#3295f7","#3198f7","#309bf6","#2f9df5","#2ea0f4","#2da2f3","#2ca5f1","#2ba7f0","#2aaaef","#2aaced","#29afec","#28b1ea","#28b4e8","#27b6e6","#27b8e5","#26bbe3","#26bde1","#26bfdf","#25c1dc","#25c3da","#25c6d8","#25c8d6","#25cad3","#25ccd1","#25cecf","#26d0cc","#26d2ca","#26d4c8","#27d6c5","#27d8c3","#28d9c0","#29dbbe","#29ddbb","#2adfb8","#2be0b6","#2ce2b3","#2de3b1","#2ee5ae","#30e6ac","#31e8a9","#32e9a6","#34eba4","#35eca1","#37ed9f","#39ef9c","#3af09a","#3cf197","#3ef295","#40f392","#42f490","#44f58d","#46f68b","#48f788","#4af786","#4df884","#4ff981","#51fa7f","#54fa7d","#56fb7a","#59fb78","#5cfc76","#5efc74","#61fd71","#64fd6f","#66fd6d","#69fd6b","#6cfd69","#6ffe67","#72fe65","#75fe63","#78fe61","#7bfe5f","#7efd5d","#81fd5c","#84fd5a","#87fd58","#8afc56","#8dfc55","#90fb53","#93fb51","#96fa50","#99fa4e","#9cf94d","#9ff84b","#a2f84a","#a6f748","#a9f647","#acf546","#aff444","#b2f343","#b5f242","#b8f141","#bbf03f","#beef3e","#c1ed3d","#c3ec3c","#c6eb3b","#c9e93a","#cce839","#cfe738","#d1e537","#d4e336","#d7e235","#d9e034","#dcdf33","#dedd32","#e0db32","#e3d931","#e5d730","#e7d52f","#e9d42f","#ecd22e","#eed02d","#f0ce2c","#f1cb2c","#f3c92b","#f5c72b","#f7c52a","#f8c329","#fac029","#fbbe28","#fdbc28","#feb927","#ffb727","#ffb526","#ffb226","#ffb025","#ffad25","#ffab24","#ffa824","#ffa623","#ffa323","#ffa022","#ff9e22","#ff9b21","#ff9921","#ff9621","#ff9320","#ff9020","#ff8e1f","#ff8b1f","#ff881e","#ff851e","#ff831d","#ff801d","#ff7d1d","#ff7a1c","#ff781c","#ff751b","#ff721b","#ff6f1a","#fd6c1a","#fc6a19","#fa6719","#f96418","#f76118","#f65f18","#f45c17","#f25916","#f05716","#ee5415","#ec5115","#ea4f14","#e84c14","#e64913","#e44713","#e24412","#df4212","#dd3f11","#da3d10","#d83a10","#d5380f","#d3360f","#d0330e","#ce310d","#cb2f0d","#c92d0c","#c62a0b","#c3280b","#c1260a","#be2409","#bb2309","#b92108","#b61f07","#b41d07","#b11b06","#af1a05","#ac1805","#aa1704","#a81604","#a51403","#a31302","#a11202","#9f1101","#9d1000","#9b0f00","#9a0e00","#980e00","#960d00","#950c00","#940c00","#930c00","#920c00","#910b00","#910c00","#900c00","#900c00","#900c00"];
+        const colors = d3.scaleQuantize().domain([0, 60]).range(colorScaleArray);
+
+        const tooltip = d3.select("body").append("div").attr("class", "tooltip");
+        const audienceType = $('#membersOnlySwitch').is(':checked') ? '{{ _("members") }}' : '{{ _("users") }}';
+
+        const flatData = [];
+        matrix.forEach((row, i) => {
+            row.forEach((value, j) => {
+                flatData.push({ row: i, col: j, value: value });
+            });
+        });
+
+        // Draw rectangles
+        svg.selectAll(".cell")
+            .data(flatData)
+            .enter()
+            .append("rect")
+            .attr("class", "cell")
+            .attr("x", d => xScale(labels[d.col]))
+            .attr("y", d => yScale(labels[d.row]))
+            .attr("width", xScale.bandwidth())
+            .attr("height", yScale.bandwidth())
+            .style("fill", d => (d.row === d.col) ? "#1f1f1f" : colors(d.value)) // Use your color scale
+            .on("mouseover", (event, d) => {
+                if (d.row === d.col) return;
+                tooltip.style("opacity", 1);
+            })
+            .on("mousemove", (event, d) => {
+                if (d.row === d.col) return;
+                const rowLabel = labels[d.row];
+                const colLabel = labels[d.col];
+                const text = `Percentage of ${rowLabel}'s ${audienceType} in ${colLabel}'s chat: ${d.value}%`;
+                tooltip.html(text)
+                    .style("left", (event.pageX + 15) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", () => tooltip.style("opacity", 0));
+
+        svg.selectAll(".cell-text")
+            .data(flatData)
+            .enter()
+            .append("text")
+            .attr("class", "cell-text")
+            .attr("x", d => xScale(labels[d.col]) + xScale.bandwidth() / 2)
+            .attr("y", d => yScale(labels[d.row]) + yScale.bandwidth() / 2)
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "middle")
+            .text(d => (d.row !== d.col && d.value > 0) ? `${d.value.toFixed(1)}%` : "")
+            .style("fill", "black");
+
+        // Add X axis
+        svg.append("g")
+            .attr("transform", `translate(0, ${height})`)
+            .call(d3.axisBottom(xScale))
+            .selectAll("text")
+            .attr("transform", "translate(-10,0)rotate(-45)")
+            .style("text-anchor", "end")
+            .style("fill", "white");
+
+        // Add Y axis
+        svg.append("g")
+            .call(d3.axisLeft(yScale))
+            .selectAll("text")
+            .style("fill", "white");
+    }
+
+    // Set initial month and fetch data
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    $('#monthSelect').val(lastMonth.toISOString().slice(0, 7)).datepicker('update');
+    fetchData();
+
+    // Event listeners
+    $('#groupSelect, #monthSelect, #membersOnlySwitch').on("change", fetchData);
+});
+</script>
+
+</body>
+</html>

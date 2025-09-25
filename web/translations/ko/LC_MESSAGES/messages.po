@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-09-22 09:36-0400\n"
+"POT-Creation-Date: 2025-09-25 17:28-0400\n"
 "PO-Revision-Date: 2025-03-20 16:03-0400\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ko\n"
@@ -18,20 +18,20 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:958 server.py:1155 server.py:1235 server.py:1346 server.py:1384
-#: server.py:1559 server.py:1613 server.py:1683 server.py:1769
+#: server.py:958 server.py:1155 server.py:1318 server.py:1402 server.py:1440
+#: server.py:1615 server.py:1669 server.py:1739 server.py:1825
 msgid "Missing required parameters"
 msgstr "필수 매개변수가 누락되었습니다"
 
-#: server.py:1591
+#: server.py:1647
 msgid "No data found"
 msgstr "데이터를 찾을 수 없습니다"
 
-#: server.py:1772
+#: server.py:1828
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr "잘못된 언어 매개변수입니다. EN, JP, KR, RU 중 하나여야 합니다."
 
-#: templates/channel_clustering.html:8 templates/menu.html:60
+#: templates/channel_clustering.html:8 templates/menu.html:61
 msgid "Channel Clusters by Common Users"
 msgstr "공통 사용자 기반 채널 클러스터"
 
@@ -101,7 +101,7 @@ msgid "Failed to load clustering graph."
 msgstr "클러스터링 그래프를 로드하지 못했습니다."
 
 #: templates/chat_leaderboards.html:8 templates/chat_leaderboards.html:42
-#: templates/menu.html:62
+#: templates/menu.html:63
 msgid "Chat Leaderboards"
 msgstr "채팅 리더보드"
 
@@ -114,8 +114,9 @@ msgstr "채널:"
 
 #: templates/chat_leaderboards.html:50 templates/chat_makeup.html:138
 #: templates/common_user_heatmap.html:45 templates/engagement.html:50
-#: templates/funniest_timestamps.html:112 templates/highlights.html:101
-#: templates/membership_change.html:126 templates/membership_counts.html:141
+#: templates/funniest_timestamps.html:112 templates/heatmap.html:68
+#: templates/highlights.html:101 templates/membership_change.html:126
+#: templates/membership_counts.html:141
 #: templates/membership_percentages.html:50 templates/streaming_hours.html:74
 #: templates/streaming_hours_avg.html:74 templates/streaming_hours_diff.html:74
 #: templates/streaming_hours_max.html:74 templates/user_change.html:132
@@ -162,7 +163,7 @@ msgid "Error fetching data. Please try again later."
 msgstr "데이터를 가져오는 중 오류가 발생했습니다. 나중에 다시 시도하세요."
 
 #: templates/chat_makeup.html:8 templates/chat_makeup.html:109
-#: templates/menu.html:79
+#: templates/menu.html:80
 msgid "Chat Makeup"
 msgstr "채팅 구성"
 
@@ -173,8 +174,8 @@ msgid ""
 msgstr "문자 세트 감지를 사용한 분당 비율. 이모티콘 카테고리는 유니코드 및 유튜브 스타일의 이모티콘 전용 메시지를 포함합니다."
 
 #: templates/chat_makeup.html:117 templates/common_user_heatmap.html:38
-#: templates/engagement.html:43 templates/membership_change.html:118
-#: templates/membership_counts.html:134
+#: templates/engagement.html:43 templates/heatmap.html:64
+#: templates/membership_change.html:118 templates/membership_counts.html:134
 #: templates/membership_percentages.html:43 templates/streaming_hours.html:66
 #: templates/streaming_hours_avg.html:66 templates/streaming_hours_diff.html:66
 #: templates/streaming_hours_max.html:66 templates/user_change.html:124
@@ -261,6 +262,7 @@ msgid "No common members found for the selected criteria."
 msgstr "선택한 조건에 대한 공통 멤버를 찾을 수 없습니다."
 
 #: templates/common_user_heatmap.html:6 templates/common_user_heatmap.html:34
+#: templates/heatmap.html:6 templates/heatmap.html:60 templates/menu.html:60
 msgid "Common User Heatmap"
 msgstr "공통 사용자 히트맵"
 
@@ -304,7 +306,7 @@ msgid "No common users found for the selected criteria."
 msgstr "선택한 기준에 대한 공통 사용자를 찾을 수 없습니다."
 
 #: templates/engagement.html:8 templates/engagement.html:39
-#: templates/menu.html:64
+#: templates/menu.html:65
 msgid "Engagement Rates"
 msgstr "참여율"
 
@@ -313,7 +315,7 @@ msgid "Average chat message count per user."
 msgstr "사용자당 평균 채팅 메시지 수."
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:41
-#: templates/menu.html:63
+#: templates/menu.html:64
 msgid "Exclusive Chat Users"
 msgstr "독점 채팅 사용자"
 
@@ -379,6 +381,21 @@ msgstr "채널과 언어를 모두 선택해주세요."
 #, fuzzy
 msgid "No data available for export."
 msgstr "선택한 기준에 대한 데이터가 없습니다."
+
+#: templates/heatmap.html:75
+#, fuzzy
+msgid "Members Only"
+msgstr "멤버십 수"
+
+#: templates/heatmap.html:203
+#, fuzzy
+msgid "members"
+msgstr "총 멤버 수:"
+
+#: templates/heatmap.html:203
+#, fuzzy
+msgid "users"
+msgstr "잃은 사용자"
 
 #: templates/highlight_search.html:8 templates/highlight_search.html:86
 msgid "AI Highlight Search"
@@ -461,7 +478,7 @@ msgid "Common User Channel Clusters"
 msgstr "일반적인 사용자 채널 클러스터"
 
 #: templates/index.html:127 templates/membership_counts.html:8
-#: templates/membership_counts.html:130 templates/menu.html:66
+#: templates/membership_counts.html:130 templates/menu.html:67
 msgid "Membership Counts"
 msgstr "멤버십 수"
 
@@ -543,7 +560,7 @@ msgid "Error fetching updates."
 msgstr "업데이트를 가져오는 중 오류가 발생했습니다."
 
 #: templates/jp_user_percents.html:8 templates/jp_user_percents.html:43
-#: templates/menu.html:81
+#: templates/menu.html:82
 msgid "JP User Percentages"
 msgstr "일본어 사용자 비율"
 
@@ -558,7 +575,7 @@ msgid "JP User Percentage"
 msgstr "일본어 사용자 비율"
 
 #: templates/membership_change.html:8 templates/membership_change.html:111
-#: templates/menu.html:68
+#: templates/menu.html:69
 msgid "Membership Gain / Loss"
 msgstr "멤버십 증감"
 
@@ -582,12 +599,8 @@ msgid ""
 "based on available badges for each channel."
 msgstr "채팅에 참여한 멤버만 계산됩니다. 멤버십 기간은 각 채널에서 사용 가능한 배지를 기준으로 합니다."
 
-#: templates/membership_counts.html:223
-msgid "Total Members:"
-msgstr "총 멤버 수:"
-
 #: templates/membership_percentages.html:8
-#: templates/membership_percentages.html:39 templates/menu.html:67
+#: templates/membership_percentages.html:39 templates/menu.html:68
 msgid "Membership Percentages"
 msgstr "멤버십 비율"
 
@@ -607,78 +620,78 @@ msgstr "홈"
 msgid "Users and Memberships"
 msgstr "사용자 및 멤버십"
 
-#: templates/menu.html:61
+#: templates/menu.html:62
 msgid "Active User Gain / Loss"
 msgstr "활동 사용자 증감"
 
-#: templates/menu.html:65 templates/user_info.html:8
+#: templates/menu.html:66 templates/user_info.html:8
 #: templates/user_info.html:42
 msgid "Message Frequencies by User"
 msgstr "사용자별 메시지 빈도"
 
-#: templates/menu.html:69 templates/recommendation_engine.html:8
+#: templates/menu.html:70 templates/recommendation_engine.html:8
 #: templates/recommendation_engine.html:44
 msgid "Recommendation Engine"
 msgstr "추천 엔진"
 
-#: templates/menu.html:76
+#: templates/menu.html:77
 msgid "Language Stats"
 msgstr "언어 통계"
 
-#: templates/menu.html:80 templates/message_types.html:8
+#: templates/menu.html:81 templates/message_types.html:8
 #: templates/message_types.html:42
 msgid "Message Percentages and Rates by Language"
 msgstr "언어별 메시지 비율 및 속도"
 
-#: templates/menu.html:88 templates/monthly_streaming_hours.html:95
+#: templates/menu.html:89 templates/monthly_streaming_hours.html:95
 #: templates/monthly_streaming_hours.html:180
 msgid "Streaming Hours"
 msgstr "스트리밍 시간"
 
-#: templates/menu.html:91 templates/streaming_hours.html:8
+#: templates/menu.html:92 templates/streaming_hours.html:8
 #: templates/streaming_hours.html:61
 msgid "Total Streaming Hours"
 msgstr "총 스트리밍 시간"
 
-#: templates/menu.html:92 templates/streaming_hours_avg.html:61
+#: templates/menu.html:93 templates/streaming_hours_avg.html:61
 msgid "Average Streaming Hours"
 msgstr "평균 스트리밍 시간"
 
-#: templates/menu.html:93 templates/streaming_hours_max.html:8
+#: templates/menu.html:94 templates/streaming_hours_max.html:8
 #: templates/streaming_hours_max.html:61
 msgid "Longest Stream Duration"
 msgstr "최장 스트리밍 시간"
 
-#: templates/menu.html:94
+#: templates/menu.html:95
 msgid "Streaming Hour Change"
 msgstr "스트리밍 시간 변화"
 
-#: templates/menu.html:95 templates/monthly_streaming_hours.html:8
+#: templates/menu.html:96 templates/monthly_streaming_hours.html:8
 #: templates/monthly_streaming_hours.html:41
 msgid "Monthly Streaming Hours"
 msgstr "월간 스트리밍 시간"
 
-#: templates/menu.html:101
+#: templates/menu.html:102
 msgid "Highlights"
 msgstr "하이라이트"
 
-#: templates/menu.html:104
+#: templates/menu.html:105
 msgid "Funniest Moments"
 msgstr "가장 재미있는 순간"
 
-#: templates/menu.html:105
+#: templates/menu.html:106
 msgid "AI Summarized Highlights (BETA)"
 msgstr "AI 요약 하이라이트 (베타, 영어 전용)"
 
-#: templates/menu.html:106
+#: templates/menu.html:107
 msgid "Search AI Highlights (BETA)"
 msgstr "AI 하이라이트 검색 (베타, 영어 전용)"
 
-#: templates/menu.html:113 templates/site_metrics.html:8
+#: templates/menu.html:114 templates/site_metrics.html:8
 msgid "Site Metrics"
 msgstr "사이트 지표"
 
-#: templates/menu.html:116
+#: templates/menu.html:117
 msgid "Blog"
 msgstr "블로그 (영어 전용)"
 

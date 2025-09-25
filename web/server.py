@@ -1145,186 +1145,242 @@ def get_group_chat_makeup():
     
 @app.route('/api/get_common_users', methods=['GET'])
 def get_common_users():
-    """API to get common users between two (channel, month) pairs."""
-    channel_a = request.args.get('channel_a')
-    month_a = request.args.get('month_a')  # YYYY-MM format
-    channel_b = request.args.get('channel_b')
-    month_b = request.args.get('month_b')  # YYYY-MM format
+    """API to get common users between two (channel, month) pairs using set arithmetic."""
+    channel_a_name = request.args.get('channel_a')
+    month_a_str = request.args.get('month_a')  # YYYY-MM format
+    channel_b_name = request.args.get('channel_b')
+    month_b_str = request.args.get('month_b')  # YYYY-MM format
 
-    if not (channel_a and month_a and channel_b and month_b):
+    if not (channel_a_name and month_a_str and channel_b_name and month_b_str):
         return jsonify({"error": _("Missing required parameters")}), 400
     
-    redis_key = f"common_users_{channel_a}_{month_a}_{channel_b}_{month_b}"
+    redis_key = f"common_users_{channel_a_name}_{month_a_str}_{channel_b_name}_{month_b_str}"
     cached_data = g.redis_conn.get(redis_key)
     if cached_data:
         inc_cache_hit_count()
         return jsonify(json.loads(cached_data))
     inc_cache_miss_count()
-
-    month_a += "-01"
-    month_b += "-01"
-
-    query = """
-        SELECT 
-            ca.channel_name AS channel_a,
-            cb.channel_name AS channel_b,
-            ua.observed_month AS month_a,
-            ub.observed_month AS month_b,
-            COUNT(DISTINCT ua.user_id) AS num_common_users,
-            100.0 * COUNT(DISTINCT ua.user_id) / NULLIF(ua_count.total_users, 0) AS percent_A_to_B_users,
-            100.0 * COUNT(DISTINCT ua.user_id) / NULLIF(ub_count.total_users, 0) AS percent_B_to_A_users
-        FROM mv_user_monthly_activity ua
-        JOIN mv_user_monthly_activity ub 
-            ON ua.user_id = ub.user_id
-            AND ua.channel_id <> ub.channel_id
-        JOIN channels ca ON ua.channel_id = ca.channel_id
-        JOIN channels cb ON ub.channel_id = cb.channel_id
-        JOIN (
-            SELECT channel_id, observed_month, COUNT(DISTINCT user_id) AS total_users
-            FROM mv_user_monthly_activity
-            GROUP BY channel_id, observed_month
-        ) ua_count ON ua.channel_id = ua_count.channel_id AND ua.observed_month = ua_count.observed_month
-        JOIN (
-            SELECT channel_id, observed_month, COUNT(DISTINCT user_id) AS total_users
-            FROM mv_user_monthly_activity
-            GROUP BY channel_id, observed_month
-        ) ub_count ON ub.channel_id = ub_count.channel_id AND ub.observed_month = ub_count.observed_month
-        WHERE ca.channel_name = %s AND cb.channel_name = %s
-          AND ua.observed_month = %s::DATE
-          AND ub.observed_month = %s::DATE
-        GROUP BY ca.channel_name, cb.channel_name, ua.observed_month, ub.observed_month, ua_count.total_users, ub_count.total_users;
-    """
-
+    
     cursor = g.db_conn.cursor()
-    cursor.execute(query, (channel_a, channel_b, month_a, month_b))
-    results = cursor.fetchall()
-    cursor.close()
+    
+    # A simple, reusable query to get all user IDs for a given channel and month
+    query = """
+        SELECT DISTINCT mua.user_id
+        FROM mv_user_monthly_activity mua
+        JOIN channels c ON mua.channel_id = c.channel_id
+        WHERE c.channel_name = %s
+          AND mua.observed_month = %s::DATE;
+    """
+    
+    try:
+        # Fetch the list of users for the first channel/month
+        month_a_date = f"{month_a_str}-01"
+        cursor.execute(query, (channel_a_name, month_a_date))
+        users_a = {row[0] for row in cursor.fetchall()}
 
-    if results:
-        data = {
-            "channel_a": results[0][0],
-            "channel_b": results[0][1],
-            "month_a": results[0][2].strftime('%Y-%m'),
-            "month_b": results[0][3].strftime('%Y-%m'),
-            "num_common_users": int(results[0][4]),
-            "percent_A_to_B_users": float(round(results[0][5], 2)) if results[0][5] is not None else None,
-            "percent_B_to_A_users": float(round(results[0][6], 2)) if results[0][6] is not None else None
-        }
-        g.redis_conn.set(redis_key, json.dumps(data))
-    else:
-        data = {}
+        # Fetch the list of users for the second channel/month
+        month_b_date = f"{month_b_str}-01"
+        cursor.execute(query, (channel_b_name, month_b_date))
+        users_b = {row[0] for row in cursor.fetchall()}
+        
+    except Exception as e:
+        cursor.close()
+        return jsonify({"error": f"Database query failed: {e}"}), 500
+    finally:
+        cursor.close()
 
+    if not users_a or not users_b:
+        return jsonify({}) # Return empty if one or both have no users
+
+    # Perform the set arithmetic in Python
+    common_users = users_a.intersection(users_b)
+    
+    num_common_users = len(common_users)
+    total_users_a = len(users_a)
+    total_users_b = len(users_b)
+
+    # Calculate percentages
+    percent_a_to_b = (100.0 * num_common_users / total_users_a) if total_users_a > 0 else 0
+    percent_b_to_a = (100.0 * num_common_users / total_users_b) if total_users_b > 0 else 0
+
+    data = {
+        "channel_a": channel_a_name,
+        "channel_b": channel_b_name,
+        "month_a": month_a_str,
+        "month_b": month_b_str,
+        "num_common_users": num_common_users,
+        "percent_A_to_B_users": round(percent_a_to_b, 2),
+        "percent_B_to_A_users": round(percent_b_to_a, 2)
+    }
+
+    g.redis_conn.set(redis_key, json.dumps(data), ex=86400) # Cache for 24 hours
+    
     return jsonify(data)
+
+@app.route('/api/get_common_users_matrix', methods=['GET'])
+def get_common_users_matrix():
+    """
+    API to generate a matrix of common user or member percentages for a
+    given list of channels and a specific month.
+    """
+    month_str = request.args.get('month')
+    channels_str = request.args.get('channels')
+
+    members_only_str = request.args.get('members_only', 'false')
+    members_only = members_only_str.lower() in ['true', '1', 'yes']
+
+    if not (month_str and channels_str):
+        return jsonify({"error": "Missing 'month' or 'channels' parameter"}), 400
+        
+    channel_names = [name.strip() for name in channels_str.split(',')]
+    if len(channel_names) < 2:
+        return jsonify({"error": "Please provide at least two channel names."}), 400
+
+    sorted_channels_key = ",".join(sorted(channel_names))
+    matrix_type = "members" if members_only else "users"
+    redis_key = f"common_matrix_percent_{matrix_type}_{sorted_channels_key}_{month_str}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        return jsonify(json.loads(cached_data))
+
+    if members_only:
+        # This query filters for members only by checking membership_rank
+        query = """
+            SELECT DISTINCT ud.user_id
+            FROM user_data ud
+            JOIN channels c ON ud.channel_id = c.channel_id
+            WHERE c.channel_name = %s
+              AND DATE_TRUNC('month', ud.last_message_at) = %s::DATE
+              AND ud.membership_rank >= 0;
+        """
+    else:
+        # This is the query for all users
+        query = """
+            SELECT DISTINCT mua.user_id
+            FROM mv_user_monthly_activity mua
+            JOIN channels c ON mua.channel_id = c.channel_id
+            WHERE c.channel_name = %s
+              AND mua.observed_month = %s::DATE;
+        """
+
+    user_sets = {}
+    month_date = f"{month_str}-01"
+    cursor = g.db_conn.cursor()
+    
+    try:
+        for name in channel_names:
+            cursor.execute(query, (name, month_date))
+            user_sets[name] = {row[0] for row in cursor.fetchall()}
+    except Exception as e:
+        return jsonify({"error": f"Database query failed: {e}"}), 500
+    finally:
+        cursor.close()
+
+    n = len(channel_names)
+    matrix = [[0.0] * n for _ in range(n)]
+
+    for i in range(n):
+        for j in range(n):
+            set_i = user_sets[channel_names[i]]
+            total_users_i = len(set_i)
+
+            if i == j:
+                matrix[i][j] = 100.0 if total_users_i > 0 else 0.0
+                continue
+
+            set_j = user_sets[channel_names[j]]
+            
+            if total_users_i > 0:
+                common_users = len(set_i.intersection(set_j))
+                percentage = (100.0 * common_users) / total_users_i
+                matrix[i][j] = round(percentage, 2)
+            else:
+                matrix[i][j] = 0.0
+
+    response_data = {
+        "labels": channel_names,
+        "matrix": matrix
+    }
+    
+    g.redis_conn.set(redis_key, json.dumps(response_data), ex=86400)
+    
+    return jsonify(response_data)
 
 @app.route('/api/get_common_members', methods=['GET'])
 def get_common_members():
-    """API to get common members between two (channel, month) pairs."""
-    channel_a = request.args.get('channel_a')
-    month_a = request.args.get('month_a')  # YYYY-MM format
-    channel_b = request.args.get('channel_b')
-    month_b = request.args.get('month_b')  # YYYY-MM format
+    """API to get common members between two (channel, month) pairs using set arithmetic."""
+    channel_a_name = request.args.get('channel_a')
+    month_a_str = request.args.get('month_a')  # YYYY-MM format
+    channel_b_name = request.args.get('channel_b')
+    month_b_str = request.args.get('month_b')  # YYYY-MM format
 
-    redis_key = f"common_members_{channel_a}_{month_a}_{channel_b}_{month_b}"
+    if not (channel_a_name and month_a_str and channel_b_name and month_b_str):
+        return jsonify({"error": _("Missing required parameters")}), 400
+    
+    redis_key = f"common_members_{channel_a_name}_{month_a_str}_{channel_b_name}_{month_b_str}"
     cached_data = g.redis_conn.get(redis_key)
     if cached_data:
         inc_cache_hit_count()
         return jsonify(json.loads(cached_data))
     inc_cache_miss_count()
-
-    if not (channel_a and month_a and channel_b and month_b):
-        return jsonify({"error": _("Missing required parameters")}), 400
-
-    month_a += "-01"
-    month_b += "-01"
-
-    # Simplified query with pre-computed total members
+    
+    cursor = g.db_conn.cursor()
+    
+    # A simple, reusable query to get all member IDs for a given channel and month.
+    # The key is the 'ud.membership_rank >= 0' filter.
     query = """
-        WITH user_activity AS (
-        SELECT
-            ud.user_id,
-            ud.channel_id,
-            DATE_TRUNC('month', ud.last_message_at AT TIME ZONE 'UTC') AS observed_month
+        SELECT DISTINCT ud.user_id
         FROM user_data ud
         JOIN channels c ON ud.channel_id = c.channel_id
-        WHERE (c.channel_name = %s OR c.channel_name = %s)
-        AND ud.last_message_at >= %s::DATE
-        AND ud.last_message_at < (%s::DATE + INTERVAL '1 month')
-        GROUP BY ud.user_id, ud.channel_id, observed_month
-    ),
-    common_members AS (
-        SELECT
-            m1.channel_id AS channel_a,
-            m2.channel_id AS channel_b,
-            DATE_TRUNC('month', m1.last_message_at AT TIME ZONE 'UTC') AS observed_month_a,
-            DATE_TRUNC('month', m2.last_message_at AT TIME ZONE 'UTC') AS observed_month_b,
-            COUNT(DISTINCT m1.user_id) AS shared_members
-        FROM user_data m1
-        JOIN user_data m2 
-            ON m1.user_id = m2.user_id
-            AND m1.channel_id <> m2.channel_id
-        JOIN channels ca ON m1.channel_id = ca.channel_id
-        JOIN channels cb ON m2.channel_id = cb.channel_id
-        WHERE (ca.channel_name = %s AND cb.channel_name = %s)
-        AND m1.membership_rank >= 0
-        AND m2.membership_rank >= 0
-        AND DATE_TRUNC('month', m1.last_message_at AT TIME ZONE 'UTC') = %s::DATE
-        AND DATE_TRUNC('month', m2.last_message_at AT TIME ZONE 'UTC') = %s::DATE
-        GROUP BY m1.channel_id, m2.channel_id, observed_month_a, observed_month_b
-    ),
-    member_counts AS (
-        SELECT
-            channel_id,
-            DATE_TRUNC('month', last_message_at AT TIME ZONE 'UTC') AS observed_month,
-            COUNT(DISTINCT user_id) AS total_members
-        FROM user_data
-        WHERE membership_rank >= 0
-        GROUP BY channel_id, observed_month
-    )
-    SELECT 
-        ca.channel_name AS channel_a,
-        cb.channel_name AS channel_b,
-        cm.observed_month_a AS month_a,
-        cm.observed_month_b AS month_b,
-        cm.shared_members AS num_common_members,
-        CASE WHEN ca.channel_name = %s THEN
-            100.0 * cm.shared_members / NULLIF(ma_count.total_members, 0)
-        ELSE
-            100.0 * cm.shared_members / NULLIF(mb_count.total_members, 0)
-        END AS percent_A_to_B_members,
-        CASE WHEN cb.channel_name = %s THEN
-            100.0 * cm.shared_members / NULLIF(mb_count.total_members, 0)
-        ELSE
-            100.0 * cm.shared_members / NULLIF(ma_count.total_members, 0)
-        END AS percent_B_to_A_members
-    FROM common_members cm
-    JOIN channels ca ON cm.channel_a = ca.channel_id
-    JOIN channels cb ON cm.channel_b = cb.channel_id
-    LEFT JOIN member_counts ma_count ON ma_count.channel_id = cm.channel_a AND ma_count.observed_month = cm.observed_month_a
-    LEFT JOIN member_counts mb_count ON mb_count.channel_id = cm.channel_b AND mb_count.observed_month = cm.observed_month_b;
-
-
-
-
+        WHERE c.channel_name = %s
+          AND DATE_TRUNC('month', ud.last_message_at) = %s::DATE
+          AND ud.membership_rank >= 0;
     """
+    
+    try:
+        # Fetch the list of members for the first channel/month
+        month_a_date = f"{month_a_str}-01"
+        cursor.execute(query, (channel_a_name, month_a_date))
+        members_a = {row[0] for row in cursor.fetchall()}
 
-    cursor = g.db_conn.cursor()
-    cursor.execute(query, (channel_a, channel_b, month_a, month_b, channel_a, channel_b, month_a, month_b, channel_a, channel_b))
-    results = cursor.fetchall()
-    cursor.close()
-    if results:
-        data = {
-            "channel_a": results[0][0],
-            "channel_b": results[0][1],
-            "month_a": results[0][2].strftime('%Y-%m'),
-            "month_b": results[0][3].strftime('%Y-%m'),
-            "num_common_members": int(results[0][4]),
-            "percent_A_to_B_members": float(round(results[0][5], 2)) if results[0][5] is not None else None,
-            "percent_B_to_A_members": float(round(results[0][6], 2)) if results[0][6] is not None else None
-        }
-        g.redis_conn.set(redis_key, json.dumps(data))
-    else:
-        data = {}
+        # Fetch the list of members for the second channel/month
+        month_b_date = f"{month_b_str}-01"
+        cursor.execute(query, (channel_b_name, month_b_date))
+        members_b = {row[0] for row in cursor.fetchall()}
+        
+    except Exception as e:
+        cursor.close()
+        return jsonify({"error": f"Database query failed: {e}"}), 500
+    finally:
+        cursor.close()
 
+    if not members_a or not members_b:
+        # Return an empty object if one of the channels has no members for that month
+        return jsonify({})
+
+    # Perform the set arithmetic in Python, which is highly efficient
+    common_members = members_a.intersection(members_b)
+    
+    num_common_members = len(common_members)
+    total_members_a = len(members_a)
+    total_members_b = len(members_b)
+
+    # Calculate percentages
+    percent_a_to_b = (100.0 * num_common_members / total_members_a) if total_members_a > 0 else 0
+    percent_b_to_a = (100.0 * num_common_members / total_members_b) if total_members_b > 0 else 0
+
+    data = {
+        "channel_a": channel_a_name,
+        "channel_b": channel_b_name,
+        "month_a": month_a_str,
+        "month_b": month_b_str,
+        "num_common_members": num_common_members,
+        "percent_A_to_B_members": round(percent_a_to_b, 2),
+        "percent_B_to_A_members": round(percent_b_to_a, 2)
+    }
+
+    g.redis_conn.set(redis_key, json.dumps(data), ex=86400) # Cache for 24 hours
+    
     return jsonify(data)
 
 
@@ -2149,20 +2205,18 @@ def get_user_info():
     using their unique user_id.
     """
     
-    # --- CHANGE 1: Accept 'user_id' instead of 'username' ---
     user_id = request.args.get('identifier')
     month = request.args.get('month')  # YYYY-MM format
 
     if not (user_id and month):
         return jsonify({"success": False, "error": "Missing required parameters: 'user_id' and 'month' are required."}), 400
     
-    # --- CHANGE 2: Update the Redis key to use user_id ---
-    #redis_key = f"user_info_{user_id}_{month}"
-    #cached_data = g.redis_conn.get(redis_key)
-    #if cached_data:
-        # inc_cache_hit_count()
-    #    return jsonify(json.loads(cached_data))
-    # inc_cache_miss_count()
+    redis_key = f"user_info_{user_id}_{month}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
 
     # If user_id starts with '@', lookup user_id from database
     if user_id.startswith('@'):
@@ -2179,9 +2233,6 @@ def get_user_info():
     next_month_start = (datetime.strptime(month, "%Y-%m") + relativedelta(months=1)).strftime("%Y-%m-01")
 
     cursor = g.db_conn.cursor()
-
-    # --- CHANGE 3: The initial lookup for user_id is no longer needed ---
-    # The user_id is now provided directly in the API call.
 
     # Fetch user's chat activity per channel for the month
     cursor.execute("""
@@ -2201,16 +2252,13 @@ def get_user_info():
 
     if not user_chat_data:
         cursor.close()
-        # It's better to return an empty success response than a 404 error
-        # This means the user exists, but had no activity in the selected month.
         output = {"success": True, "data": []}
-        #g.redis_conn.set(redis_key, json.dumps(output), ex=3600) # Cache empty result for 1 hour
+        g.redis_conn.set(redis_key, json.dumps(output)) 
         return jsonify(output)
 
     results = []
 
     for channel_id, channel_name, user_message_count in user_chat_data:
-        # The percentile query remains the same, as it was already correct.
         cursor.execute("""
             WITH all_user_counts AS (
                 SELECT user_id, SUM(total_message_count) AS total_messages
@@ -2237,7 +2285,7 @@ def get_user_info():
     cursor.close()
     
     output = {"success": True, "data": results}
-    #g.redis_conn.set(redis_key, json.dumps(output), ex=86400) # Cache for 24 hours
+    g.redis_conn.set(redis_key, json.dumps(output), ex=86400) # Cache for 24 hours
 
     return jsonify(output)
 
@@ -2315,16 +2363,16 @@ def get_video_highlights():
         return jsonify({"success": False, "error": "Invalid month format. Please use 'YYYY-MM'."}), 400
 
     # --- 2. Check Redis Cache ---
-    #redis_key = f"video_highlights_{channel_name.replace(' ', '_')}_{month_str}"
-    #try:
-    #    cached_data = g.redis_conn.get(redis_key)
-    #    if cached_data:
-            # inc_cache_hit_count()
-    #        return jsonify(json.loads(cached_data))
-        # inc_cache_miss_count()
-    #except Exception as e:
+    redis_key = f"video_highlights_{channel_name.replace(' ', '_')}_{month_str}"
+    try:
+        cached_data = g.redis_conn.get(redis_key)
+        if cached_data:
+             inc_cache_hit_count()
+             return jsonify(json.loads(cached_data))
+        inc_cache_miss_count()
+    except Exception as e:
         # Log the error but proceed to query DB; cache is not critical.
-    #    print(f"Redis cache check failed: {e}")
+        print(f"Redis cache check failed: {e}")
 
 
     # --- 3. Query the Database (if cache miss) ---
@@ -2627,6 +2675,10 @@ def highlights_view():
 @app.route('/highlight_search')
 def highlight_search_view():
     return render_template('highlight_search.html', _=_, get_locale=get_locale)
+
+@app.route('/heatmap')
+def heatmap_view():
+    return render_template('heatmap.html', _=_, get_locale=get_locale)
 
 #v1 redirects
 @app.route('/stream-time')

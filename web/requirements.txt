@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 Flask
 Flask-Babel
 Flask-SocketIO
@@ -16,4 +17,5 @@ leidenalg
 python-igraph
 redis
 eventlet
+torch
 sentence-transformers
