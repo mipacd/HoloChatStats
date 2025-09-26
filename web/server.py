@@ -842,54 +842,64 @@ def get_previous_two_months():
 
 @app.route("/api/recommend", methods=["GET"])
 def recommend_channels():
+    """
+    API to recommend channels for a user based on their recent activity.
+    Accepts a unique user_id or a user handle (@username) as input.
+    """
     try:
-        username = request.args.get("username", "")
+        identifier = request.args.get("identifier", "")
+        if not identifier:
+            return jsonify({"error": "Missing required parameter: 'identifier' is required."}), 400
+
         conn = get_db_connection()
         cursor = conn.cursor()
+        user_id = None
 
-        redis_key = f"channel_recommendations_{username}"
-        # Check if data is cached in Redis
+        if identifier.startswith('@'):
+            cursor.execute("SELECT user_id FROM users WHERE username = %s", (identifier,))
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({"error": f"User handle '{identifier}' not found"}), 404
+            user_id = result[0]
+        else:
+            # Assume it's a user_id directly
+            user_id = identifier
+
+        redis_key = f"channel_recommendations_{user_id}"
         cached_data = g.redis_conn.get(redis_key)
         if cached_data:
             inc_cache_hit_count()
-            # If cached data is found, return it
             return jsonify(json.loads(cached_data))
         inc_cache_miss_count()
 
-        # Get user_id from username
-        cursor.execute("SELECT user_id FROM users WHERE username = %s", (username,))
-        result = cursor.fetchone()
-        if not result:
-            return jsonify({"error": "Username not found"}), 404
-        user_id = result[0]
+        # Get the most recent full month of data for recommendations
+        # (Assuming we want recommendations based on the last complete month)
+        last_month = datetime.utcnow().date().replace(day=1) - relativedelta(days=1)
+        month_to_query = last_month.strftime("%Y-%m-01")
 
-        # Get previous two months
-        months = get_previous_two_months()
-
-        redis_intermediate_key = f"channel_recommendation_data_{months[0]}"
-        cached_data = g.redis_conn.get(redis_intermediate_key)
-        if cached_data:
-            # If cached data is found, return it
-            rows = json.loads(cached_data)
+        # --- Intermediate Caching for the month's full activity data ---
+        redis_intermediate_key = f"channel_recommendation_data_{month_to_query}"
+        cached_rows = g.redis_conn.get(redis_intermediate_key)
+        
+        if cached_rows:
+            rows = json.loads(cached_rows)
         else:
-            # Query user activity for the last two months
-            cursor.execute(f"""
+            # Query user activity for the last complete month
+            cursor.execute("""
                 SELECT ud.user_id, ch.channel_name, SUM(ud.total_message_count) AS message_weight
                 FROM user_data ud
                 JOIN channels ch ON ud.channel_id = ch.channel_id
-                WHERE DATE_TRUNC('month', ud.last_message_at) IN (%s::DATE)
+                WHERE DATE_TRUNC('month', ud.last_message_at) = %s::DATE
                 GROUP BY ud.user_id, ch.channel_name;
-            """, (months[0] + "-01",))
+            """, (month_to_query,))
             rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
             g.redis_conn.set(redis_intermediate_key, json.dumps(rows))
 
-        # Convert to DataFrame
-        data = pd.DataFrame(rows, columns=['user_id', 'channel_name', 'message_weight'])
-        if data.empty:
-            return jsonify({"error": "No data for the past two months"}), 404
+        if not rows:
+            return jsonify({"error": "Not enough recent data available to generate recommendations."}), 404
 
+        data = pd.DataFrame(rows, columns=['user_id', 'channel_name', 'message_weight'])
+        
         # Create user-channel interaction matrix
         user_channel_matrix = data.pivot(index='user_id', columns='channel_name', values='message_weight').fillna(0)
 
@@ -900,25 +910,20 @@ def recommend_channels():
 
         # Get channels the user has interacted with
         if user_id not in user_channel_matrix.index:
-            return jsonify({"error": "No activity for this user"}), 404
+            return jsonify({"error": "No activity found for this user in the last month."}), 404
 
         user_vector = user_channel_matrix.loc[user_id]
         user_channels = user_vector[user_vector > 0].index
 
-        # Calculate a recommendation score by summing similarities to channels user has interacted with
+        # Calculate recommendation scores
         recommendation_scores = similarity_df[user_channels].sum(axis=1)
-        recommendation_scores = recommendation_scores.drop(labels=user_channels, errors='ignore')  # Exclude already watched channels
+        recommendation_scores = recommendation_scores.drop(labels=user_channels, errors='ignore')
 
-        # Compute top 5 recommendations
         top_recommendations = recommendation_scores.sort_values(ascending=False).head(5)
-
-        # Compute ideal maximum for normalization
-        ideal_max = len(user_channels)  # could clamp this to a min of 1
-
-        # Normalize scores to a 0-100 scale
+        
+        # Normalize and scale scores
+        ideal_max = len(user_channels)
         raw_normalized = (top_recommendations / ideal_max) * 100
-
-        # Scale scores to a 0-100 scale using log1p for better distribution 
         normalized_scores = np.log1p(raw_normalized) / np.log1p(100) * 100
 
         response = [
@@ -927,15 +932,18 @@ def recommend_channels():
         ]
 
         output = { "recommended_channels": response }
-
-        # Cache the response in Redis
-        g.redis_conn.set(redis_key, json.dumps(output))
+        g.redis_conn.set(redis_key, json.dumps(output)) # Cache final result for 24 hours
 
         return jsonify(output)
 
-
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Log the full error for debugging
+        print(f"An error occurred in recommend_channels: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            cursor.close()
+            conn.close()
 
 
 
@@ -2221,7 +2229,7 @@ def get_user_info():
     # If user_id starts with '@', lookup user_id from database
     if user_id.startswith('@'):
         cursor = g.db_conn.cursor()
-        cursor.execute("SELECT user_id FROM users WHERE username = %s", (user_id[1:],))
+        cursor.execute("SELECT user_id FROM users WHERE username = %s", (user_id,))
         result = cursor.fetchone()
         cursor.close()
         if result:
@@ -2285,7 +2293,7 @@ def get_user_info():
     cursor.close()
     
     output = {"success": True, "data": results}
-    g.redis_conn.set(redis_key, json.dumps(output), ex=86400) # Cache for 24 hours
+    g.redis_conn.set(redis_key, json.dumps(output)) # Cache for 24 hours
 
     return jsonify(output)
 

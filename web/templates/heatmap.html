@@ -177,7 +177,9 @@ $(document).ready(function() {
         const labels = data.labels;
         const matrix = data.matrix;
 
-        const margin = {top: 100, right: 50, bottom: 100, left: 100};
+        const transposedMatrix = matrix[0].map((_, colIndex) => matrix.map(row => row[colIndex]));
+
+        const margin = {top: 20, right: 20, bottom: 100, left: 75};
         
         // Use the container's full available space
        const containerRect = d3.select("#heatmapContainer").node().getBoundingClientRect();
@@ -200,10 +202,10 @@ $(document).ready(function() {
         const colors = d3.scaleQuantize().domain([0, 60]).range(colorScaleArray);
 
         const tooltip = d3.select("body").append("div").attr("class", "tooltip");
-        const audienceType = $('#membersOnlySwitch').is(':checked') ? '{{ _("members") }}' : '{{ _("users") }}';
+        const audienceType = $('#membersOnlySwitch').is(':checked') ? '{{ _("members") }}' : '{{ _("chatters") }}';
 
         const flatData = [];
-        matrix.forEach((row, i) => {
+        transposedMatrix.forEach((row, i) => {
             row.forEach((value, j) => {
                 flatData.push({ row: i, col: j, value: value });
             });
@@ -226,8 +228,8 @@ $(document).ready(function() {
             })
             .on("mousemove", (event, d) => {
                 if (d.row === d.col) return;
-                const rowLabel = labels[d.row];
-                const colLabel = labels[d.col];
+                const rowLabel = labels[d.col];
+                const colLabel = labels[d.row];
                 const text = `Percentage of ${rowLabel}'s ${audienceType} in ${colLabel}'s chat: ${d.value}%`;
                 tooltip.html(text)
                     .style("left", (event.pageX + 15) + "px")

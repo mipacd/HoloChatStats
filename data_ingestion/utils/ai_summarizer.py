@@ -289,5 +289,5 @@ def populate_video_highlights(year: int, month: int):
 
 if __name__ == '__main__':
     target_year = 2025
-    target_month = 8
+    target_month = 9
     populate_video_highlights(target_year, target_month)
