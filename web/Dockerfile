@@ -1,5 +1,7 @@
 FROM python:3.13 as builder
 
+RUN apt-get update && apt-get install -y libpq-dev build-essential
+
 WORKDIR /app
 
 RUN python -m venv /opt/venv
@@ -9,6 +11,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 FROM python:3.13-slim
+
+RUN apt-get update && apt-get install -y libpq5 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
