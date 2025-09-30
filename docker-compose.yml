@@ -6,6 +6,7 @@ services:
       - "80:80"
 
     volumes:
-      - ./config.ini:/app/config.ini
+      - /web/config/config.ini:/app/config.ini
+      - /web/config/news.txt:/app/news.txt
 
     restart: always
