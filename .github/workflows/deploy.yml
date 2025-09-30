@@ -1,0 +1,21 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Rebuild and deploy Docker container
+        run: |
+          cd ~/HoloChatStats
+          git pull
+          docker-compose -f docker-compose.yml up --build -d
+          docker system prune -f

@@ -1,0 +1,11 @@
+services:
+  web:
+    build: ./web
+    container_name: holochatstats-web
+    ports:
+      - "80:80"
+
+    volumes:
+      - ./config.ini:/app/config.ini
+
+    restart: always
