@@ -15,7 +15,6 @@ jobs:
 
       - name: Rebuild and deploy Docker container
         run: |
-          cd ~/HoloChatStats
+          cd /web/HoloChatStats
           git pull
           docker-compose -f docker-compose.yml up --build -d
-          docker system prune -f
