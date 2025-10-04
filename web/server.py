@@ -1524,35 +1524,34 @@ def get_group_membership_changes():
 
 @app.route('/api/get_group_streaming_hours_diff', methods=['GET'])
 def get_group_streaming_hours_diff():
-    """API to fetch the change in streaming hours since the previous month for a given group and timezone."""
-
-    # Get request parameters
-    month = request.args.get('month')  # Expected format: YYYY-MM
+    """API to fetch the change in streaming hours since the previous month for a given group."""
+    month = request.args.get('month')
     channel_group = request.args.get('group', None)
 
-    redis_key = f"group_streaming_hours_diff_{channel_group}_{month}"
+    redis_key = f"group_streaming_hours_diff_{channel_group or 'all'}_{month}"
     cached_data = g.redis_conn.get(redis_key)
     if cached_data:
         inc_cache_hit_count()
-        return jsonify(json.loads(cached_data))
+        return Response(cached_data, mimetype='application/json')
     inc_cache_miss_count()
 
     if not month:
         return jsonify({"success": False, "error": "Missing required parameter: month"}), 400
 
     try:
-        # Convert month into correct format
         month_date = datetime.strptime(month, "%Y-%m")
     except ValueError:
         return jsonify({"success": False, "error": "Invalid month format. Use YYYY-MM."}), 400
 
-    params = [f"{month_date.strftime('%Y-%m-01')}"]
+    params = []
     group_filter_sql = ""
     if channel_group:
         group_filter_sql = "WHERE c.channel_group = %s"
-        params.insert(0, channel_group) # Insert group at the beginning for correct order
+        params.append(channel_group)
+    
+    # Add the date parameter for the main WHERE clause
+    params.append(f"{month_date.strftime('%Y-%m-01')}")
 
-    # Use a placeholder for the filter and replace it safely
     query = f"""
         WITH monthly_streaming AS (
             SELECT
@@ -1573,7 +1572,7 @@ def get_group_streaming_hours_diff():
         LEFT JOIN monthly_streaming m2
             ON m1.channel_name = m2.channel_name AND m1.observed_month = (m2.observed_month + INTERVAL '1 month')
         WHERE m1.observed_month = %s
-        ORDER BY m1.channel_name;
+        ORDER BY change_from_previous_month DESC;
     """
 
     cursor = g.db_conn.cursor()
@@ -1581,7 +1580,6 @@ def get_group_streaming_hours_diff():
     results = cursor.fetchall()
     cursor.close()
 
-    # Format the response
     data = [
         {
             "channel": row[0],
@@ -1592,8 +1590,12 @@ def get_group_streaming_hours_diff():
         for row in results
     ]
 
-    g.redis_conn.set(redis_key, json.dumps(data))
-    return jsonify({"success": True, "data": data})
+    output = {"success": True, "data": data}
+    
+    # Cache the final JSON string that will be sent to the user
+    g.redis_conn.set(redis_key, json.dumps(output))
+
+    return jsonify(output)
 
 @app.route('/api/get_chat_leaderboard', methods=['GET'])
 def get_chat_leaderboard():

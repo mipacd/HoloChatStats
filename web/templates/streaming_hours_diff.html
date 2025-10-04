@@ -84,7 +84,6 @@
 
 <script>
 $(document).ready(function() {
-    // Initialize Bootstrap Datepicker
     $('#monthSelect').datepicker({
         format: "yyyy-mm",
         startView: "months", 
@@ -95,12 +94,12 @@ $(document).ready(function() {
     let ctx = document.getElementById('streamingChart').getContext('2d');
     let chart = new Chart(ctx, {
         type: 'bar',
-        data: { labels: [], datasets: [{ label: 'Change in Hours', data: [] }] }, // Updated label
+        data: { labels: [], datasets: [{ label: 'Change in Hours', data: [] }] },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: { ticks: { color: "white" } }, // Removed beginAtZero to handle negative values better
+                y: { ticks: { color: "white" } },
                 x: { ticks: { autoSkip: false, color: "white" } }
             },
             plugins: {
@@ -110,34 +109,38 @@ $(document).ready(function() {
     });
 
     function fetchData() {
-        let group = $('#groupSelect').val(); // Use jQuery for consistency
+        let group = $('#groupSelect').val();
         let month = $('#monthSelect').val() || new Date().toISOString().slice(0, 7);
         let url = `/api/get_group_streaming_hours_diff?month=${month}`;
         if (group) url += `&group=${encodeURIComponent(group)}`;
 
         fetch(url)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
-                if (!data.success) {
-                    console.error("API Error:", data.error);
+                if (!data || !data.success) {
+                    console.error("API returned an error or malformed data:", data);
                     return;
                 }
                 
-                let sortedData = data.data.sort((a, b) => b.change - a.change);
+                let sortedData = data.data;
 
                 let labels = sortedData.map(d => d.channel);
                 let values = sortedData.map(d => d.change);
 
                 chart.data.labels = labels;
                 chart.data.datasets[0].data = values;
-                // Dynamically color bars based on positive or negative change
                 chart.data.datasets[0].backgroundColor = values.map(v => v >= 0 ? 'rgba(75, 192, 192, 0.6)' : 'rgba(255, 99, 132, 0.6)');
                 chart.update();
             })
             .catch(error => console.error("Fetch Error:", error));
     }
 
-    // Set initial date and fetch data
+    // Set initial date to last month and fetch data
     const currentDate = new Date();
     currentDate.setMonth(currentDate.getMonth() - 1);
     $('#monthSelect').val(currentDate.toISOString().slice(0, 7));
@@ -154,19 +157,16 @@ $(document).ready(function() {
 
     // CSV Download functionality
     $('#downloadCSV').on('click', function() {
-        let data = chart.data;
-        if (!data.labels || data.labels.length === 0) {
+        if (!chart.data.labels || chart.data.labels.length === 0) {
             alert("No data to export.");
             return;
         }
-
-        let csvContent = "Channel,HourChange\n"; // Headers
-        for (let i = 0; i < data.labels.length; i++) {
-            const channelName = `"${data.labels[i].replace(/"/g, '""')}"`;
-            const change = data.datasets[0].data[i];
+        let csvContent = "Channel,HourChange\n";
+        for (let i = 0; i < chart.data.labels.length; i++) {
+            const channelName = `"${chart.data.labels[i].replace(/"/g, '""')}"`;
+            const change = chart.data.datasets[0].data[i];
             csvContent += `${channelName},${change}\n`;
         }
-
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
