@@ -5,7 +5,6 @@ import argparse
 from datetime import datetime, timedelta
 from multiprocessing import get_context
 
-# --- Local Imports ---
 from db.connection import init_db_pool
 from db.queries import create_database_and_tables, create_indexes_and_views, refresh_materialized_views
 from config.settings import get_config
@@ -16,7 +15,6 @@ from workers.chat_downloader import download_chat_log
 from workers.db_worker import db_worker
 from workers.metadata_fetcher import get_metadata_for_date_range
 
-# --- NEW: Import the AI summarizer function ---
 from utils.ai_summarizer import populate_video_highlights
 
 def parse_args():
@@ -46,7 +44,7 @@ def parse_args():
     )
     return parser.parse_args()
     
-# --- Proxy setup for testing (if needed) ---
+# Proxy setup for testing
 if get_config("Settings", "TestMode") == "True":
     os.environ['HTTPS_PROXY'] = 'http://122.0.0.1:8080'
     os.environ['HTTP_PROXY'] = 'http://122.0.0.1:8080'
@@ -60,7 +58,6 @@ def main():
     MONTH = args.month
     DISABLE_AI_SUMMARIZATION = args.disable_ai_summarization
 
-    # --- Setup ---
     logger = get_logger()
     logger.info("Starting data pipeline...")
     init_db_pool()

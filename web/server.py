@@ -1546,8 +1546,14 @@ def get_group_streaming_hours_diff():
     except ValueError:
         return jsonify({"success": False, "error": "Invalid month format. Use YYYY-MM."}), 400
 
-    # SQL Query
-    query = """
+    params = [f"{month_date.strftime('%Y-%m-01')}"]
+    group_filter_sql = ""
+    if channel_group:
+        group_filter_sql = "WHERE c.channel_group = %s"
+        params.insert(0, channel_group) # Insert group at the beginning for correct order
+
+    # Use a placeholder for the filter and replace it safely
+    query = f"""
         WITH monthly_streaming AS (
             SELECT
                 c.channel_name,
@@ -1555,39 +1561,24 @@ def get_group_streaming_hours_diff():
                 SUM(EXTRACT(EPOCH FROM v.duration)) / 3600 AS total_streaming_hours
             FROM videos v
             JOIN channels c ON v.channel_id = c.channel_id
-            {group_filter}
+            {group_filter_sql}
             GROUP BY c.channel_name, observed_month
         )
         SELECT
             m1.channel_name,
             m1.observed_month,
             m1.total_streaming_hours,
-            COALESCE((m1.total_streaming_hours - m2.total_streaming_hours), 0) AS change_from_previous_month
+            COALESCE((m1.total_streaming_hours - m2.total_streaming_hours), m1.total_streaming_hours) AS change_from_previous_month
         FROM monthly_streaming m1
         LEFT JOIN monthly_streaming m2
-            ON m1.channel_name = m2.channel_name AND m1.observed_month = m2.observed_month + INTERVAL '1 month'
+            ON m1.channel_name = m2.channel_name AND m1.observed_month = (m2.observed_month + INTERVAL '1 month')
         WHERE m1.observed_month = %s
         ORDER BY m1.channel_name;
     """
 
-    # Apply channel group filtering if provided
-    group_filter = ""
-    params = []
-    if channel_group:
-        group_filter = "WHERE c.channel_group = %s"
-        params.append(channel_group)
-
-    params.append(f"{month_date.strftime('%Y-%m-01')}")
-
-    # Replace placeholder with actual SQL filter
-    query = query.format(group_filter=group_filter)
-
-    # Execute the query
     cursor = g.db_conn.cursor()
-
     cursor.execute(query, tuple(params))
     results = cursor.fetchall()
-
     cursor.close()
 
     # Format the response
@@ -1595,14 +1586,13 @@ def get_group_streaming_hours_diff():
         {
             "channel": row[0],
             "month": row[1].strftime('%Y-%m'),
-            "hours": round(row[2], 2) if row[2] is not None else 0,
-            "change": round(row[3], 2)
+            "hours": float(round(row[2], 2)) if row[2] is not None else 0.0,
+            "change": float(round(row[3], 2)) if row[3] is not None else 0.0
         }
         for row in results
     ]
 
     g.redis_conn.set(redis_key, json.dumps(data))
-
     return jsonify({"success": True, "data": data})
 
 @app.route('/api/get_chat_leaderboard', methods=['GET'])

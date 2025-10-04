@@ -46,7 +46,7 @@ async def process_single_context(context: Context):
             },
             {'role': 'user', 'content': context.text}
         ]
-        summary_response = await client.chat(model='deepseek-r1:8b-llama-distill-q4_K_M', messages=summary_messages)
+        summary_response = await client.chat(model='deepseek-r1:7b-qwen-distill-q4_K_M', messages=summary_messages)
         raw_summary = summary_response['message']['content']
         summary = clean_model_output(raw_summary)
 
@@ -56,7 +56,7 @@ async def process_single_context(context: Context):
             {'role': 'system', 'content': 'You are an AI tagger. Read a sentence and generate a concise, two or three-word topic label for it in English only. Respond with only the topic label and nothing else.'},
             {'role': 'user', 'content': summary}
         ]
-        topic_response = await client.chat(model='deepseek-r1:8b-llama-distill-q4_K_M', messages=topic_messages)
+        topic_response = await client.chat(model='deepseek-r1:7b-qwen-distill-q4_K_M', messages=topic_messages)
         raw_topic = topic_response['message']['content']
         cleaned_topic = clean_model_output(raw_topic).replace('"', '')
 
