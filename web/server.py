@@ -103,7 +103,6 @@ def setup_logging():
     app.logger.addHandler(handler)
     app.logger.setLevel(logging.INFO)
 
-    # Optional: silence werkzeug logs if you want full control
     logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
 setup_logging()
@@ -146,11 +145,11 @@ def before_request():
     is_browser_like = "mozilla" in ua
     is_known_bot = any(bot in ua for bot in allowed_bots)
 
-    #if not ua or (not is_browser_like and not is_known_bot):
-    #    app.logger.warning(f"Blocked non-browser request from {real_ip} to {request.path}{query_str}")
-        #return Response("Access denied", status=403)
-   # else:
-    #    app.logger.info(f"Request from {real_ip} to {request.path}{query_str}")
+    if not ua or (not is_browser_like and not is_known_bot):
+        app.logger.warning(f"Blocked non-browser request from {real_ip} to {request.path}{query_str}")
+        return Response("Access denied", status=403)
+    else:
+        app.logger.info(f"Request from {real_ip} to {request.path}{query_str}")
 
 
     if 'language' not in session:
@@ -873,7 +872,6 @@ def recommend_channels():
         inc_cache_miss_count()
 
         # Get the most recent full month of data for recommendations
-        # (Assuming we want recommendations based on the last complete month)
         last_month = datetime.utcnow().date().replace(day=1) - relativedelta(days=1)
         month_to_query = last_month.strftime("%Y-%m-01")
 
@@ -2285,15 +2283,15 @@ def get_user_info():
     cursor.close()
     
     output = {"success": True, "data": results}
-    g.redis_conn.set(redis_key, json.dumps(output)) # Cache for 24 hours
+    g.redis_conn.set(redis_key, json.dumps(output))
 
     return jsonify(output)
 
 @app.route('/api/get_chat_engagement', methods=['GET'])
 def get_chat_engagement():
     """API to fetch chat engagement statistics per channel, with optional filtering."""
-    month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))  # Default: current month
-    group = request.args.get('group', None)  # "Hololive", "Indie", or None
+    month = request.args.get('month', datetime.utcnow().strftime('%Y-%m'))
+    group = request.args.get('group', None)
 
     redis_key = f"chat_engagement_{month}_{group}"
     cached_data = g.redis_conn.get(redis_key)
@@ -2348,9 +2346,8 @@ def get_video_highlights():
     API endpoint to fetch AI-generated highlights for a specific channel and month.
     The results are cached in Redis to improve performance.
     """
-    # --- 1. Get and Validate Input Parameters ---
     channel_name = request.args.get('channel_name')
-    month_str = request.args.get('month') # Expected format: "YYYY-MM"
+    month_str = request.args.get('month')
 
     if not channel_name or not month_str:
         return jsonify({"success": False, "error": "Missing required parameters: 'channel_name' and 'month' are required."}), 400
@@ -2362,7 +2359,6 @@ def get_video_highlights():
     except ValueError:
         return jsonify({"success": False, "error": "Invalid month format. Please use 'YYYY-MM'."}), 400
 
-    # --- 2. Check Redis Cache ---
     redis_key = f"video_highlights_{channel_name.replace(' ', '_')}_{month_str}"
     try:
         cached_data = g.redis_conn.get(redis_key)
@@ -2371,11 +2367,8 @@ def get_video_highlights():
              return jsonify(json.loads(cached_data))
         inc_cache_miss_count()
     except Exception as e:
-        # Log the error but proceed to query DB; cache is not critical.
         print(f"Redis cache check failed: {e}")
 
-
-    # --- 3. Query the Database (if cache miss) ---
     # This query joins the three tables to get all the necessary information.
     query = """
         SELECT
@@ -2408,16 +2401,14 @@ def get_video_highlights():
         if not results:
             # Still cache the empty result to prevent repeated queries for months with no data
             output = {"success": True, "data": []}
-            #g.redis_conn.set(redis_key, json.dumps(output), ex=3600) # Cache empty result for 1 hour
+            g.redis_conn.set(redis_key, json.dumps(output))
             return jsonify(output)
 
-        # --- 4. Process and Structure the Data ---
         # Group the flat list of highlights by video_id
         videos_dict = {}
         for row in results:
             video_id, title, topic, summary, relative_seconds = row
             # Ensure timestamp is not negative or past the end of the video
-            # (This is a safety check)
             if relative_seconds < 0: continue
             
             if video_id not in videos_dict:
@@ -2433,13 +2424,11 @@ def get_video_highlights():
         data = list(videos_dict.values())
         output = {"success": True, "data": data}
 
-        # --- 5. Store Result in Redis Cache ---
-        #g.redis_conn.set(redis_key, json.dumps(output))
+        g.redis_conn.set(redis_key, json.dumps(output))
 
         return jsonify(output)
 
     except Exception as e:
-        # Log the full error for debugging
         print(f"An error occurred in get_video_highlights: {e}")
         return jsonify({"success": False, "error": "An internal server error occurred."}), 500
     
@@ -2553,8 +2542,6 @@ def search_highlights():
         for row in results:
             summary, topic, video_id, title, end_time, duration, start_seconds, distance = row
             
-            # --- NEW: Calculate relative_seconds in Python for simplicity ---
-            # (Alternatively, you can use the same SQL EXTRACT logic as above)
             video_start_time = end_time - duration
             highlight_time = datetime.fromtimestamp(start_seconds, tz=timezone.utc)
             relative_seconds = (highlight_time - video_start_time).total_seconds()
