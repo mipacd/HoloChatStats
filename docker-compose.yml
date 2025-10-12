@@ -31,6 +31,8 @@ services:
 
 volumes:
   pgdata:
+    external: true
     name: root_pgdata
   redis_data:
+    external: true
     name: root_redis_data
