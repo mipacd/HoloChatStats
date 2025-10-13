@@ -26,6 +26,8 @@ from functools import wraps
 import time
 import redis
 import re
+import socket
+
 
 load_dotenv()
 
@@ -80,14 +82,34 @@ def setup_logging():
 
 setup_logging()
 
-# Access logging and detect language
+# Hostname resolver
+_hostname_cache = {}
+
+def resolve_hostname(ip):
+    if ip in _hostname_cache:
+        return _hostname_cache[ip]
+
+    try:
+        hostname = socket.gethostbyaddr(ip)[0]
+    except Exception:
+        hostname = ip
+
+    _hostname_cache[ip] = hostname
+    return hostname
+
+SUSPICIOUS_PATHS = [
+    r"/wp-.*", r"/xmlrpc\.php", r"/admin", r"/phpmyadmin", r"/shell", r"/\.env", 
+    r"/cgi-bin", r"/config", r"/etc/passwd", r"/api/.*?/debug", r"/\.git"
+]
+
 @app.before_request
 def before_request():
     real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
+    hostname = resolve_hostname(real_ip)
     query = request.query_string.decode()
     query_str = f"?{query}" if query else ""
 
-    # Non-browser and bot traffic blocking
+    # --- User-Agent filtering ---
     ua = request.headers.get("User-Agent", "").lower()
     allowed_bots = ["googlebot", "bingbot", "duckduckbot", "applebot", "facebookexternalhit"]
 
@@ -95,28 +117,48 @@ def before_request():
     is_known_bot = any(bot in ua for bot in allowed_bots)
 
     if not ua or (not is_browser_like and not is_known_bot):
-        app.logger.warning(f"Blocked non-browser request from {real_ip} to {request.path}{query_str}")
+        app.logger.warning(f"Blocked non-browser request from {real_ip} ({hostname}) to {request.path}{query_str}")
         return Response("Access denied", status=403)
-    else:
-        app.logger.info(f"Request from {real_ip} to {request.path}{query_str}")
 
+    # --- Suspicious URL patterns ---
+    for pattern in SUSPICIOUS_PATHS:
+        if re.search(pattern, request.path, re.IGNORECASE):
+            app.logger.warning(f"Blocked suspicious path {request.path} from {real_ip} ({hostname})")
+            return Response("Access denied", status=403)
 
-    if 'language' not in session:
-        user_lang = request.headers.get('Accept-Language', 'en').split(',')[0][:2]
-        session['language'] = user_lang if user_lang in ['en', 'ja', 'ko'] else 'en'
-    
-    # Initialize database connection
-    if not hasattr(g, 'db_conn'):
-        g.db_conn = get_db_connection()
-        g.db_conn.cursor().execute("SET statement_timeout = '300s'")
-    
-    # Initialize Redis connection
+    # --- Rate limiting (using Redis) ---
     if not hasattr(g, 'redis_conn'):
         g.redis_conn = redis.StrictRedis(
             host=REDIS_CONFIG["host"],
             port=REDIS_CONFIG["port"],
             decode_responses=True
         )
+
+    key = f"rate:{real_ip}"
+    now = int(time.time())
+    with g.redis_conn.pipeline() as pipe:
+        pipe.zremrangebyscore(key, 0, now - int(os.getenv("RATE_LIMIT_WINDOW")))
+        pipe.zadd(key, {str(now): now})
+        pipe.zcard(key)
+        pipe.expire(key, int(os.getenv("RATE_LIMIT_WINDOW")))
+        _, _, req_count, _ = pipe.execute()
+
+    if req_count > int(os.getenv("MAX_REQUESTS_PER_WINDOW")):
+        app.logger.warning(f"Rate limit exceeded for {real_ip} ({hostname}) - {req_count} reqs/{int(os.getenv("RATE_LIMIT_WINDOW"))}s")
+        return Response("Too Many Requests", status=429)
+
+    app.logger.info(f"Request from {real_ip} ({hostname}) to {request.path}{query_str}")
+
+    if 'language' not in session:
+        user_lang = request.headers.get('Accept-Language', 'en').split(',')[0][:2]
+        session['language'] = user_lang if user_lang in ['en', 'ja', 'ko'] else 'en'
+
+    if not hasattr(g, 'db_conn'):
+        g.db_conn = get_db_connection()
+        g.db_conn.cursor().execute("SET statement_timeout = '300s'")
+
+    get_sqlite_connection()
+
 
 @app.teardown_request
 def teardown_request(exception):
@@ -251,19 +293,6 @@ def inc_cache_miss_count():
     redis_conn = g.redis_conn
     today = datetime.now(pytz.utc).strftime("%Y-%m-%d")
     redis_conn.incr(f"cache_misses:{today}")
-
-@app.before_request
-def before_request():
-    real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
-    app.logger.info(f"Request from {real_ip} to {request.path}")
-    if 'language' not in session:
-        user_lang = request.headers.get('Accept-Language', 'en').split(',')[0][:2]
-        session['language'] = user_lang if user_lang in ['en', 'ja', 'ko'] else 'en'
-    
-    g.db_conn = get_db_connection()
-    g.db_conn.cursor().execute("SET statement_timeout = '300s'")
-    # Initialize SQLite connection for this request
-    get_sqlite_connection()
 
 @app.after_request
 def after_request(response):
