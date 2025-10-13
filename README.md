@@ -56,6 +56,8 @@ number of free daily queries from OpenRouter (50 per day).
 * Public API (possible paid feature in the future)
 * Mobile App (dependant on demand)
 * Unit tests
+* Kubernetes Deployment
+* Trend forcasting / Sentiment Analysis (PyTorch and/or TensorFlow)
 
 ## Web Server Setup
 
@@ -63,7 +65,7 @@ number of free daily queries from OpenRouter (50 per day).
 
 2. Check out the repo: `git clone https://github.com/mipacd/HoloChatStats`
 
-3. Rename .env.sample to .env and configure settings. LLM chart queries require an [OpenRouter](https://openrouter.ai/) API key. Some models can be used for free (with a limited daily quota). By default, HoloChatStats limits users to 3 queries per day. 
+3. Rename .env.sample to .env and configure settings. LLM chart queries require an [OpenRouter](https://openrouter.ai/) API key. Some models can be used for free (with a limited daily quota). By default, HoloChatStats limits users to 3 queries per day. Rename web/news.txt.sample to web/news.txt (enter site news in this file using the format shown in the sample).
 
 4. Bring up the stack (web, PostgreSQL, Redis) with `docker compose up -d` from the repo's root directory.
 
