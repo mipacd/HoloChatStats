@@ -23,6 +23,7 @@ All data is derived from a combination of publicly available chat logs and metad
     * Common User Percentages by Channel / Month: Given two channel/month pairs (A and B), determine the number of common users between the pairs. Also, calculate the percent of chat users in A that
     also chatted in B, and vice versa.
     * Common Member Percentages by Channel / Month: Same as above for chat users holding a membership.
+    * Common User Heatmap: Displays a heatmap showing the percentage of common users (or members) between channels for a given month. 
     * Channel Clusters by Common Members: Generates a node graph for a given month showing which channels have similar user patterns. The connections between nodes are calculated using cosine similarity, 
     with a threshold of 80th, 90th, or 95th percentile of edge weights. Communities are shown as the colors of the nodes, and are calculated using Leiden community detection. This data is calculated from the number of chat messages each user has made 
     in each channel in a given month. Node placement is dynamic and not tied to the dataset. Channels must meet a similarity threshold with at least one other channel to appear on the graph.
@@ -39,48 +40,67 @@ All data is derived from a combination of publicly available chat logs and metad
     * Longest Streeam Duration: Duration of each channel's longest stream in a given month
     * Streaming Hour Change: The change in streaming hours from the previous month for each channel
     * Monthly Streaming Hours: The streaming hours for a given channel over time
-* Funniest Moments: Uses feature detection to algorithmically determine the "funniest" moment of each stream, based on the greatest concentration of humorous reactions (lol, lmao, etc.) in each stream. This timestamp is shifted back 10 seconds to provide a leadup to the moment. 
+* Highlights
+    * Funniest Moments: Uses feature detection to algorithmically determine the "funniest" moment of each stream, based on the greatest concentration of humorous reactions (lol, lmao, etc.) in each stream. This timestamp is shifted back 10 seconds to provide a leadup to the moment. 
+    * AI Summarized Highlights (BETA): Detects the top moments of each stream using chat velocity (number varies by stream duration). Summarizes those moments by passing a snippet of chat from around each timestamp into an LLM. 
+    * Search AI Highlights (BETA): Searches the LLM generated text using vector search. Supports "channel:", "from:", and "to:" search engine operators.
 * LLM Insights: An LLM query interface is available for select graphs (membership gain/loss, membership counts, user gain/loss, chat makeup). This interface is restricted to 3 queries per user per day and only 
 English is supported. Access to the LLM interface is blocked in Japan and South Korea due to a combination of the language restriction, the significant number of site users from these countries, and the limited 
 number of free daily queries from OpenRouter (50 per day).
 * CSV Downloads
 * Containerization with Docker
-* Support for every Hololive member and select indies (currently Nimi, Dooby, Dokibird, Mint, Sakuna, Rica, Ruka)
+* Support for every Hololive member and select indies (currently Nimi, Saba, Dooby, Dokibird, Mint, Sakuna, Rica, Ruka, Roa, Rei)
 
 ## Planned Features / TODO (subject to change)
 
-* Public API (depending on available hosting): This feature and the one below it would require site donations and/or a paid service.
-* Mobile App (dependant on public API)
-* Attrition rates of graduated/affiliated talent's fanbases from all Hololive chats (API Done)
-* Data ingest optimizations
+* Public API (possible paid feature in the future)
+* Mobile App (dependant on demand)
 * Unit tests
-
-## Data Ingestion Setup
-
-1. Setup a PostgreSQL database (default: youtube_data).
-
-2. Obtain a YouTube Data v3 API key.
-
-3. Export your YouTube cookies in Netscape format and save them into data_ingestion.
-
-4. Rename data_ingestion/config.ini.sample to data_ingestion/config.ini and edit this file to include the above information.
-
-5. Deploy the included Dockerfile (optional) and configure the script to run at a regular interval using cron or other scheduler
-
-6. If not using Docker, run `pip install requirements.txt`.
-
-7. `downloader.py` takes two arguments: --month and --year. If these arguments are not specifed, the script will run against the current month. If it is the first of the month, 
-the script will run against the previous month.
-
-8. The data ingestion process can take some time, about an hour or more for one day in order to calculate the materialized views.
 
 ## Web Server Setup
 
-1. Rename web/config.ini.sample to web/config.ini and set variables.
+1. Install Docker and Docker Compose (https://www.docker.com/)
 
-2. Obtain LLM API key from OpenRouter and Google Analytics keys (optional)
+2. Check out the repo: `git clone https://github.com/mipacd/HoloChatStats`
 
-3. Deploy using Docker or install requirements.txt and run server.py
+3. Rename .env.sample to .env and configure settings. LLM chart queries require an [OpenRouter](https://openrouter.ai/) API key. Some models can be used for free (with a limited daily quota). By default, HoloChatStats limits users to 3 queries per day. 
+
+4. Bring up the stack (web, PostgreSQL, Redis) with `docker compose up -d` from the repo's root directory.
+
+5. Site will be available on port 80. If you are running on your local machine, it will be available at http://localhost.
+
+6. Run `docker compose down` to bring down the stack.
+
+## LLM Server Setup (optional)
+
+1. Put the contents of the llm_server directory on a machine with a higher-end GPU (recommended: RTX 3080 or better, 16 GB+ VRAM, only NVIDIA GPUs are supported).
+
+2. In the llm_server directory, run `pip install -r requirements.txt`
+
+3. Install [CUDA](https://developer.nvidia.com/cuda-downloads).
+
+4. Install [Ollama](https://ollama.com/).
+
+5. Pull the model with Ollama: `ollama pull deepseek-r1:7b-qwen-distill-q4_K_M`
+
+6. Run the server: `uvicorn main:app --port 8000`
+
+
+## Data Ingestion Setup
+
+1. Enter the data_ingestion directory and run `pip install -r requirements.txt`
+
+2. Rename config.sample.ini to config.ini. Enter your configuration in this file. Data ingestion needs a YouTube Data v3 API key (available for free with a quota using the [Google Cloud Console](https://console.cloud.google.com/apis/library/youtube.googleapis.com)). Set DBHost to the IP or hostname of the machine running the web server (or leave as localhost if it is the same machine). Set the AIServerURL to the LLM server host, if used.
+
+3. Run `python downloader.py <ARGS>`
+
+    Arguments:
+
+    ``--month <INT>`` ``--year <INT>``: Month and year to process. Optional. Defaults to the previous month if run on the first of the month and the current month if run on the 2nd of the month or later.
+
+    ``--disable_ai_summarization`` OR ``-d``: Disables AI summarization of chat snippets. Always run with this flag if you are not running the LLM server.
+
+4. Optional: Add to cron or Windows Task Scheduler to run nightly.
 
 ## Contributing 
 Contributions are welcome (backend/frontend/ML devs, translators/i18n experience, UI/UX, etc.)
