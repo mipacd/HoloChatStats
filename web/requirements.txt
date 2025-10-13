@@ -9,7 +9,6 @@ networkx
 scikit-learn
 plotly
 pandas
-google-analytics-data
 gevent
 pytest
 pytest-cov
@@ -17,5 +16,6 @@ leidenalg
 python-igraph
 redis
 eventlet
+python-dotenv
 torch
 sentence-transformers

@@ -7,11 +7,9 @@
     <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat statistics, Japanese user percentages, channel comparison">
     <title>{{ _("JP User Percentages") }}</title>
 
-    <!-- Chart.js & Bootstrap -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ GA_ID }}"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
 
@@ -38,7 +36,6 @@
 
 {% include 'menu.html' %}
 
-<!-- Main Content -->
 <div id="content" class="mt-3">
     <h2 class="text-center mb-4">{{ _("JP User Percentages") }}
         <sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" 
@@ -64,7 +61,6 @@
 
 <script>
     $(document).ready(function() {
-        // Initialize Chart.js for line chart
         let ctx = document.getElementById('jpUserChart').getContext('2d');
         let chart = new Chart(ctx, {
             type: 'line',
@@ -98,7 +94,6 @@
             }
         });
 
-        // Fetch channel names
         function fetchChannels() {
             fetch('/api/get_channel_names')
                 .then(response => response.json())
@@ -114,7 +109,6 @@
                 .catch(error => console.error("Error fetching channel names:", error));
         }
 
-        // Fetch data and update chart
         function fetchData() {
             let channelName = document.getElementById('channelSelect').value;
             if (!channelName) {
@@ -125,7 +119,7 @@
 
             let url = `/api/get_jp_user_percent?channel=${encodeURIComponent(channelName)}`;
             
-            $("#chartSpinner").show(); // Show spinner while loading
+            $("#chartSpinner").show(); 
 
             fetch(url)
                 .then(response => response.json())
@@ -153,7 +147,7 @@
                     ];
                     chart.update();
 
-                    $("#chartSpinner").hide(); // Hide spinner after loading
+                    $("#chartSpinner").hide(); 
                 })
                 .catch(error => {
                     console.error("Fetch Error:", error);

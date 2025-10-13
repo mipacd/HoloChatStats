@@ -8,7 +8,6 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 import requests
 from dateutil.relativedelta import relativedelta
-import configparser
 import os
 import psycopg2
 import logging
@@ -21,53 +20,28 @@ import plotly.graph_objects as go
 import numpy as np
 from plotly.utils import PlotlyJSONEncoder
 import json
-from google.analytics.data_v1beta import BetaAnalyticsDataClient
-from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Metric
 from sentence_transformers import SentenceTransformer
+from dotenv import load_dotenv
 from functools import wraps
 import time
 import redis
 import re
 
-def get_config(key1, key2):
-    """
-    Reads a value from config.ini.
-
-    Args:
-        key1 (str): Section name in config.ini.
-        key2 (str): Option name in config.ini.
-
-    Returns:
-        str: Value associated with key1 and key2 in config.ini.
-
-    Raises:
-        FileNotFoundError: If config.ini is not found.
-        KeyError: If key1 or key2 are not found in config.ini.
-    """
-    config = configparser.ConfigParser()
-    caller_script_dir = os.path.dirname(os.path.abspath(__name__))
-    ini_file = os.path.join(caller_script_dir, 'config.ini')
-    if not config.read(ini_file):
-        raise FileNotFoundError("config.ini not found.")
-    try:
-        return config[key1][key2]
-    except KeyError as e:
-        raise KeyError(f"Key not found in config.ini: {e}")
+load_dotenv()
 
 app = Flask(__name__)
 socketio = SocketIO(app, async_model='eventlet')
-# Setup session key and babel configuration
-app.config["SECRET_KEY"] = get_config("Settings", "SecretKey")
+
+# Setup session key, babel and OpenRouter configuration
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config["SESSION_TYPE"] = "filesystem"
 app.config["BABEL_DEFAULT_LOCALE"] = "en"
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_AS_ASCII"] = False
-app.config["GA_ID"] = get_config("Settings", "GoogleAnalyticsID")
-app.config["OPENROUTER_URL"] = "https://openrouter.ai/api/v1"  # OpenRouter URL
-app.config["OPENROUTER_MODEL"] = "deepseek/deepseek-chat-v3-0324:free"  # Default model  
-app.config["DAILY_LIMIT"] = 3  # 3 queries per user per day
+app.config["OPENROUTER_URL"] = os.getenv("OPENROUTER_URL")
+app.config["OPENROUTER_MODEL"] = os.getenv("OPENROUTER_MODEL")
+app.config["DAILY_LIMIT"] = os.getenv("LLM_DAILY_LIMIT")
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = get_config("API", "GAAPIKeyFile")
 
 print("Loading sentence transformer model for vector search...")
 EMBEDDER = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
@@ -75,13 +49,12 @@ print("Model loaded successfully.")
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
-
 DB_CONFIG = {
-    "dbname": get_config("Database", "DBName"),
-    "user": get_config("Database", "DBUser"),
-    "password": get_config("Database", "DBPass"),
-    "host": get_config("Database", "DBHost"),
-    "port": get_config("Database", "DBPort"),
+    "dbname": os.getenv("POSTGRES_DB"),
+    "user": os.getenv("POSTGRES_USER"),
+    "password": os.getenv("POSTGRES_PASSWORD"),
+    "host": os.getenv("POSTGRES_HOST"),
+    "port": os.getenv("POSTGRES_PORT"),
     "client_encoding": "UTF8"
 }
 LANGUAGES = {
@@ -90,8 +63,8 @@ LANGUAGES = {
     'ko': '한국어'
 }
 REDIS_CONFIG = {
-    "host": get_config("Redis", "Host"),
-    "port": get_config("Redis", "Port"),
+    "host": os.getenv("REDIS_HOST"),
+    "port": os.getenv("REDIS_PORT"),
 }
 
 # Setup logging
@@ -106,30 +79,6 @@ def setup_logging():
     logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
 setup_logging()
-
-def get_google_analytics_visitors():
-    """Fetch visitor count from Google Analytics"""
-    count = 0
-    client = BetaAnalyticsDataClient()
-    request = RunReportRequest(
-        property=f"properties/{ get_config('API', 'GAOldHCSPropertyID') }",
-        date_ranges=[DateRange(start_date="365daysAgo", end_date="today")],
-        metrics=[Metric(name="activeUsers")],
-    )
-    response = client.run_report(request)
-
-    count += int(response.rows[0].metric_values[0].value)
-
-    request = RunReportRequest(
-        property=f"properties/ { get_config('API', 'GANewHCSPropertyID') }",
-        date_ranges=[DateRange(start_date="365daysAgo", end_date="today")],
-        metrics=[Metric(name="activeUsers")],
-    )
-    response = client.run_report(request)
-
-    count += int(response.rows[0].metric_values[0].value)
-    
-    return count
 
 # Access logging and detect language
 @app.before_request
@@ -182,11 +131,6 @@ babel.init_app(app, locale_selector=get_locale)
 
 def get_db_connection():
     return psycopg2.connect(**DB_CONFIG)
-
-@app.context_processor
-def inject_ga_id():
-    return { "GA_ID" : app.config.get("GA_ID", "") }
-
 
 @app.route('/')
 def index():
@@ -520,7 +464,7 @@ Answer:"""
                 ]
             },
             headers={
-                "Authorization": f"Bearer {get_config('API', 'OpenRouterAPIKey')}",
+                "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
                 "Content-Type": "application/json"
             },
             timeout=60
@@ -2586,10 +2530,6 @@ def chat_makeup_view():
 @app.route('/common_users')
 def common_users_view():
     return render_template('common_users.html', _=_, get_locale=get_locale)
-
-@app.route('/common_user_heatmap')
-def common_user_heatmap_view():
-    return render_template('common_user_heatmap.html', _=_, get_locale=get_locale)
 
 @app.route('/membership_counts')
 def membership_counts_view():

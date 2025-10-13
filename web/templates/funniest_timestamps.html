@@ -10,7 +10,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
-  <script async src="https://www.googletagmanager.com/gtag/js?id={{ GA_ID }}"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css">
 
@@ -21,7 +20,7 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
-      overflow: hidden; /* Prevents page scrolling */
+      overflow: hidden;
     }
     .container {
       flex-grow: 1;
@@ -31,22 +30,22 @@
     }
     .video-grid-container {
       flex: 1;
-      overflow-y: auto; /* Enables scrolling */
+      overflow-y: auto;
       padding: 10px;
       background-color: #2a2a2a;
       border-radius: 8px;
       margin-bottom: 20px;
-      max-height: calc(100vh - 300px); /* Limits height to viewport minus header/controls */
-      min-height: 200px; /* Minimum height */
+      max-height: calc(100vh - 300px); 
+      min-height: 200px; 
     }
     .video-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 160px)); /* Fixed width columns */
+      grid-template-columns: repeat(auto-fill, minmax(160px, 160px)); 
       gap: 15px;
       padding-bottom: 10px;
       justify-content: center;
-      min-height: 0; /* Allows grid to shrink */
-      min-width: 0; /* Allows grid to shrink */
+      min-height: 0;
+      min-width: 0; 
     }
     .video-card {
       text-align: center;
@@ -60,11 +59,11 @@
       transform: scale(1.05);
     }
     .video-card img {
-      width: 140px; /* Fixed width */
-      height: 90px; /* Fixed height (16:9 aspect ratio) */
+      width: 140px; 
+      height: 90px; 
       border-radius: 6px;
       cursor: pointer;
-      object-fit: cover; /* Ensure thumbnails maintain aspect ratio */
+      object-fit: cover; 
     }
     .video-card h6 {
       color: white;
@@ -86,11 +85,11 @@
         margin-right: 0;
       }
       .video-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 120px)); /* Fixed width columns */
+        grid-template-columns: repeat(auto-fill, minmax(120px, 120px));
       }
       .video-card img {
-        width: 120px; /* Fixed width */
-        height: 68px; /* Fixed height (16:9 aspect ratio) */
+        width: 120px; 
+        height: 68px; 
       }
     }
   </style>
@@ -200,29 +199,28 @@ $('#downloadCSV').on('click', function() {
       return;
     }
 
-    // Build CSV content properly
+    // Build CSV content
     let csvContent = "Title,URL,Timestamp\n";
     data.forEach(video => {
-      const title = `"${video.title.replace(/"/g, '""')}"`; // Escape quotes in title
+      const title = `"${video.title.replace(/"/g, '""')}"`; 
       const videoId = video.video_id;
       const timestamp = video.timestamp;
       const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}&t=${timestamp}s`;
-      const hhmmss = new Date(timestamp * 1000).toISOString().substr(11, 8); // Format timestamp as hh:mm:ss
+      const hhmmss = new Date(timestamp * 1000).toISOString().substr(11, 8); 
 
-      // Add each row
       csvContent += `${title},${youtubeUrl},${hhmmss}\n`;
     });
 
     // Use Blob to generate the download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    const url = URL.createObjectURL(blob); // Create URL for the blob
+    const url = URL.createObjectURL(blob); 
     link.setAttribute("href", url);
     link.setAttribute("download", "funniest_moments.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url); // Revoke the URL for cleanup
+    URL.revokeObjectURL(url);
   }).fail(function() {
     alert("{{ _("Error fetching data. Please try again later.") }}");
   });

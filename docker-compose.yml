@@ -2,10 +2,8 @@ services:
   db:
     image: pgvector/pgvector:pg18
     container_name: hcs-postgres
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: youtube_data
+    env_file:
+      - .env
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: always
@@ -20,13 +18,16 @@ services:
   web:
     build: ./web
     container_name: holochatstats-web
+    env_file:
+      - .env
     ports:
       - "80:80"
-
     volumes:
       - /web/config/config.ini:/app/config.ini
       - /web/config/news.txt:/app/news.txt
-
+    depends_on:
+      - db
+      - redis
     restart: always
 
 volumes:

@@ -11,7 +11,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ GA_ID }}"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
@@ -187,7 +186,6 @@ $(document).ready(function() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            // This makes the tooltip show all datasets for the hovered bar.
             interaction: {
                 mode: 'index',
                 intersect: false,
@@ -210,14 +208,12 @@ $(document).ready(function() {
             },
             plugins: {
                 tooltip: {
-                    usePointStyle: true, // This enables the color squares
+                    usePointStyle: true, 
                     callbacks: {
-                        // The 'label' callback now handles filtering zero values
                         label: function(tooltipItem) {
                             if (tooltipItem.raw === 0) return null;
                             return `${tooltipItem.dataset.label}: ${tooltipItem.formattedValue}`;
                         },
-                        // The 'footer' callback now handles all totals
                         footer: function(tooltipItems) {
                             const dataIndex = tooltipItems[0].dataIndex;
                             let totalMembers = 0;
@@ -231,7 +227,7 @@ $(document).ready(function() {
                                 if (dataset.label !== 'Non-Members') {
                                     totalMembers += value;
                                 }
-                                // Only add to totalChatters if the dataset is visible
+
                                 if (!dataset.hidden) {
                                     totalChatters += value;
                                 }
@@ -250,10 +246,10 @@ $(document).ready(function() {
                     position: 'top',
                     labels: { color: "white" },
                     onClick: function(e, legendItem, legend) {
-                        // Default toggle behavior
+
                         Chart.defaults.plugins.legend.onClick(e, legendItem, legend);
                         
-                        // If Non-Members was toggled, resort the chart
+
                         if (legendItem.text === 'Non-Members') {
                             sortChartData(chart);
                         }
@@ -274,7 +270,7 @@ $(document).ready(function() {
         const channelTotals = chartInstance.data.labels.map((label, index) => {
             let total = 0;
             chartInstance.data.datasets.forEach(dataset => {
-                // Only include visible datasets in the sort calculation
+
                 if (!dataset.hidden && (dataset.label !== 'Non-Members' || includeNonMembers)) {
                     total += dataset.data[index] || 0;
                 }
@@ -322,7 +318,6 @@ $(document).ready(function() {
 
                 const nonMembersDataset = chart.data.datasets.find(d => d.label === 'Non-Members');
                 if (nonMembersDataset) {
-                    // Initialize the tracker for our plugin
                     chart._lastNonMembersVisible = !nonMembersDataset.hidden;
                 }
 

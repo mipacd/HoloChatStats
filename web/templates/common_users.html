@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ GA_ID }}"></script>
     <style>
         .form-group {
             margin-bottom: 10px;
@@ -20,23 +19,22 @@
             margin-top: 20px;
         }
         #spinner {
-            display: none; /* Spinner is hidden by default */
+            display: none; 
             text-align: center;
             margin-top: 20px;
         }
 
-        /* Custom styles for width and centering */
         .input-container {
-            max-width: 800px; /* Adjust max-width as needed */
-            margin: 0 auto; /* Center the container */
+            max-width: 800px; 
+            margin: 0 auto; 
         }
         .input-container .form-select,
         .input-container .form-control {
-            max-width: 300px; /* Adjust max-width for inputs */
+            max-width: 300px;
         }
         .result-table {
-            max-width: 800px; /* Match the input container width */
-            margin: 20px auto; /* Center the table */
+            max-width: 800px; 
+            margin: 20px auto; 
         }
     </style>
 </head>
@@ -44,12 +42,11 @@
 
 {% include 'menu.html' %}
 
-<!-- Main Content -->
 <div class="container-fluid">
     <div id="content" class="mt-3">
         <h2 class="text-center mb-4">{{ _("Common Users by Channel / Month") }}</h2>
 
-        <div class="input-container"> <!-- Added container -->
+        <div class="input-container"> 
             <div class="row mb-3 justify-content-center">
                 <div class="col-md-6">
                     <label for="channelASelect">{{ _("Channel A:") }}</label>
@@ -72,20 +69,19 @@
         </div>
     </div>
 
-    <div class="text-center"> <!-- Center the button -->
+    <div class="text-center"> 
         <button id="calculateButton" class="btn btn-primary mb-3">{{ _("Calculate") }}</button>
     </div>
-</div> <!-- End of input-container -->
+</div> 
 
-    <!-- Spinner -->
     <div id="spinner">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">{{ _("Loading...") }}</span>
         </div>
     </div>
 
-    <!-- Result Table -->
-    <table id="resultTable" class="table table-striped result-table" style="display: none; margin: 20px auto;"> <!-- Added margin auto -->
+
+    <table id="resultTable" class="table table-striped result-table" style="display: none; margin: 20px auto;"> 
         <tbody>
             <tr id="rowPercentAToB">
                 <th>{{ _("Percent of Channel A's chat in Month A that participated in Channel B's chat in Month B:") }}</th>

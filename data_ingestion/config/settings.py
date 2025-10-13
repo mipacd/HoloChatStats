@@ -1,6 +1,5 @@
 import configparser
 import os
-import sys
 
 def get_config(key1, key2):
     """
@@ -8,7 +7,6 @@ def get_config(key1, key2):
     """
     config = configparser.ConfigParser()
     
-    # --- MODIFIED LOGIC ---
     # 1. Get the directory of this file (config/settings.py)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # 2. Go up one level to find the project's root directory

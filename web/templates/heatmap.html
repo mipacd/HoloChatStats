@@ -29,8 +29,8 @@
 
         .chart-container {
             margin-top: 20px;
-            width: 100%; /* Fill the fluid container */
-            height: 80vh;  /* Use viewport height to fit on screen vertically */
+            width: 100%; 
+            height: 80vh; 
             margin-left: auto;
             margin-right: auto;
             position: relative;
@@ -221,7 +221,7 @@ $(document).ready(function() {
             .attr("y", d => yScale(labels[d.row]))
             .attr("width", xScale.bandwidth())
             .attr("height", yScale.bandwidth())
-            .style("fill", d => (d.row === d.col) ? "#1f1f1f" : colors(d.value)) // Use your color scale
+            .style("fill", d => (d.row === d.col) ? "#1f1f1f" : colors(d.value)) 
             .on("mouseover", (event, d) => {
                 if (d.row === d.col) return;
                 tooltip.style("opacity", 1);
