@@ -1,0 +1,7 @@
+resources:
+  - postgres-deployment.yaml
+  - redis-deployment.yaml
+  - web-deployment.yaml
+  - services.yaml
+  - pvc.yaml
+  

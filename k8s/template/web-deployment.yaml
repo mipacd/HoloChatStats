@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: holochatstats-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: holochatstats-web
+  template:
+    metadata:
+      labels:
+        app: holochatstats-web
+    spec:
+      containers:
+      - name: holochatstats-web
+        image: mipacd/holochatstats:latest
+        ports:
+        - containerPort: 80
+        envFrom:
+        - configMapRef:
+            name: holochatstats-config
+        - secretRef:
+            name: holochatstats-secrets
