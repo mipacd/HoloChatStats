@@ -56,14 +56,13 @@ number of free daily queries from OpenRouter (50 per day).
 * Public API (possible paid feature in the future)
 * Mobile App (dependant on demand)
 * Unit tests
-* Kubernetes Deployment
 * Trend forcasting / Sentiment Analysis (PyTorch and/or TensorFlow)
 
 ## Web Server Setup
 
 1. Install Docker and Docker Compose (https://www.docker.com/)
 
-2. Check out the repo: `git clone https://github.com/mipacd/HoloChatStats`
+2. Checkout the repo: `git clone https://github.com/mipacd/HoloChatStats`
 
 3. Rename .env.sample to .env and configure settings. LLM chart queries require an [OpenRouter](https://openrouter.ai/) API key. Some models can be used for free (with a limited daily quota). By default, HoloChatStats limits users to 3 queries per day. Rename web/news.txt.sample to web/news.txt (enter site news in this file using the format shown in the sample).
 
@@ -72,6 +71,18 @@ number of free daily queries from OpenRouter (50 per day).
 5. Site will be available on port 80. If you are running on your local machine, it will be available at http://localhost.
 
 6. Run `docker compose down` to bring down the stack.
+
+### Kubernetes Web Server Deploy (Alternate/Advanced)
+
+1. Make sure Kubernetes is installed and follow steps 1-3 of the Web Server setup above.
+
+2. Enter the `k8s/` directory and run the `./deploy.sh` shell script.
+
+3. Wait a few moments after running the shell script, then run `kubectl get pods`. `holochatstats-web`, `postgres`, and `redis` pods should all have status as `Running`.
+
+4. Site will be available on port 80. 
+
+5. To bring down the stack, run `kubectl delete -f . && kubectl delete -f template/` from the `k8s/` directory.
 
 ## LLM Server Setup (optional)
 
