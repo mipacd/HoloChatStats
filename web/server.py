@@ -334,10 +334,10 @@ def check_rate_limit(ip):
         """, (ip, today))
         count = cursor.fetchone()[0]
         conn.commit()
-        return max(0, app.config["DAILY_LIMIT"] - count)
+        return max(0, int(app.config["DAILY_LIMIT"]) - int(count))
     except Exception as e:
         app.logger.error(f"Rate limit check failed: {str(e)}")
-        return app.config["DAILY_LIMIT"]  # Fail open by returning full limit
+        return int(app.config["DAILY_LIMIT"])  # Fail open by returning full limit
     
 # Return current month in YYYY-MM format
 def get_current_month():
