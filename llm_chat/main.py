@@ -9,6 +9,7 @@ import asyncio
 import json, datetime
 import logging
 import re
+import hashlib
 
 logger = logging.getLogger(__name__)
 app = FastAPI(title="HoloChatStats LLM")
@@ -73,7 +74,8 @@ def sanitize_prompt(message: str) -> str:
 @app.post("/chat")
 async def chat(request: Request):
     data = await request.json()
-    user_key = request.headers.get("CF-Connecting-IP", request.remote_addr)
+    client_ip = request.headers.get("CF-Connecting-IP") or request.client.host or "unknown"
+    user_key = hashlib.sha256(client_ip.encode()).hexdigest()[:16]
 
     # Log user prompt
     logger.info(f"User {user_key} prompt: {data.get('message', '')[:500]}")
