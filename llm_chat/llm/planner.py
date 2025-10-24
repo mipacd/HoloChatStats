@@ -48,7 +48,6 @@ Available tools:
     for attempt in range(max_retries):
         llm_resp = await call_openrouter(messages, temperature=0)
         text = llm_resp.get("text", "").strip()
-        print(f"🔍 Raw LLM plan output (attempt {attempt+1}): {text[:300]}")
 
         # Extract JSON if the model added extra text
         match = re.search(r"\[.*\]", text, re.DOTALL)

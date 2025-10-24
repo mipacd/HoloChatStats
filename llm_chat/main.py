@@ -10,8 +10,18 @@ import json, datetime
 import logging
 import re
 import hashlib
+import sys
 
 logger = logging.getLogger(__name__)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
 app = FastAPI(title="HoloChatStats LLM")
 
 app.add_middleware(
@@ -183,6 +193,8 @@ async def chat(request: Request):
     final_answer = await call_openrouter(messages + [
         {"role": "system", "content": "Respond with a clear, concise text answer — not JSON."}
     ])
+
+    logger.info(f"User {user_key} final answer: {final_answer.get('text', '')[:500]}")
 
     return {
         "answer": final_answer.get("text", ""),
