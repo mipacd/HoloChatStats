@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="description" content="VTuber statistics chatbot.">
+    <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat statistics, chatbot, virtual assistant, LLM, Eri">
+    <title>{{ _("Eri Chat") }}</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css"/>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+
+    <style>
+        html,body { height: 100%; }
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+            background-image: url("/static/eri_neutral.png");
+            background-size: contain;          
+            background-repeat: no-repeat;
+            background-position: center center; 
+        }
+
+        .chat-container {
+            max-width: 1150px;
+            margin: 36px auto;
+            background-color: rgba(10,10,10,0.72);
+            border-radius: 12px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            height: 85vh;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+            backdrop-filter: blur(2px);
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+            padding-left: 6px;
+            margin-bottom: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        /* Container for each message line (so bubbles can float left/right cleanly) */
+        .message-row {
+            display: flex;
+            width: 100%;
+        }
+
+        /* assistant bubble (Eri) */
+        .message-row.eri {
+            justify-content: flex-start;
+        }
+
+        /* user bubble */
+        .message-row.user {
+            justify-content: flex-end;
+        }
+
+        .chat-bubble {
+            display: inline-block;
+            max-width: 78%;
+            padding: 8px 12px;
+            border-radius: 14px;
+            line-height: 1.45;
+            white-space: pre-line;
+            word-break: break-word;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+        }
+
+        /* Eri’s bubbles */
+        .chat-bubble.eri {
+            background-color: rgba(44,44,44,0.64);
+            color: #e9eef6;
+            border-bottom-left-radius: 6px;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 14px;
+        }
+
+        /* User’s bubbles */
+        .chat-bubble.user {
+            background-color: rgba(30,144,255,0.9);
+            color: white;
+            border-bottom-right-radius: 6px;
+            border-top-right-radius: 6px;
+            border-top-left-radius: 14px;
+            text-align: left; /* text alignment inside bubble */
+        }
+
+        /* sender label */
+        .chat-bubble .sender {
+            display: block;
+            font-weight: 500;
+            color: #ffdede;
+            font-size: 0.9rem;
+            margin-bottom: 2px;
+        }
+
+        /* markdown body text */
+        .chat-bubble .msg {
+            display: block;
+            font-size: 0.95rem;
+        }
+
+        /* Markdown code blocks, inline code */
+        .chat-bubble .msg pre {
+            background: rgba(0,0,0,0.6);
+            padding: 8px;
+            border-radius: 6px;
+            overflow: auto;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
+            font-size: 0.88rem;
+            color: #e0e0e0;
+        }
+        .chat-bubble .msg code {
+            background: rgba(0,0,0,0.45);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
+            font-size: 0.9rem;
+        }
+
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            align-items:center;
+        }
+        .chat-input input {
+            flex-grow: 1;
+            border-radius: 8px;
+            border: none;
+            padding: 12px;
+            background-color: rgba(25,25,25,0.6);
+            color: white;
+            outline: none;
+        }
+        .chat-input button {
+            border-radius: 8px;
+            background-color: #1e90ff;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+        }
+
+        .loading {
+            text-align:center;
+            color: #cfd8e3;
+            font-style: italic;
+            margin: 8px 0;
+        }
+
+        #adminBadge {
+            color: #00ffbb;
+            margin-right: 6px;
+            cursor: help;
+            user-select: none;
+        }
+        #adminBadge:hover {
+            filter: drop-shadow(0 0 4px #00ffbb);
+        }
+
+        @media (max-width: 768px) {
+            .chat-container { margin: 18px; height: 78vh; }
+            .chat-bubble { max-width: 92%; }
+            body { background-size: auto 55%; background-position: center top; }
+        }
+    </style>
+</head>
+<body>
+{% include 'menu.html' %}
+
+<div class="chat-container" aria-live="polite">
+    <div id="chatMessages" class="chat-messages" role="log" aria-live="polite">
+        <div class="chat-bubble eri">
+            <span class="sender">{{ _("Eri") }}</span>
+            <span class="msg">{{ _("Hey, I'm Eri - HoloChatStats' virtual assistant. How can I help you today?") }}</span>
+        </div>
+    </div>
+
+    <div class="chat-input">
+        <span id="adminBadge" title="Admin mode active" style="display:none; font-size:1.2rem;">🛡️</span>
+        <input id="userInput" type="text" placeholder="{{ _("Ask Eri a question...") }}" aria-label="Message"/>
+        <button id="sendBtn" aria-label="Send"><i class="bi bi-send-fill"></i></button>
+    </div>
+
+    <div class="mt-2">
+    <select id="promptDropdown" class="form-select bg-dark text-light border-secondary">
+        <option value="">{{ _("💡 Try one of these prompts...") }}</option>
+        <optgroup label="General Queries">
+        <option>{{ _("Who streamed the most in Hololive last month?") }}</option>
+        <option>{{ _("Which Hololive member had the highest average stream duration last month?") }}</option>
+        <option>{{ _("Which Hololive member had the longest stream last month?") }}</option>
+        <option>{{ _("Which Hololive member had the highest average Korean chat messages per minute last month?") }}</option>
+        <option>{{ _("Which Hololive member had the most members last month?") }}</option>
+        <option>{{ _("What are the top 3 Hololive members that gained the most memberships last month?") }}</option>
+        <option>{{ _("Which Hololive member had the greatest increase in streaming hours last month?") }}</option>
+        <option>{{ _("How can I support HoloChatStats?") }}</option>
+        <option>{{ _("Hi Eri! How are you today? Who is your oshi?") }}</option>
+        </optgroup>
+
+        <optgroup label="Templated">
+        <option>{{ _("Recommend some VTubers for me. My channel ID is: [YOUR_CHANNEL_ID_HERE]") }}</option>
+        <option>{{ _("How many hours did [VTUBER_NAME] stream last month?") }}</option>
+        <option>{{ _("How many chat users were common to [VTUBER_NAME] and [VTUBER_NAME] last month?") }}</option>
+        <option>{{ _("How many membered chat users were common to [VTUBER_NAME] and [VTUBER_NAME] last month?") }}</option>
+        <option>{{ _("Who are the most active chatters for [VTUBER_NAME] last month?") }}</option>
+        <option>{{ _("What percentage of chat users chatted exclusively in [VTUBER_NAME]'s chat last month?") }}</option>
+        <option>{{ _("What percentage of [VTUBER_NAME]'s chat was in Japanese last month?") }}</option>
+        <option>{{ _("What percentage of [GRADUATED_FANBASE_NAME] still participate in Hololive chats?") }}</option>
+        <option>{{ _("Give me some YouTube links to funny moments from [VTUBER_NAME]'s streams last month.") }}</option>
+        <option>{{ _("Can you tell me which channels I chatted on last month? My channel ID is: [YOUR_CHANNEL_ID_HERE]") }}</option>
+        </optgroup>
+    </select>
+    </div>
+
+</div>
+
+<script>
+let chatHistory = [];
+let adminKey = null;
+
+const urlParams = new URLSearchParams(window.location.search);
+adminKey = urlParams.get("admin_key"); 
+
+if (adminKey) {
+    $('#adminBadge').show();
+}
+
+function appendMessage(sender, text, isAssistantMarkdown = false) {
+    const row = $('<div>').addClass('message-row').addClass(sender === 'eri' ? 'eri' : 'user');
+    const bubble = $('<div>').addClass('chat-bubble').addClass(sender === 'eri' ? 'eri' : 'user');
+
+    if (sender === 'eri') {
+        bubble.append($('<span>').addClass('sender').text('Eri'));
+        if (isAssistantMarkdown) {
+            try {
+                const rawHtml = marked.parse(text || '');
+                const cleanHtml = DOMPurify.sanitize(rawHtml, { ALLOWED_ATTR: ['href', 'target', 'rel'] });
+                bubble.append($('<span>').addClass('msg').html(cleanHtml));
+            } catch {
+                bubble.append($('<span>').addClass('msg').text(text));
+            }
+        } else {
+            bubble.append($('<span>').addClass('msg').text(text));
+        }
+    } else {
+        bubble.append($('<span>').addClass('msg').text(text));
+    }
+
+    row.append(bubble);
+    $('#chatMessages').append(row);
+    $('#chatMessages').scrollTop($('#chatMessages')[0].scrollHeight);
+}
+
+async function sendMessage() {
+    const message = $('#userInput').val().trim();
+    if (!message) return;
+    appendMessage('user', message);
+    $('#userInput').val('');
+    chatHistory.push({"role": "user", "content": message});
+
+    const loadingMsg = $('<div class="loading">Eri is thinking...</div>');
+    $('#chatMessages').append(loadingMsg);
+    $('#chatMessages').scrollTop($('#chatMessages')[0].scrollHeight);
+
+    try {
+        const payload = { 
+            message, 
+            chat_history: chatHistory 
+        };
+
+        if (adminKey) {
+            payload.admin_key = adminKey;
+        }
+
+        const baseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8080' : 'https://llm.holochatstats.info';
+
+        const response = await fetch(`${baseUrl}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            console.error("LLM fetch failed:", response.status, text);
+            loadingMsg.remove();
+            appendMessage('eri', "Sorry — I couldn't reach the assistant (network error).");
+            return;
+        }
+
+        const data = await response.json();
+        loadingMsg.remove();
+
+        const answerText = data.answer || "(no response)";
+        appendMessage('eri', answerText, true);
+        chatHistory.push({"role": "assistant", "content": answerText});
+
+    } catch (err) {
+        loadingMsg.remove();
+        console.error(err);
+        appendMessage('eri', "Sorry, something went wrong while contacting the assistant.");
+    }
+}
+
+$('#sendBtn').on('click', sendMessage);
+$('#userInput').on('keypress', function(e) {
+    if (e.which === 13) sendMessage();
+});
+
+// Populate selected prompt into text input
+$('#promptDropdown').on('change', function () {
+    const selected = $(this).val();
+    if (selected) {
+        $('#userInput').val(selected);
+        // reset dropdown back to placeholder
+        $(this).val('');
+    }
+});
+
+</script>
+</body>
+</html>

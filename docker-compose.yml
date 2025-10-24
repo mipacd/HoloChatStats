@@ -30,6 +30,20 @@ services:
       - redis
     restart: always
 
+  llm_chat:
+    build: ./llm_chat
+    container_name: hcs-llm-chat
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"         
+    depends_on:
+      - redis
+      - web
+    restart: always
+    networks:
+      - default
+
 volumes:
   pgdata:
     external: true

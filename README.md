@@ -44,6 +44,7 @@ All data is derived from a combination of publicly available chat logs and metad
     * Funniest Moments: Uses feature detection to algorithmically determine the "funniest" moment of each stream, based on the greatest concentration of humorous reactions (lol, lmao, etc.) in each stream. This timestamp is shifted back 10 seconds to provide a leadup to the moment. 
     * AI Summarized Highlights (BETA): Detects the top moments of each stream using chat velocity (number varies by stream duration). Summarizes those moments by passing a snippet of chat from around each timestamp into an LLM. 
     * Search AI Highlights (BETA): Searches the LLM generated text using vector search. Supports "channel:", "from:", and "to:" search engine operators.
+* Ask Eri: HoloChatStats' LLM-powered virtual assistant. It can access any of the APIs above, as well as the Hololive attrition rates API. There are currently daily query limits, but a premium option is possible with enough demand.
 * LLM Insights: An LLM query interface is available for select graphs (membership gain/loss, membership counts, user gain/loss, chat makeup). This interface is restricted to 3 queries per user per day and only 
 English is supported. Access to the LLM interface is blocked in Japan and South Korea due to a combination of the language restriction, the significant number of site users from these countries, and the limited 
 number of free daily queries from OpenRouter (50 per day).

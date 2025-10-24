@@ -1,0 +1,6 @@
+fastapi
+pydantic-settings
+redis
+httpx
+langchain-core
+uvicorn

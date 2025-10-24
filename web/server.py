@@ -111,7 +111,7 @@ def before_request():
 
     # --- User-Agent filtering ---
     ua = request.headers.get("User-Agent", "").lower()
-    allowed_bots = ["googlebot", "bingbot", "duckduckbot", "applebot", "facebookexternalhit"]
+    allowed_bots = ["googlebot", "bingbot", "duckduckbot", "applebot", "facebookexternalhit", "holochatstats-llm/1.0"]
 
     is_browser_like = "mozilla" in ua
     is_known_bot = any(bot in ua for bot in allowed_bots)
@@ -1399,6 +1399,75 @@ def get_group_membership_counts():
 
     return jsonify(output)
 
+@app.route('/api/get_group_membership_summary', methods=['GET'])
+def get_group_membership_summary():
+    """
+    Returns membership summary data for each channel in a given VTuber group for a specific month.
+
+    Notes:
+        - total=True sums membership_rank >= 0 (excludes -1) per channel
+    """
+    channel_group = request.args.get("channel_group")
+    month = request.args.get("month")  # YYYY-MM
+    membership_rank = request.args.get("membership_rank", type=str)
+    if membership_rank.lower() == "total":
+        total = True
+    else:
+        total = False
+        membership_rank = int(membership_rank)
+
+    if not channel_group or not month:
+        return jsonify({"error": "Missing required parameters: channel_group and month"}), 400
+
+    redis_key = f"group_membership_summary_{channel_group}_{month}_{membership_rank}_{total}"
+    cached_data = g.redis_conn.get(redis_key)
+    if cached_data:
+        inc_cache_hit_count()
+        return jsonify(json.loads(cached_data))
+    inc_cache_miss_count()
+
+    cursor = g.db_conn.cursor()
+
+    if total:
+        query = """
+            SELECT channel_name, SUM(membership_count) AS total_members
+            FROM mv_membership_data
+            WHERE channel_group = %s 
+              AND observed_month = %s::DATE
+              AND membership_rank >= 0
+            GROUP BY channel_name
+            ORDER BY total_members DESC
+        """
+        cursor.execute(query, (channel_group, f"{month}-01"))
+        results = cursor.fetchall()
+        output = [
+            {"channel_name": row[0], "total_members": int(row[1])}
+            for row in results
+        ]
+
+    else:
+        # Specific membership tier
+        query = """
+            SELECT channel_name, membership_rank, membership_count, percentage_total
+            FROM mv_membership_data
+            WHERE channel_group = %s 
+              AND observed_month = %s::DATE 
+              AND membership_rank = %s
+            ORDER BY membership_count DESC
+        """
+        cursor.execute(query, (channel_group, f"{month}-01", membership_rank))
+        results = cursor.fetchall()
+        output = [
+            [row[0], int(row[1]), float(row[2]), float(row[3])]
+            for row in results
+        ]
+
+    cursor.close()
+    g.redis_conn.set(redis_key, json.dumps(output))
+
+    return jsonify(output)
+
+
 @app.route('/api/get_group_membership_changes', methods=['GET'])
 def get_group_membership_changes():
     """API to fetch membership gains, losses, and differential by group and month."""
@@ -1866,32 +1935,70 @@ def get_message_type_percents():
 
 @app.route('/api/get_attrition_rates', methods=['GET'])
 def get_attrition_rates():
-    """API to calculate attrition rates of a channel's top chatters.
-    Returns percentage of top 1000 chatters (from last 3 months) who continue chatting in Hololive channels."""
-    
+    """
+    Calculates attrition rates for a channel's top chatters.
+
+    Two modes:
+      1. Manual mode (legacy):
+         Provide `channel` and `month` (YYYY-MM) to compute based on that period.
+      2. Graduation mode (recommended):
+         Provide `channel`, `announce_date`, and `graduation_date` (YYYY-MM-DD).
+         - Baseline = 3 months ending 1 month before announce_date
+         - Measurement window starts 1 month after graduation_date
+
+    Returns:
+        JSON list of:
+        [
+            {"month": "YYYY-MM", "percent": 85.23},
+            ...
+        ]
+    """
+
     channel_name = request.args.get('channel')
-    month = request.args.get('month')  # YYYY-MM format
+    month = request.args.get('month')  # YYYY-MM
+    announce_date = request.args.get('announce_date')  # YYYY-MM-DD
+    graduation_date = request.args.get('graduation_date')  # YYYY-MM-DD
 
-    if not (channel_name and month):
-        return jsonify({"error": "Missing required parameters"}), 400
-    
-    redis_key = f"attrition_rates_{channel_name}_{month}"
-    cached_data = g.redis_conn.get(redis_key)
-    if cached_data:
-        inc_cache_hit_count()
-        return jsonify(json.loads(cached_data))
-    inc_cache_miss_count()
+    if not channel_name:
+        return jsonify({"error": "Missing required parameter: channel"}), 400
 
+    # Determine baseline and measurement windows
     try:
-        # Calculate date ranges - include full given month plus previous 2 months
-        end_date = datetime.strptime(month, "%Y-%m") + relativedelta(months=1)  # Start of next month
-        start_date = end_date - relativedelta(months=3)  # 3 months back
+        if announce_date and graduation_date:
+            announce_dt = datetime.strptime(announce_date, "%Y-%m-%d")
+            graduation_dt = datetime.strptime(graduation_date, "%Y-%m-%d")
+
+            # Baseline: 3 months ending one month before announcement
+            baseline_month = (announce_dt - relativedelta(months=1)).strftime("%Y-%m")
+
+            # Measurement starts one month after graduation
+            start_from_month = (graduation_dt + relativedelta(months=1)).strftime("%Y-%m")
+
+            redis_key = f"attrition_rates_{channel_name}_{baseline_month}_{start_from_month}"
+
+        elif month:
+            baseline_month = month
+            start_from_month = (datetime.strptime(month, "%Y-%m") + relativedelta(months=1)).strftime("%Y-%m")
+            redis_key = f"attrition_rates_{channel_name}_{baseline_month}"
+        else:
+            return jsonify({"error": "Must provide either month or both announce_date and graduation_date"}), 400
+
+        # Check cache
+        cached_data = g.redis_conn.get(redis_key)
+        if cached_data:
+            inc_cache_hit_count()
+            return jsonify(json.loads(cached_data))
+        inc_cache_miss_count()
+
+        # Calculate 3-month baseline range
+        end_date = datetime.strptime(baseline_month, "%Y-%m") + relativedelta(months=1)
+        start_date = end_date - relativedelta(months=3)
         end_date_str = end_date.strftime("%Y-%m-01")
         start_date_str = start_date.strftime("%Y-%m-01")
 
         cursor = g.db_conn.cursor()
 
-        # Get top 1000 users in the 3-month window
+        # Identify top 1000 chatters during baseline window
         cursor.execute("""
             WITH top_users AS (
                 SELECT 
@@ -1913,14 +2020,14 @@ def get_attrition_rates():
         if not top_users:
             return jsonify({"error": "No top chatters found for the given period"}), 404
 
-        # For each subsequent month through current month, calculate percentage still active
+        # Determine attrition starting from first post-graduation month (or month+1)
         results = []
-        current_month = end_date + relativedelta(months=1)
+        current_month = datetime.strptime(start_from_month, "%Y-%m")
         today = datetime.utcnow()
-        
+
         while current_month <= today:
             month_str = current_month.strftime("%Y-%m-01")
-            
+
             cursor.execute("""
                 SELECT COUNT(DISTINCT ud.user_id)
                 FROM user_data ud
@@ -1933,13 +2040,13 @@ def get_attrition_rates():
             
             active_count = cursor.fetchone()[0] or 0
             percent_active = round((active_count / len(top_users)) * 100, 2)
-            
+
             results.append({
                 "month": current_month.strftime("%Y-%m"),
                 "percent": percent_active
             })
-            
-            current_month = current_month + relativedelta(months=1)
+
+            current_month += relativedelta(months=1)
 
         cursor.close()
         g.redis_conn.set(redis_key, json.dumps(results))
@@ -2635,6 +2742,10 @@ def highlight_search_view():
 @app.route('/heatmap')
 def heatmap_view():
     return render_template('heatmap.html', _=_, get_locale=get_locale)
+
+@app.route("/eri")
+def eri_chat():
+    return render_template("eri.html", _=_, get_locale=get_locale)
 
 #v1 redirects
 @app.route('/stream-time')
