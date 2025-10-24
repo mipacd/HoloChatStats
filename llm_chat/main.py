@@ -19,6 +19,7 @@ app.add_middleware(
         "http://127.0.0.1:5000",
         "http://localhost:5000",
         "https://holochatstats.info",
+        "https://llm.holochatstats.info",
     ],
     allow_credentials=True,
     allow_methods=["*"],
