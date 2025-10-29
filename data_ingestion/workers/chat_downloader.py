@@ -1,5 +1,6 @@
 from collections import defaultdict
-from chat_downloader import ChatDownloader, errors
+#from chat_downloader import ChatDownloader, errors
+from workers.yt_chat_fallback import iter_youtube_chat
 from datetime import timezone, datetime
 import time
 import gc
@@ -56,9 +57,10 @@ def download_chat_log(channel_id, video_id, queue, year, month):
     while retry_count < int(get_config("Settings", "MaxRetries")):
         try:
             logger.info(f"Downloading chat log for {video_id}. Retry count: {retry_count} Queue size: {str(queue.qsize())}")
-            video_url = f"https://www.youtube.com/watch?v={video_id}"
-            cookie_path = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), get_config("Settings", "CookieFile"))
-            chat = ChatDownloader(cookies=cookie_path).get_chat(video_url, max_attempts=1, inactivity_timeout=30, message_groups=["messages", "superchat"])
+            #video_url = f"https://www.youtube.com/watch?v={video_id}"
+            #cookie_path = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), get_config("Settings", "CookieFile"))
+            #chat = ChatDownloader(cookies=cookie_path).get_chat(video_url, max_attempts=1, inactivity_timeout=30, message_groups=["messages", "superchat"])
+            chat = iter_youtube_chat(video_id)
 
             last_user_message = defaultdict(int)
             message_category_by_user = defaultdict(lambda: defaultdict(int))
@@ -89,7 +91,8 @@ def download_chat_log(channel_id, video_id, queue, year, month):
                 user_ids.add(user_id)
 
                 # Get membership rank
-                membership_rank_text = badges[0].get("title", "").lower() if badges else ""
+                # membership_rank_text = badges[0].get("title", "").lower() if badges else ""
+                membership_rank_text = badges[0].lower() if badges else ""
                 membership_rank = parse_membership_rank(membership_rank_text)
                 membership_rank_map[user_id] = membership_rank
 
@@ -105,16 +108,19 @@ def download_chat_log(channel_id, video_id, queue, year, month):
 
                 # Store humor timestamps
                 if has_humor(chat_message):
-                    feature_dict["humor"].append((timestamp / 1_000_000, 1))
+                    #feature_dict["humor"].append((timestamp / 1_000_000, 1))
+                    feature_dict["humor"].append((timestamp, 1))
 
                 # Store user chat counts
                 chat_counts[user_id] += 1
 
                 # Store last message time per user per video
-                last_message_at[user_id] = max(last_message_at[user_id], timestamp / 1_000_000)
+                #last_message_at[user_id] = max(last_message_at[user_id], timestamp / 1_000_000)
+                last_message_at[user_id] = max(last_message_at[user_id], timestamp)
 
                 # Store last message time overall
-                last_message_time = max(last_message_time, timestamp / 1_000_000)
+                #last_message_time = max(last_message_time, timestamp / 1_000_000)
+                last_message_time = max(last_message_time, timestamp)
 
                 # Store chat log entries
                 chat_log_entries.append({
@@ -184,7 +190,8 @@ def download_chat_log(channel_id, video_id, queue, year, month):
             gc.collect()
 
             break
-        except errors.NoChatReplay:
+        #except errors.NoChatReplay:
+        except RuntimeError as e:
             logger.warning(f"No chat replay found for {video_id}.")
             return
         except Exception as e:

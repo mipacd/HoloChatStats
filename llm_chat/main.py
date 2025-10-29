@@ -185,6 +185,7 @@ async def chat(request: Request):
             "role": "system",
             "content": (
                 "No API data was required. Answer the user's question directly and naturally as Eri. "
+                "If the user asked for data, explain that no relevant data is available. "
                 "Do not mention APIs, tools, or any technical details (such as TOOL_RESULTS)."
             )
         })

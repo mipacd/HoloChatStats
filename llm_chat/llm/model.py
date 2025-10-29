@@ -8,8 +8,6 @@ async def call_openrouter(messages, model=None, max_tokens=2048, reasoning=None,
     url = f"{settings.OPENROUTER_URL}/chat/completions"
     headers = {"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}", "Content-Type": "application/json"}
 
-    print("Using model:", model)
-
     payload = {
         "model": model,
         "messages": messages,

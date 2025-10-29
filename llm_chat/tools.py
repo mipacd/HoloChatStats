@@ -553,7 +553,6 @@ async def get_attrition_rates(
     Mumei: 2025-03-27 / 2025-04-27 / Hoomans
     Fauna: 2024-11-30 / 2025-01-03 / Saplings
     Gura: 2025-04-15 / 2025-04-30 / Chumbuds
-    Amelia: 2024-09-20 / 2024-09-30 / Teamates
     Shion: 2025-03-06 / 2025-04-26 / Shiokko
     Chloe: 2024-11-29 / 2025-01-26 / Handlers (shiikuin)
     Ao: 2025-09-08 / 2025-09-08 / Dokusha

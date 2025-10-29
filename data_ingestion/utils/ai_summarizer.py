@@ -153,8 +153,6 @@ def process_video_chat_log(video_id: str, duration_seconds: float, channel_name:
         # Get context for the AI from the full dataframe.
         window_df = df[(df.index >= spike_datetime) & (df.index < spike_datetime + pd.Timedelta(seconds=15))]
         full_context = " ".join(window_df['message'].tolist())
-        
-        # (Substance check could go here if needed)
 
         # Generate AI results for this specific highlight
         ai_result = generate_ai_results_batch([{"text": full_context, "channel_name": channel_name, "video_title": video_title}])
