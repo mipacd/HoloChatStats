@@ -168,7 +168,7 @@ async def chat(request: Request):
             "role": "system",
             "content": (
                 "You have just received structured API results from your tools. "
-                "Use them to compose a concise, helpful answer to the user's question. "
+                "Use them to compose a concise, helpful answer to the user's question as Eri. "
                 "Focus only on the most relevant insights."
             )
         })
@@ -185,7 +185,7 @@ async def chat(request: Request):
             "role": "system",
             "content": (
                 "No API data was required. Answer the user's question directly and naturally as Eri. "
-                "If the user asked for data, explain that no relevant data is available. "
+                "If the user asked for data, explain that no relevant data is available. Do not fabricate data. "
                 "Do not mention APIs, tools, or any technical details (such as TOOL_RESULTS)."
             )
         })
