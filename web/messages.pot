@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-10-24 13:56-0400\n"
+"POT-Creation-Date: 2025-10-31 15:31-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -293,114 +293,125 @@ msgstr ""
 msgid "Eri Chat"
 msgstr ""
 
-#: templates/eri.html:186
+#: templates/eri.html:191
 msgid "Eri"
 msgstr ""
 
-#: templates/eri.html:187
+#: templates/eri.html:192
 msgid "Hey, I'm Eri - HoloChatStats' virtual assistant. How can I help you today?"
 msgstr ""
 
-#: templates/eri.html:193
+#: templates/eri.html:198
 msgid "Ask Eri a question..."
 msgstr ""
 
-#: templates/eri.html:199
+#: templates/eri.html:204
 msgid "💡 Try one of these prompts..."
 msgstr ""
 
-#: templates/eri.html:201
+#: templates/eri.html:206
 msgid "Who streamed the most in Hololive last month?"
 msgstr ""
 
-#: templates/eri.html:202
+#: templates/eri.html:207
 msgid "Which Hololive member had the highest average stream duration last month?"
 msgstr ""
 
-#: templates/eri.html:203
+#: templates/eri.html:208
 msgid "Which Hololive member had the longest stream last month?"
 msgstr ""
 
-#: templates/eri.html:204
+#: templates/eri.html:209
 msgid ""
 "Which Hololive member had the highest average Korean chat messages per "
 "minute last month?"
 msgstr ""
 
-#: templates/eri.html:205
+#: templates/eri.html:210
 msgid "Which Hololive member had the most members last month?"
 msgstr ""
 
-#: templates/eri.html:206
+#: templates/eri.html:211
 msgid ""
 "What are the top 3 Hololive members that gained the most memberships last"
 " month?"
 msgstr ""
 
-#: templates/eri.html:207
+#: templates/eri.html:212
 msgid ""
 "Which Hololive member had the greatest increase in streaming hours last "
 "month?"
 msgstr ""
 
-#: templates/eri.html:208
+#: templates/eri.html:213
 msgid "How can I support HoloChatStats?"
 msgstr ""
 
-#: templates/eri.html:209
+#: templates/eri.html:214
 msgid "Hi Eri! How are you today? Who is your oshi?"
 msgstr ""
 
-#: templates/eri.html:213
+#: templates/eri.html:218
 msgid "Recommend some VTubers for me. My channel ID is: [YOUR_CHANNEL_ID_HERE]"
 msgstr ""
 
-#: templates/eri.html:214
+#: templates/eri.html:219
 msgid "How many hours did [VTUBER_NAME] stream last month?"
 msgstr ""
 
-#: templates/eri.html:215
+#: templates/eri.html:220
 msgid ""
 "How many chat users were common to [VTUBER_NAME] and [VTUBER_NAME] last "
 "month?"
 msgstr ""
 
-#: templates/eri.html:216
+#: templates/eri.html:221
 msgid ""
 "How many membered chat users were common to [VTUBER_NAME] and "
 "[VTUBER_NAME] last month?"
 msgstr ""
 
-#: templates/eri.html:217
+#: templates/eri.html:222
 msgid "Who are the most active chatters for [VTUBER_NAME] last month?"
 msgstr ""
 
-#: templates/eri.html:218
+#: templates/eri.html:223
 msgid ""
 "What percentage of chat users chatted exclusively in [VTUBER_NAME]'s chat"
 " last month?"
 msgstr ""
 
-#: templates/eri.html:219
+#: templates/eri.html:224
 msgid "What percentage of [VTUBER_NAME]'s chat was in Japanese last month?"
 msgstr ""
 
-#: templates/eri.html:220
+#: templates/eri.html:225
 msgid ""
 "What percentage of [GRADUATED_FANBASE_NAME] still participate in Hololive"
 " chats?"
 msgstr ""
 
-#: templates/eri.html:221
+#: templates/eri.html:226
 msgid ""
 "Give me some YouTube links to funny moments from [VTUBER_NAME]'s streams "
 "last month."
 msgstr ""
 
-#: templates/eri.html:222
+#: templates/eri.html:227
 msgid ""
 "Can you tell me which channels I chatted on last month? My channel ID is:"
 " [YOUR_CHANNEL_ID_HERE]"
+msgstr ""
+
+#: templates/eri.html:233
+msgid ""
+"Eri may display inaccurate information, so double-check its responses. "
+"Your conversations are logged to help make Eri better. By using Eri, you "
+"agree to this."
+msgstr ""
+
+#: templates/eri.html:236
+msgid "Responses in English may be more accurate than in other languages."
 msgstr ""
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:39

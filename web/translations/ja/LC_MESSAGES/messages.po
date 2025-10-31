@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-10-24 13:56-0400\n"
+"POT-Creation-Date: 2025-10-31 15:31-0400\n"
 "PO-Revision-Date: 2025-10-24 14:00-0400\n"
 "Last-Translator: Gemini Assistant\n"
 "Language: ja\n"
@@ -294,115 +294,126 @@ msgstr "ユーザーごとの平均チャットメッセージ数。"
 msgid "Eri Chat"
 msgstr "えりチャット"
 
-#: templates/eri.html:186
+#: templates/eri.html:191
 msgid "Eri"
 msgstr "えり"
 
-#: templates/eri.html:187
+#: templates/eri.html:192
 msgid "Hey, I'm Eri - HoloChatStats' virtual assistant. How can I help you today?"
 msgstr "こんにちは、HoloChatStatsのバーチャルアシスタント「えり」です。今日はどういったご用件でしょうか？"
 
-#: templates/eri.html:193
+#: templates/eri.html:198
 msgid "Ask Eri a question..."
 msgstr "えりに質問する..."
 
-#: templates/eri.html:199
+#: templates/eri.html:204
 msgid "💡 Try one of these prompts..."
 msgstr "💡 こんな質問はいかがですか..."
 
-#: templates/eri.html:201
+#: templates/eri.html:206
 msgid "Who streamed the most in Hololive last month?"
 msgstr "先月、ホロライブで最も配信時間が長かったのは誰ですか？"
 
-#: templates/eri.html:202
+#: templates/eri.html:207
 msgid "Which Hololive member had the highest average stream duration last month?"
 msgstr "先月、ホロライブで平均配信時間が最も長かったメンバーは誰ですか？"
 
-#: templates/eri.html:203
+#: templates/eri.html:208
 msgid "Which Hololive member had the longest stream last month?"
 msgstr "先月、ホロライブで最も長い配信を行ったメンバーは誰ですか？"
 
-#: templates/eri.html:204
+#: templates/eri.html:209
 msgid ""
 "Which Hololive member had the highest average Korean chat messages per "
 "minute last month?"
 msgstr "先月、ホロライブで1分あたりの平均韓国語チャットメッセージが最も多かったメンバーは誰ですか？"
 
-#: templates/eri.html:205
+#: templates/eri.html:210
 msgid "Which Hololive member had the most members last month?"
 msgstr "先月、ホロライブで最もメンバーが多かったのは誰ですか？"
 
-#: templates/eri.html:206
+#: templates/eri.html:211
 msgid ""
 "What are the top 3 Hololive members that gained the most memberships last"
 " month?"
 msgstr "先月、メンバーシップが最も増えたホロライブメンバーTOP3は誰ですか？"
 
-#: templates/eri.html:207
+#: templates/eri.html:212
 msgid ""
 "Which Hololive member had the greatest increase in streaming hours last "
 "month?"
 msgstr "先月、配信時間が最も増加したホロライブメンバーは誰ですか？"
 
-#: templates/eri.html:208
+#: templates/eri.html:213
 msgid "How can I support HoloChatStats?"
 msgstr "HoloChatStatsを支援するにはどうすればよいですか？"
 
-#: templates/eri.html:209
+#: templates/eri.html:214
 msgid "Hi Eri! How are you today? Who is your oshi?"
 msgstr "やあ、えり！元気？推しは誰？"
 
-#: templates/eri.html:213
+#: templates/eri.html:218
 msgid "Recommend some VTubers for me. My channel ID is: [YOUR_CHANNEL_ID_HERE]"
 msgstr "おすすめのVTuberを教えて。私のチャンネルIDは：[あなたのチャンネルID]"
 
-#: templates/eri.html:214
+#: templates/eri.html:219
 msgid "How many hours did [VTUBER_NAME] stream last month?"
 msgstr "[VTUBERの名前]は先月何時間配信しましたか？"
 
-#: templates/eri.html:215
+#: templates/eri.html:220
 msgid ""
 "How many chat users were common to [VTUBER_NAME] and [VTUBER_NAME] last "
 "month?"
 msgstr "先月、[VTUBERの名前]と[VTUBERの名前]に共通するチャットユーザーは何人いましたか？"
 
-#: templates/eri.html:216
+#: templates/eri.html:221
 msgid ""
 "How many membered chat users were common to [VTUBER_NAME] and "
 "[VTUBER_NAME] last month?"
 msgstr "先月、[VTUBERの名前]と[VTUBERの名前]に共通するメンバーのチャットユーザーは何人いましたか？"
 
-#: templates/eri.html:217
+#: templates/eri.html:222
 msgid "Who are the most active chatters for [VTUBER_NAME] last month?"
 msgstr "先月、[VTUBERの名前]のチャットで最もアクティブだったのは誰ですか？"
 
-#: templates/eri.html:218
+#: templates/eri.html:223
 msgid ""
 "What percentage of chat users chatted exclusively in [VTUBER_NAME]'s chat"
 " last month?"
 msgstr "先月、[VTUBERの名前]のチャットだけでチャットしたユーザーの割合は？"
 
-#: templates/eri.html:219
+#: templates/eri.html:224
 msgid "What percentage of [VTUBER_NAME]'s chat was in Japanese last month?"
 msgstr "先月、[VTUBERの名前]のチャットのうち日本語の割合は？"
 
-#: templates/eri.html:220
+#: templates/eri.html:225
 msgid ""
 "What percentage of [GRADUATED_FANBASE_NAME] still participate in Hololive"
 " chats?"
 msgstr "[卒業したVTUBERのファンネーム]のうち、今でもホロライブのチャットに参加している割合は？"
 
-#: templates/eri.html:221
+#: templates/eri.html:226
 msgid ""
 "Give me some YouTube links to funny moments from [VTUBER_NAME]'s streams "
 "last month."
 msgstr "先月の[VTUBERの名前]の配信の面白い瞬間のYouTubeリンクを教えて。"
 
-#: templates/eri.html:222
+#: templates/eri.html:227
 msgid ""
 "Can you tell me which channels I chatted on last month? My channel ID is:"
 " [YOUR_CHANNEL_ID_HERE]"
 msgstr "先月私がチャットしたチャンネルを教えて。私のチャンネルIDは：[あなたのチャンネルID]"
+
+#: templates/eri.html:233
+msgid ""
+"Eri may display inaccurate information, so double-check its responses. "
+"Your conversations are logged to help make Eri better. By using Eri, you "
+"agree to this."
+msgstr "えりは不正確な情報を表示する場合がありますので、応答を再確認してください。会話はえりの改善のために記録されます。えりを使用することにより、これに同意したことになります。"
+
+#: templates/eri.html:236
+msgid "Conversations in English may be more accurate than in other languages."
+msgstr "英語での会話は、他の言語よりも正確な場合があります。"
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:39
 #: templates/menu.html:64
@@ -434,13 +445,16 @@ msgid "Funniest Timestamps"
 msgstr "最も面白いタイムスタンプ"
 
 #: templates/funniest_timestamps.html:101
+#, fuzzy
 msgid ""
 "Determined using the highest concentration of humerous reactions by chat "
 "for each stream.<br><br>\n"
-"    Each link opens YouTube in a new window.<br><br>CSV Download contains"
+"    Each link opens YouTube in a new window.<br><br>CSV Download contains"
 " timestamps in HH:MM:SS format for use with yt-dlp, ffmpeg, etc. for "
 "clipping."
-msgstr "各配信でチャット内の最も面白い反応が集中したタイムスタンプを使用して決定されます。<br><br>各リンクはYouTubeで新しいウィンドウで開きます。<br><br>CSVダウンロードには、yt-dlp、ffmpegなどでクリッピングに使用できるHH:MM:SS形式のタイムスタンプが含まれています。"
+msgstr ""
+"各配信でチャット内の最も面白い反応が集中したタイムスタンプを使用して決定されます。<br><br>各リンクはYouTubeで新しいウィンドウで開きます。<br><br>CSVダウンロードには"
+"、yt-dlp、ffmpegなどでクリッピングに使用できるHH:MM:SS形式のタイムスタンプが含まれています。"
 
 #: templates/funniest_timestamps.html:116
 msgid "Fetch Funniest Moments"
@@ -486,7 +500,9 @@ msgstr "AIハイライト検索"
 msgid ""
 "Search for moments using semantic meaning. You can use operators like "
 "channel:<name>, from:<YYYY-MM-DD>, and to:<YYYY-MM-DD>."
-msgstr "意味的な意味合いで瞬間を検索します。 channel:<名前>、from:<YYYY-MM-DD>、to:<YYYY-MM-DD> のような演算子が使用できます。"
+msgstr ""
+"意味的な意味合いで瞬間を検索します。 channel:<名前>、from:<YYYY-MM-DD>、to:<YYYY-MM-DD> "
+"のような演算子が使用できます。"
 
 #: templates/highlight_search.html:95
 msgid "e.g., paper boat channel:saba from:2025-08-01"
@@ -634,6 +650,11 @@ msgstr "メッセージ数を取得できませんでした。"
 #: templates/index.html:282
 msgid "Error fetching message count."
 msgstr "メッセージ数の取得中にエラーが発生しました。"
+
+#: templates/index.html:297
+#, fuzzy
+msgid "Error fetching updates."
+msgstr "日付範囲の取得中にエラーが発生しました。"
 
 #: templates/jp_user_percents.html:8 templates/jp_user_percents.html:40
 #: templates/menu.html:82
@@ -964,3 +985,4 @@ msgstr "選択したユーザーと月のデータはありません。"
 
 #~ msgid "No data available for the selected user."
 #~ msgstr "選択した条件に該当するデータがありません。"
+

@@ -170,6 +170,10 @@
         #adminBadge:hover {
             filter: drop-shadow(0 0 4px #00ffbb);
         }
+        .chat-disclaimer {
+            color: #a0a0a0; 
+            font-size: 0.75rem; 
+        }
 
         @media (max-width: 768px) {
             .chat-container { margin: 18px; height: 78vh; }
@@ -223,6 +227,14 @@
         <option>{{ _("Can you tell me which channels I chatted on last month? My channel ID is: [YOUR_CHANNEL_ID_HERE]") }}</option>
         </optgroup>
     </select>
+    </div>
+    <div class="mt-3 text-center chat-disclaimer">
+        <p class="mb-1">
+            {{ _("Eri may display inaccurate information, so double-check its responses. Your conversations are logged to help make Eri better. By using Eri, you agree to this.") }}
+        </p>
+        <p class="mb-0">
+            {{ _("Conversations in English may be more accurate than in other languages.") }}
+        </p>
     </div>
 
 </div>

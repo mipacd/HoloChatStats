@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-10-24 13:56-0400\n"
+"POT-Creation-Date: 2025-10-31 15:31-0400\n"
 "PO-Revision-Date: 2025-10-24 14:05-0400\n"
 "Last-Translator: Gemini Assistant\n"
 "Language: ko\n"
@@ -45,7 +45,9 @@ msgid ""
 "community detection. Channels must meet a similarity threshold with at "
 "least one other channel to appear. Click and drag to zoom. Double click "
 "to reset."
-msgstr "코사인 유사도와 Leiden 커뮤니티 탐지를 사용하여 공통 채팅 사용자에 따라 클러스터를 결정합니다. 표시되려면 최소한 다른 채널과 유사도 임계값을 충족해야 합니다. 클릭하여 드래그로 확대하고, 더블 클릭으로 초기화합니다."
+msgstr ""
+"코사인 유사도와 Leiden 커뮤니티 탐지를 사용하여 공통 채팅 사용자에 따라 클러스터를 결정합니다. 표시되려면 최소한 다른 채널과"
+" 유사도 임계값을 충족해야 합니다. 클릭하여 드래그로 확대하고, 더블 클릭으로 초기화합니다."
 
 #: templates/channel_clustering.html:62
 msgid "Select Month:"
@@ -294,115 +296,126 @@ msgstr "사용자당 평균 채팅 메시지 수."
 msgid "Eri Chat"
 msgstr "에리 챗"
 
-#: templates/eri.html:186
+#: templates/eri.html:191
 msgid "Eri"
 msgstr "에리"
 
-#: templates/eri.html:187
+#: templates/eri.html:192
 msgid "Hey, I'm Eri - HoloChatStats' virtual assistant. How can I help you today?"
 msgstr "안녕하세요, 저는 HoloChatStats의 가상 어시스턴트 에리입니다. 무엇을 도와드릴까요?"
 
-#: templates/eri.html:193
+#: templates/eri.html:198
 msgid "Ask Eri a question..."
 msgstr "에리에게 질문하기..."
 
-#: templates/eri.html:199
+#: templates/eri.html:204
 msgid "💡 Try one of these prompts..."
 msgstr "💡 이런 질문은 어떠세요..."
 
-#: templates/eri.html:201
+#: templates/eri.html:206
 msgid "Who streamed the most in Hololive last month?"
 msgstr "지난달 홀로라이브에서 가장 많이 방송한 사람은 누구인가요?"
 
-#: templates/eri.html:202
+#: templates/eri.html:207
 msgid "Which Hololive member had the highest average stream duration last month?"
 msgstr "지난달 홀로라이브 멤버 중 평균 방송 시간이 가장 길었던 멤버는 누구인가요?"
 
-#: templates/eri.html:203
+#: templates/eri.html:208
 msgid "Which Hololive member had the longest stream last month?"
 msgstr "지난달 홀로라이브 멤버 중 가장 긴 방송을 한 멤버는 누구인가요?"
 
-#: templates/eri.html:204
+#: templates/eri.html:209
 msgid ""
 "Which Hololive member had the highest average Korean chat messages per "
 "minute last month?"
 msgstr "지난달 홀로라이브 멤버 중 분당 평균 한국어 채팅 메시지가 가장 많았던 멤버는 누구인가요?"
 
-#: templates/eri.html:205
+#: templates/eri.html:210
 msgid "Which Hololive member had the most members last month?"
 msgstr "지난달 홀로라이브 멤버 중 멤버 수가 가장 많았던 멤버는 누구인가요?"
 
-#: templates/eri.html:206
+#: templates/eri.html:211
 msgid ""
 "What are the top 3 Hololive members that gained the most memberships last"
 " month?"
 msgstr "지난달 멤버십이 가장 많이 늘어난 홀로라이브 멤버 상위 3명은 누구인가요?"
 
-#: templates/eri.html:207
+#: templates/eri.html:212
 msgid ""
 "Which Hololive member had the greatest increase in streaming hours last "
 "month?"
 msgstr "지난달 방송 시간이 가장 많이 증가한 홀로라이브 멤버는 누구인가요?"
 
-#: templates/eri.html:208
+#: templates/eri.html:213
 msgid "How can I support HoloChatStats?"
 msgstr "HoloChatStats를 어떻게 후원할 수 있나요?"
 
-#: templates/eri.html:209
+#: templates/eri.html:214
 msgid "Hi Eri! How are you today? Who is your oshi?"
 msgstr "안녕 에리! 오늘 기분 어때? 오시(최애)는 누구야?"
 
-#: templates/eri.html:213
+#: templates/eri.html:218
 msgid "Recommend some VTubers for me. My channel ID is: [YOUR_CHANNEL_ID_HERE]"
 msgstr "VTuber를 추천해 주세요. 제 채널 ID는 [YOUR_CHANNEL_ID_HERE]입니다."
 
-#: templates/eri.html:214
+#: templates/eri.html:219
 msgid "How many hours did [VTUBER_NAME] stream last month?"
 msgstr "[VTUBER_NAME]은(는) 지난달 몇 시간 방송했나요?"
 
-#: templates/eri.html:215
+#: templates/eri.html:220
 msgid ""
 "How many chat users were common to [VTUBER_NAME] and [VTUBER_NAME] last "
 "month?"
 msgstr "지난달 [VTUBER_NAME]과(와) [VTUBER_NAME]의 공통 채팅 사용자는 몇 명이었나요?"
 
-#: templates/eri.html:216
+#: templates/eri.html:221
 msgid ""
 "How many membered chat users were common to [VTUBER_NAME] and "
 "[VTUBER_NAME] last month?"
 msgstr "지난달 [VTUBER_NAME]과(와) [VTUBER_NAME]의 공통 멤버십 채팅 사용자는 몇 명이었나요?"
 
-#: templates/eri.html:217
+#: templates/eri.html:222
 msgid "Who are the most active chatters for [VTUBER_NAME] last month?"
 msgstr "지난달 [VTUBER_NAME]의 채팅에서 가장 활발했던 사용자는 누구인가요?"
 
-#: templates/eri.html:218
+#: templates/eri.html:223
 msgid ""
 "What percentage of chat users chatted exclusively in [VTUBER_NAME]'s chat"
 " last month?"
 msgstr "지난달 [VTUBER_NAME]의 채팅에서만 채팅한 사용자의 비율은 어떻게 되나요?"
 
-#: templates/eri.html:219
+#: templates/eri.html:224
 msgid "What percentage of [VTUBER_NAME]'s chat was in Japanese last month?"
 msgstr "지난달 [VTUBER_NAME]의 채팅 중 일본어 비율은 어떻게 되나요?"
 
-#: templates/eri.html:220
+#: templates/eri.html:225
 msgid ""
 "What percentage of [GRADUATED_FANBASE_NAME] still participate in Hololive"
 " chats?"
 msgstr "[GRADUATED_FANBASE_NAME] 중 여전히 홀로라이브 채팅에 참여하는 비율은 어떻게 되나요?"
 
-#: templates/eri.html:221
+#: templates/eri.html:226
 msgid ""
 "Give me some YouTube links to funny moments from [VTUBER_NAME]'s streams "
 "last month."
 msgstr "지난달 [VTUBER_NAME] 방송의 재미있는 순간에 대한 유튜브 링크를 알려주세요."
 
-#: templates/eri.html:222
+#: templates/eri.html:227
 msgid ""
 "Can you tell me which channels I chatted on last month? My channel ID is:"
 " [YOUR_CHANNEL_ID_HERE]"
 msgstr "지난달 제가 채팅했던 채널을 알려줄 수 있나요? 제 채널 ID는 [YOUR_CHANNEL_ID_HERE]입니다."
+
+#: templates/eri.html:233
+msgid ""
+"Eri may display inaccurate information, so double-check its responses. "
+"Your conversations are logged to help make Eri better. By using Eri, you "
+"agree to this."
+msgstr "에리는 부정확한 정보를 표시할 수 있으니 응답을 다시 확인해 주세요. 대화는 에리를 개선하는 데 도움이 되도록 기록됩니다. 에리를 사용하면 이에 동의하는 것입니다."
+
+#: templates/eri.html:236
+msgid "Conversations in English may be more accurate than in other languages."
+msgstr "영어로 대화하는 것이 다른 언어보다 더 정확할 수 있습니다."
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:39
 #: templates/menu.html:64
@@ -434,13 +447,17 @@ msgid "Funniest Timestamps"
 msgstr "가장 웃긴 타임스탬프"
 
 #: templates/funniest_timestamps.html:101
+#, fuzzy
 msgid ""
 "Determined using the highest concentration of humerous reactions by chat "
 "for each stream.<br><br>\n"
-"    Each link opens YouTube in a new window.<br><br>CSV Download contains"
+"    Each link opens YouTube in a new window.<br><br>CSV Download contains"
 " timestamps in HH:MM:SS format for use with yt-dlp, ffmpeg, etc. for "
 "clipping."
-msgstr "각 스트림에서 채팅에서 가장 웃긴 반응이 집중된 타임스탬프를 사용하여 결정됩니다.<br><br>각 링크는 YouTube에서 새 창으로 열립니다.<br><br>CSV 다운로드에는 yt-dlp, ffmpeg 등에서 클리핑에 사용할 수 있는 HH:MM:SS 형식의 타임스탬프가 포함되어 있습니다."
+msgstr ""
+"각 스트림에서 채팅에서 가장 웃긴 반응이 집중된 타임스탬프를 사용하여 결정됩니다.<br><br>각 링크는 YouTube에서 새 "
+"창으로 열립니다.<br><br>CSV 다운로드에는 yt-dlp, ffmpeg 등에서 클리핑에 사용할 수 있는 HH:MM:SS 형식의"
+" 타임스탬프가 포함되어 있습니다."
 
 #: templates/funniest_timestamps.html:116
 msgid "Fetch Funniest Moments"
@@ -486,7 +503,9 @@ msgstr "AI 하이라이트 검색"
 msgid ""
 "Search for moments using semantic meaning. You can use operators like "
 "channel:<name>, from:<YYYY-MM-DD>, and to:<YYYY-MM-DD>."
-msgstr "의미적 의미를 사용하여 순간을 검색합니다. channel:<이름>, from:<YYYY-MM-DD>, to:<YYYY-MM-DD>와 같은 연산자를 사용할 수 있습니다."
+msgstr ""
+"의미적 의미를 사용하여 순간을 검색합니다. channel:<이름>, from:<YYYY-MM-DD>, to:<YYYY-MM-DD>와"
+" 같은 연산자를 사용할 수 있습니다."
 
 #: templates/highlight_search.html:95
 msgid "e.g., paper boat channel:saba from:2025-08-01"
@@ -887,7 +906,9 @@ msgstr "활동 사용자 증감"
 msgid ""
 "Determined by users who met a 5 message threshold in one month but not in"
 " the other. Channels that didn't stream in either month are not included."
-msgstr "한 달 동안 5개의 메시지 임계값을 충족했지만 다른 달에는 충족하지 않은 사용자에 의해 결정됩니다. 두 달 모두 스트리밍하지 않은 채널은 포함되지 않습니다."
+msgstr ""
+"한 달 동안 5개의 메시지 임계값을 충족했지만 다른 달에는 충족하지 않은 사용자에 의해 결정됩니다. 두 달 모두 스트리밍하지 않은 "
+"채널은 포함되지 않습니다."
 
 #: templates/user_change.html:233
 msgid "Users Gained"
@@ -968,3 +989,4 @@ msgstr "선택한 사용자 및 월에 대한 데이터가 없습니다."
 
 #~ msgid "No data available for the selected user."
 #~ msgstr "선택한 기준에 대한 데이터가 없습니다."
+
