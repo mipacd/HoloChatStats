@@ -169,6 +169,7 @@ async def chat(request: Request):
             "content": (
                 "You have just received structured API results from your tools. "
                 "Use them to compose a concise, helpful answer to the user's question as Eri. "
+                "Use today's date for determining relative timeframes."
                 "Focus only on the most relevant insights."
             )
         })
@@ -193,7 +194,7 @@ async def chat(request: Request):
 
     final_answer = await call_openrouter(messages + [
         {"role": "system", "content": "Respond with a clear, concise text answer — not JSON."}
-    ])
+    ], temperature=0.5)
 
     logger.info(f"User {user_key} final answer: {final_answer.get('text', '')[:500]}")
 
