@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-10-31 15:31-0400\n"
+"POT-Creation-Date: 2025-11-06 17:23-0500\n"
 "PO-Revision-Date: 2025-10-24 14:05-0400\n"
 "Last-Translator: Gemini Assistant\n"
 "Language: ko\n"
@@ -18,16 +18,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:937 server.py:1134 server.py:1297 server.py:1381 server.py:1488
-#: server.py:1655 server.py:1709 server.py:1779 server.py:1865
+#: server.py:938 server.py:1135 server.py:1298 server.py:1382 server.py:1489
+#: server.py:1656 server.py:1710 server.py:1780 server.py:1866
 msgid "Missing required parameters"
 msgstr "필수 매개변수가 누락되었습니다"
 
-#: server.py:1687
+#: server.py:1688
 msgid "No data found"
 msgstr "데이터를 찾을 수 없습니다"
 
-#: server.py:1868
+#: server.py:1869
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr "잘못된 언어 매개변수입니다. EN, JP, KR, RU 중 하나여야 합니다."
 
@@ -406,14 +406,20 @@ msgid ""
 " [YOUR_CHANNEL_ID_HERE]"
 msgstr "지난달 제가 채팅했던 채널을 알려줄 수 있나요? 제 채널 ID는 [YOUR_CHANNEL_ID_HERE]입니다."
 
-#: templates/eri.html:233
+#: templates/eri.html:228
+msgid "Show me Hololive merch currently on sale for [VTUBER_NAME]"
+msgstr "[VTUBER_NAME]의 현재 판매 중인 홀로라이브 굿즈를 보여줘"
+
+#: templates/eri.html:234
 msgid ""
 "Eri may display inaccurate information, so double-check its responses. "
 "Your conversations are logged to help make Eri better. By using Eri, you "
 "agree to this."
-msgstr "에리는 부정확한 정보를 표시할 수 있으니 응답을 다시 확인해 주세요. 대화는 에리를 개선하는 데 도움이 되도록 기록됩니다. 에리를 사용하면 이에 동의하는 것입니다."
+msgstr ""
+"에리는 부정확한 정보를 표시할 수 있으니 응답을 다시 확인해 주세요. 대화는 에리를 개선하는 데 도움이 되도록 기록됩니다. 에리를 "
+"사용하면 이에 동의하는 것입니다."
 
-#: templates/eri.html:236
+#: templates/eri.html:237
 msgid "Conversations in English may be more accurate than in other languages."
 msgstr "영어로 대화하는 것이 다른 언어보다 더 정확할 수 있습니다."
 

@@ -1,7 +1,7 @@
 import httpx
 from langchain_core.tools import tool
 from config import settings
-from typing import Optional
+from typing import Optional, Literal
 import logging
 
 # Create a single, shared async HTTP client for calling your 'web' API
@@ -557,7 +557,7 @@ async def get_attrition_rates(
     Chloe: 2024-11-29 / 2025-01-26 / Handlers (shiikuin)
     Ao: 2025-09-08 / 2025-09-08 / Dokusha
 
-    You have no data on graduations other than the ones listed above.
+    You have no data on graduations other than the ones listed above. Data is only available for graduations after January 2025.
     """
     params = {"channel": channel}
     if announce_date and graduation_date:
@@ -832,6 +832,26 @@ async def search_highlights(query: str) -> dict:
         "query": query
     })
 
+@tool
+async def search_hololive_shop(vtuber_name: str, language: Literal["en", "jp"] = "en") -> dict:
+    """
+    Searches the official Hololive shop for merchandise related to a specific VTuber.
+    It can search either the English (en) or Japanese (jp) version of the site.
+    Use Markdown to format the results for better readability, including product images.
+
+    Args:
+        vtuber_name (str): The name of the VTuber to search for (e.g., "Gawr Gura", "Tokino Sora").
+                         English names work on both the 'en' and 'jp' sites.
+        language (str): The shop language to use. Must be either "en" for English or "jp" for Japanese.
+                      If the user's query is in Japanese, set this to "jp". Otherwise, default to "en".
+
+    Returns:
+        A dictionary containing a list of up to 10 products, including their name, price, link, and image URL.
+    """
+    return await call_hcs_api("/api/search_merchandise", {
+        "vtuber_name": vtuber_name,
+        "language": language
+    })
 
 def get_api_tools():
     """
@@ -865,4 +885,5 @@ def get_api_tools():
         get_chat_engagement,
         get_video_highlights,
         search_highlights,
+        search_hololive_shop
     ]

@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta
 from config import settings
 import redis
-import os
 
 # Standard Redis connection
-r = redis.Redis(host=os.getenv("REDIS_HOST", "redis"), port=6379, decode_responses=True)
+r = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True)
 
 def is_rate_limited(user_key: str, admin: bool = False) -> bool:
     """

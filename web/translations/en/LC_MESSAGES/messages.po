@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-10-31 15:31-0400\n"
+"POT-Creation-Date: 2025-11-06 17:23-0500\n"
 "PO-Revision-Date: 2025-03-20 14:31-0400\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -18,16 +18,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:937 server.py:1134 server.py:1297 server.py:1381 server.py:1488
-#: server.py:1655 server.py:1709 server.py:1779 server.py:1865
+#: server.py:938 server.py:1135 server.py:1298 server.py:1382 server.py:1489
+#: server.py:1656 server.py:1710 server.py:1780 server.py:1866
 msgid "Missing required parameters"
 msgstr ""
 
-#: server.py:1687
+#: server.py:1688
 msgid "No data found"
 msgstr ""
 
-#: server.py:1868
+#: server.py:1869
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
@@ -404,15 +404,19 @@ msgid ""
 " [YOUR_CHANNEL_ID_HERE]"
 msgstr ""
 
-#: templates/eri.html:233
+#: templates/eri.html:228
+msgid "Show me Hololive merch currently on sale for [VTUBER_NAME]"
+msgstr ""
+
+#: templates/eri.html:234
 msgid ""
 "Eri may display inaccurate information, so double-check its responses. "
 "Your conversations are logged to help make Eri better. By using Eri, you "
 "agree to this."
 msgstr ""
 
-#: templates/eri.html:236
-msgid "Responses in English may be more accurate than in other languages."
+#: templates/eri.html:237
+msgid "Conversations in English may be more accurate than in other languages."
 msgstr ""
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:39
@@ -1176,5 +1180,8 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid "No data available for the selected user."
+#~ msgstr ""
+
+#~ msgid "Responses in English may be more accurate than in other languages."
 #~ msgstr ""
 

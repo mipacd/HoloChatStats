@@ -27,6 +27,7 @@ import time
 import redis
 import re
 import socket
+import urllib.parse
 
 
 load_dotenv()
@@ -2641,7 +2642,132 @@ def search_highlights():
     except Exception as e:
         print(f"An error occurred in search_highlights: {e}")
         return jsonify({"success": False, "error": "An internal server error occurred."}), 500
+    
+@app.route('/api/search_merchandise', methods=['GET'])
+def search_merchandise():
+    vtuber_name = request.args.get('vtuber_name')
+    language = request.args.get('language', 'en')
 
+    if not vtuber_name:
+        return jsonify({"success": False, "error": "Missing required parameter: vtuber_name"}), 400
+
+    if language not in ['en', 'jp']:
+        return jsonify({"success": False, "error": "Invalid language parameter. Must be 'en' or 'jp'."}), 400
+
+    base_url = "https://shop.hololivepro.com"
+    lang_path = "/en" if language == "en" else ""
+
+    query_params = {
+        "q": vtuber_name,
+        "options[prefix]": "last",
+        "filter.p.m.sales.status": "販売中",
+        "sort_by": "relevance"
+    }
+    search_url = f"{base_url}{lang_path}/search?{urllib.parse.urlencode(query_params)}"
+
+    try:
+        response = requests.get(search_url, timeout=15)
+        response.raise_for_status()
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Failed to fetch Hololive shop: {e}"}), 500
+
+    match = re.search(
+        r'<script id="web-pixels-manager-setup"[^>]*>\s*(.*?)\s*</script>',
+        response.text,
+        re.DOTALL
+    )
+    if not match:
+        return jsonify({"success": False, "error": "Could not find web-pixels-manager-setup script"}), 500
+
+    script_content = match.group(1)
+
+    # Find the events string by manually parsing to handle the long escaped JSON
+    events_start = script_content.find('"events":"')
+    
+    if events_start == -1:
+        return jsonify({"success": False, "error": "Could not find events data"}), 404
+
+    # Start after "events":"
+    i = events_start + len('"events":"')
+    
+    # Find the closing quote, accounting for escaped quotes
+    events_str = ""
+    while i < len(script_content):
+        char = script_content[i]
+        
+        if char == '\\' and i + 1 < len(script_content):
+            # Escaped character, include both the backslash and next char
+            events_str += char + script_content[i + 1]
+            i += 2
+        elif char == '"':
+            # Found the closing quote
+            break
+        else:
+            events_str += char
+            i += 1
+    
+    if not events_str:
+        return jsonify({"success": False, "error": "Could not extract events string"}), 404
+
+    try:
+        # The string is JSON-encoded, so we need to decode it as a JSON string first
+        # This will properly handle all escape sequences including \", \u0026, etc.
+        events_str_decoded = json.loads('"' + events_str + '"')
+        
+        # Now parse the actual events array
+        events = json.loads(events_str_decoded)
+        
+        # Look for search_submitted event
+        product_variants = []
+        for event in events:
+            if isinstance(event, list) and len(event) >= 2:
+                event_name = event[0]
+                event_data = event[1] if len(event) > 1 else {}
+                
+                if event_name == "search_submitted":
+                    search_result = event_data.get("searchResult", {})
+                    product_variants = search_result.get("productVariants", [])
+                    break
+        
+        if not product_variants:
+            return jsonify({"success": False, "error": "No product variants found in search results"}), 404
+            
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error: {e}")
+        print(f"Error at position: {e.pos if hasattr(e, 'pos') else 'unknown'}")
+        if 'events_str_decoded' in locals():
+            error_pos = getattr(e, 'pos', 2839)
+            print(f"Context around error: {events_str_decoded[max(0, error_pos-100):error_pos+100]}")
+        return jsonify({"success": False, "error": f"Failed to parse events JSON: {e}"}), 500
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": f"Failed to extract data: {e}"}), 500
+
+    results = []
+    for p in product_variants:
+        product = p.get("product", {})
+        image = p.get("image", {})
+        price = p.get("price", {})
+        results.append({
+            "title": product.get("title"),
+            "vendor": product.get("vendor"),
+            "url": f"{base_url}{product.get('url')}" if product.get('url') else None,
+            "price": f"{price.get('amount')} {price.get('currencyCode')}" if price.get('amount') else None,
+            "image": f"https:{image.get('src')}" if image.get("src") else None,
+            "sku": p.get("sku"),
+            "variant_title": p.get("title"),
+            "type": product.get("type"),
+        })
+
+    return jsonify({
+        "success": True,
+        "query": vtuber_name,
+        "language": language,
+        "count": len(results),
+        "results": results
+    })
 
 @app.route('/streaming_hours')
 def streaming_hours_view():

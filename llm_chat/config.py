@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_MODEL: str = "alibaba/tongyi-deepresearch-30b-a3b:free"
     WEB_API_USER_AGENT: str = "HoloChatStats-LLM/1.0"
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6380
 
     # Limits
     MAX_API_CALLS_PER_PROMPT: int = 3
