@@ -30,73 +30,69 @@
             width: 100% !important;
             height: 100% !important;
         }
-        #chat-container {
+        /* === Sticky Eri Widget === */
+        .eri-widget {
             position: fixed;
             bottom: 20px;
-            right: 20px;
-            width: 300px;
-            background-color: #222;
-            border: 1px solid #444;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            z-index: 1000;
-        }
-        #chat-container.collapsed {
-            width: 40px;
-            height: 40px;
-            overflow: hidden;
-        }
-        #chat-container.collapsed #chat-header span,
-        #chat-container.collapsed #chat-messages,
-        #chat-container.collapsed #chat-input {
-            display: none;
-        }
-        #chat-container.collapsed #chat-header {
-            justify-content: center;
-            padding: 0;
-        }
-        #chat-container.collapsed #toggle-chat {
-            width: 100%;
-            height: 100%;
-            border: none;
-            background: none;
-            color: white;
-        }
-        #chat-header {
-            padding: 8px;
-            background-color: #333;
+            right: 25px;
+            z-index: 9999;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            align-items: flex-end;
+            gap: 10px;
             cursor: pointer;
         }
-        #chat-messages {
-            height: 200px;
-            overflow-y: auto;
-            padding: 8px;
+
+        .eri-bubble {
+            background: rgba(255, 255, 255, 0.95);
+            color: #222;
+            padding: 10px 14px;
+            border-radius: 14px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            font-size: 0.95rem;
+            line-height: 1.3;
+            position: relative;
+            transition: all 0.3s ease;
         }
-        #chat-input {
-            display: flex;
-            padding: 8px;
-            border-top: 1px solid #444;
+
+        .eri-bubble::after {
+            content: "";
+            position: absolute;
+            bottom: 12px;
+            right: -8px;
+            border-width: 8px;
+            border-style: solid;
+            border-color: transparent transparent transparent rgba(255, 255, 255, 0.95);
         }
-        #chat-question {
-            flex-grow: 1;
-            background-color: #222;
-            color: white;
-            border: 1px solid #444;
-            padding: 4px;
+
+        .eri-bubble:hover {
+            transform: scale(1.03);
         }
-        .message {
-            margin: 4px 0;
-            padding: 4px;
-            border-radius: 4px;
+
+        .eri-chibi {
+            width: 50px;
+            height: auto;
+            transition: transform 0.3s ease;
         }
-        .user-message {
-            background-color: #2a3a4a;
+
+        .eri-chibi:hover {
+            transform: scale(1.05);
         }
-        .bot-message {
-            background-color: #3a2a4a;
+
+        @media (max-width: 768px) {
+            .eri-widget {
+                bottom: 10px;
+                right: 10px;
+                flex-direction: column;
+                align-items: flex-end;
+            }
+
+            .eri-chibi {
+                width: 80px;
+            }
+
+            .eri-bubble {
+                font-size: 0.85rem;
+            }
         }
     </style>
 </head>
@@ -119,19 +115,6 @@
                 <option value="Hololive">{{_("Hololive")}}</option>
                 <option value="Indie">{{_("Indie")}}</option>
             </select>
-</div>
-    <div id="chat-container" class="collapsed">
-    <div id="chat-header">
-      <span>HoloChatStats Bot</span>
-      <button id="toggle-chat">
-        <i class="bi bi-question-circle"></i>
-      </button>
-    </div>
-    <div id="chat-messages"></div>
-    <div id="chat-input">
-      <input type="text" id="chat-question" placeholder="Ask about the data...">
-      <button id="chat-send"><i class="bi bi-send"></i></button>
-    </div>
   </div>
         <div class="col-md-4">
             <label for="monthSelect">{{ _("Month:") }}</label>
@@ -149,6 +132,13 @@
         </div>
     </div>
 </div>
+<!-- === Eri Sticky Widget === -->
+<a href="/eri" class="eri-widget" title="{{ _("Chat with Eri") }}">
+    <div class="eri-bubble">
+        {{ _("💬 Got a question for me?") }}
+    </div>
+    <img src="/static/eri_chibi.png" alt="Eri chibi" class="eri-chibi">
+</a>
 
 <script>
 $(document).ready(function() {
