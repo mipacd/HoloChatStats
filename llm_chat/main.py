@@ -184,6 +184,8 @@ Based on this data, I will now formulate a response in {state['language']}.
     
     response_text = final_response.get("text", "")
 
+    print(f"---FINAL RESPONSE GENERATED---\n{response_text}\n---------------------------")
+
     return {"response": response_text or "I'm sorry, I encountered an issue and can't provide a response right now."}
 
 tools = {t.name: t for t in get_api_tools()}
