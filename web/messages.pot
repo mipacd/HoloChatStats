@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-06 17:23-0500\n"
+"POT-Creation-Date: 2025-11-08 13:08-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -416,6 +416,36 @@ msgstr ""
 
 #: templates/eri.html:237
 msgid "Conversations in English may be more accurate than in other languages."
+msgstr ""
+
+#: templates/eri.html:255
+msgid "Let's see..."
+msgstr ""
+
+#: templates/eri.html:256
+msgid "Deciphering your request..."
+msgstr ""
+
+#: templates/eri.html:257
+msgid "Alright, plotting a course of action."
+msgstr ""
+
+#: templates/eri.html:258
+msgid "Searching the HoloChatStats archives..."
+msgstr ""
+
+#: templates/eri.html:259
+msgid "Compiling the data..."
+msgstr ""
+
+#: templates/eri.html:260
+msgid ""
+"Looks like you've reached the daily query limit. Please try again "
+"tomorrow."
+msgstr ""
+
+#: templates/eri.html:325
+msgid "Sorry — I couldn't reach the assistant (network error)."
 msgstr ""
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:39

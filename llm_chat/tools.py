@@ -107,6 +107,7 @@ async def get_group_total_streaming_hours(group: str, month: str) -> dict:
                     "channel": str,     # Channel name
                     "month": str,       # Month in 'YYYY-MM' format
                     "hours": float      # Total streaming hours for that channel during the month
+                    "change": float     # Change in hours from the previous month
                 }
             ]
         }

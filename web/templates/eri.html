@@ -251,10 +251,18 @@ if (adminKey) {
     $('#adminBadge').show();
 }
 
+const statusMessages = {
+    'status_connecting': {{ _("Let's see...") | tojson }},
+    'status_translating': {{ _("Deciphering your request...") | tojson }},
+    'status_planner': {{ _("Alright, plotting a course of action.") | tojson }},
+    'status_tools': {{ _("Searching the HoloChatStats archives...") | tojson }},
+    'status_responder': {{ _("Compiling the data...") | tojson }},
+    'rate_limit_exceeded': {{ _("Looks like you've reached the daily query limit. Please try again tomorrow.") | tojson }}
+};
+
 function appendMessage(sender, text, isAssistantMarkdown = false) {
     const row = $('<div>').addClass('message-row').addClass(sender === 'eri' ? 'eri' : 'user');
     const bubble = $('<div>').addClass('chat-bubble').addClass(sender === 'eri' ? 'eri' : 'user');
-
     if (sender === 'eri') {
         bubble.append($('<span>').addClass('sender').text('Eri'));
         if (isAssistantMarkdown) {
@@ -262,16 +270,9 @@ function appendMessage(sender, text, isAssistantMarkdown = false) {
                 const rawHtml = marked.parse(text || '');
                 const cleanHtml = DOMPurify.sanitize(rawHtml, { ALLOWED_ATTR: ['href', 'target', 'rel'] });
                 bubble.append($('<span>').addClass('msg').html(cleanHtml));
-            } catch {
-                bubble.append($('<span>').addClass('msg').text(text));
-            }
-        } else {
-            bubble.append($('<span>').addClass('msg').text(text));
-        }
-    } else {
-        bubble.append($('<span>').addClass('msg').text(text));
-    }
-
+            } catch { bubble.append($('<span>').addClass('msg').text(text)); }
+        } else { bubble.append($('<span>').addClass('msg').text(text)); }
+    } else { bubble.append($('<span>').addClass('msg').text(text)); }
     row.append(bubble);
     $('#chatMessages').append(row);
     $('#chatMessages').scrollTop($('#chatMessages')[0].scrollHeight);
@@ -284,19 +285,13 @@ async function sendMessage() {
     $('#userInput').val('');
     chatHistory.push({"role": "user", "content": message});
 
-    const loadingMsg = $('<div class="loading">Eri is thinking...</div>');
+    const loadingMsg = $('<div class="loading"></div>').text(statusMessages['status_connecting']);
     $('#chatMessages').append(loadingMsg);
     $('#chatMessages').scrollTop($('#chatMessages')[0].scrollHeight);
 
     try {
-        const payload = { 
-            message, 
-            chat_history: chatHistory 
-        };
-
-        if (adminKey) {
-            payload.admin_key = adminKey;
-        }
+        const payload = { message, chat_history: chatHistory };
+        if (adminKey) { payload.admin_key = adminKey; }
 
         const baseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8080' : 'https://llm.holochatstats.info';
 
@@ -307,19 +302,99 @@ async function sendMessage() {
         });
 
         if (!response.ok) {
-            const text = await response.text();
-            console.error("LLM fetch failed:", response.status, text);
-            loadingMsg.remove();
-            appendMessage('eri', "Sorry — I couldn't reach the assistant (network error).");
+            if (response.status === 429) {
+                try {
+                    const errorData = await response.json();
+                    // Get the error message from the detail object
+                    const errorKey = errorData.detail?.key;
+                    const errorMessage = statusMessages[errorKey] || errorData.detail?.message || statusMessages['rate_limit_exceeded'];
+                    
+                    // Remove the loading message and show the error as a proper message
+                    loadingMsg.remove();
+                    appendMessage('eri', errorMessage);
+                } catch (parseError) {
+                    console.error("Failed to parse 429 error:", parseError);
+                    // Fallback if JSON parsing fails for any reason
+                    loadingMsg.remove();
+                    appendMessage('eri', statusMessages['rate_limit_exceeded']);
+                }
+            } else {
+                const text = await response.text();
+                console.error("LLM fetch failed:", response.status, text);
+                loadingMsg.remove();
+                appendMessage('eri', {{ _("Sorry — I couldn't reach the assistant (network error).") | tojson }});
+            }
             return;
         }
 
-        const data = await response.json();
-        loadingMsg.remove();
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-        const answerText = data.answer || "(no response)";
-        appendMessage('eri', answerText, true);
-        chatHistory.push({"role": "assistant", "content": answerText});
+        const textDecoder = new TextDecoder();
+        let sseBuffer = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            sseBuffer += textDecoder.decode(value, { stream: true });
+            const events = sseBuffer.split("\n\n");
+            sseBuffer = events.pop(); // Keep incomplete event
+
+            for (const ev of events) {
+                const line = ev.trim();
+                if (!line.startsWith("data:")) continue;
+                const jsonStr = line.slice(5).trim();
+
+                try {
+                    const update = JSON.parse(jsonStr);
+                    if (update.type === "status") {
+                        loadingMsg.text(statusMessages[update.key] || "Working...");
+                    } else if (update.type === "answer") {
+                        loadingMsg.remove();
+                        appendMessage("eri", update.message, true);
+                        chatHistory.push({ role: "assistant", content: update.message });
+                    } else if (update.type === "error") {
+                        loadingMsg.text(update.message);
+                    }
+                } catch (e) {
+                    console.error("Invalid SSE data:", jsonStr, e);
+                }
+            }
+        }
+
+        // Flush last message after stream ends
+        if (sseBuffer.trim().startsWith("data:")) {
+            const jsonStr = sseBuffer.slice(5).trim();
+            try {
+                const update = JSON.parse(jsonStr);
+                if (update.type === "answer") {
+                    loadingMsg.remove();
+                    appendMessage("eri", update.message, true);
+                    chatHistory.push({ role: "assistant", content: update.message });
+                }
+            } catch (e) {
+                console.error("Failed to parse final SSE event:", jsonStr, e);
+            }
+        }
+        
+        // Process any final data left in the buffer after the loop finishes
+        if (buffer && buffer.startsWith('data: ')) {
+            const dataString = buffer.substring(6);
+            if (dataString) {
+                try {
+                    const update = JSON.parse(dataString);
+                    if (update.type === 'answer') {
+                        loadingMsg.remove();
+                        appendMessage('eri', update.message, true);
+                        chatHistory.push({"role": "assistant", "content": update.message});
+                    }
+                } catch (e) {
+                    console.error('Failed to parse final stream chunk:', dataString, e);
+                }
+            }
+        }
 
     } catch (err) {
         loadingMsg.remove();
@@ -333,16 +408,13 @@ $('#userInput').on('keypress', function(e) {
     if (e.which === 13) sendMessage();
 });
 
-// Populate selected prompt into text input
 $('#promptDropdown').on('change', function () {
     const selected = $(this).val();
     if (selected) {
         $('#userInput').val(selected);
-        // reset dropdown back to placeholder
         $(this).val('');
     }
 });
-
 </script>
 </body>
 </html>

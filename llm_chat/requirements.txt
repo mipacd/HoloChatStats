@@ -4,3 +4,4 @@ redis
 httpx
 langchain-core
 uvicorn
+langgraph

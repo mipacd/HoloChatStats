@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-06 17:23-0500\n"
+"POT-Creation-Date: 2025-11-08 13:08-0500\n"
 "PO-Revision-Date: 2025-10-24 14:05-0400\n"
 "Last-Translator: Gemini Assistant\n"
 "Language: ko\n"
@@ -422,6 +422,36 @@ msgstr ""
 #: templates/eri.html:237
 msgid "Conversations in English may be more accurate than in other languages."
 msgstr "영어로 대화하는 것이 다른 언어보다 더 정확할 수 있습니다."
+
+#: templates/eri.html:255
+msgid "Let's see..."
+msgstr "어디 보자..."
+
+#: templates/eri.html:256
+msgid "Deciphering your request..."
+msgstr "요청 내용을 확인하는 중..."
+
+#: templates/eri.html:257
+msgid "Alright, plotting a course of action."
+msgstr "알겠어요, 계획을 세우는 중이에요."
+
+#: templates/eri.html:258
+msgid "Searching the HoloChatStats archives..."
+msgstr "HoloChatStats 아카이브를 검색하는 중..."
+
+#: templates/eri.html:259
+msgid "Compiling the data..."
+msgstr "데이터를 정리하는 중..."
+
+#: templates/eri.html:260
+msgid ""
+"Looks like you've reached the daily query limit. Please try again "
+"tomorrow."
+msgstr "오늘의 질문 횟수를 다 사용하셨어요. 내일 다시 시도해 주세요."
+
+#: templates/eri.html:325
+msgid "Sorry — I couldn't reach the assistant (network error)."
+msgstr "죄송해요 — 어시스턴트에 연결할 수 없었어요 (네트워크 오류)."
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:39
 #: templates/menu.html:64
