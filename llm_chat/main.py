@@ -7,7 +7,7 @@ from llm.planner import plan_api_calls
 from rate_limit import is_rate_limited
 from fastapi.middleware.cors import CORSMiddleware
 from typing import TypedDict, List, Optional
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import BaseMessage
 from langgraph.graph import StateGraph, END
 import asyncio
 import json, datetime
@@ -69,6 +69,7 @@ async def translate_and_structure_query(state: AgentState):
         VTuber Name Map: {settings.VTUBER_NAME_MAP}
         
         Respond with a JSON object with 'english_query' and 'channels' keys.
+        If the query has a page context, preserve it in the 'english_query'.
         """
         response = await call_openrouter([{"role": "user", "content": prompt}], temperature=0)
         try:

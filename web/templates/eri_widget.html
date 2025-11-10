@@ -1,0 +1,794 @@
+<!-- Chat Widget Template - chat_widget.html -->
+<style>
+    /* Chat Widget Styles */
+    .eri-chat-widget {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+        transition: right 0.3s ease;
+    }
+
+    .eri-chat-widget.minimized-to-side {
+        right: -70px; /* Adjusted so 40-45px of the tab remains visible */
+    }
+
+    /* Minimized state - just the icon */
+    .eri-widget-trigger {
+        position: relative;
+        display: block;
+        cursor: pointer;
+        transition: transform 0.3s ease;
+    }
+
+    .eri-widget-trigger:hover {
+        transform: scale(1.05);
+    }
+
+    .eri-widget-trigger.hidden {
+        display: none;
+    }
+
+    .eri-chibi-widget {
+        width: auto;
+        height: 80px;
+        display: block;
+        filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+        transition: filter 0.3s ease;
+        pointer-events: auto;
+    }
+
+    .eri-widget-trigger:hover .eri-chibi-widget {
+        filter: drop-shadow(0 6px 16px rgba(30,144,255,0.6));
+    }
+
+    /* Side minimize arrow */
+    .eri-side-arrow {
+        position: absolute;
+        top: 50%;
+        right: 100%;
+        margin-right: 2px;
+        transform: translateY(-50%);
+        background: rgba(30, 144, 255, 0.95);
+        color: white;
+        border: none;
+        border-radius: 8px 0 0 8px;
+        width: 36px;
+        height: 50px;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 18px;
+        box-shadow: -2px 2px 8px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+        z-index: 10;
+        pointer-events: auto;
+        opacity: 0;
+        visibility: hidden;
+        display: flex;
+    }
+
+    /* Show arrow on trigger hover */
+    .eri-widget-trigger:hover .eri-side-arrow,
+    .eri-side-arrow:hover,
+    .eri-side-arrow.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .eri-side-arrow:hover {
+        background: rgba(30, 144, 255, 1);
+        width: 40px;
+    }
+
+    /* When minimized to side, always show the restore arrow */
+    .eri-chat-widget.minimized-to-side .eri-side-arrow {
+        opacity: 1 !important;
+        visibility: visible !important;
+        background: rgba(30, 144, 255, 0.95);
+        width: 40px;
+        margin-right: 0;
+    }
+
+    .eri-chat-widget.minimized-to-side .eri-side-arrow:hover {
+        width: 45px;
+        background: rgba(30, 144, 255, 1);
+    }
+
+    /* Bubble positioned to the left of the icon */
+    .eri-bubble-widget {
+        position: absolute;
+        top: 50%;
+        right: calc(100% + 10px);
+        transform: translateY(-50%);
+        background: #1e90ff;
+        color: white;
+        padding: 10px 14px;
+        border-radius: 18px;
+        font-size: 14px;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        animation: bounce 2s infinite;
+        max-width: 200px;
+        pointer-events: none;
+    }
+
+    /* Arrow pointing to the right (toward the icon) */
+    .eri-bubble-widget::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        right: -8px;
+        transform: translateY(-50%);
+        width: 0;
+        height: 0;
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+        border-left: 8px solid #1e90ff;
+    }
+
+    @keyframes bounce {
+        0%, 100% { transform: translateY(-50%); }
+        50% { transform: translateY(-50%) translateY(-5px); }
+    }
+
+    /* Hide bubble when minimized to side */
+    .eri-chat-widget.minimized-to-side .eri-bubble-widget {
+        display: none;
+    }
+
+    /* Chat window */
+    .eri-chat-window {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 380px;
+        height: 500px;
+        background-color: rgba(10,10,10,0.95);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+    }
+
+    .eri-chat-window.active {
+        display: flex;
+    }
+
+    /* Chat header */
+    .eri-chat-header {
+        background: linear-gradient(135deg, #1e90ff 0%, #0066cc 100%);
+        color: white;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .eri-chat-header-title {
+        font-weight: 600;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .eri-chat-header-title img {
+        width: auto;
+        height: 24px;
+        max-width: 24px;
+        object-fit: contain;
+    }
+
+    .eri-minimize-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 0;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .eri-minimize-btn:hover {
+        background: rgba(255,255,255,0.2);
+    }
+
+    /* Chat messages area */
+    .eri-widget-messages {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: rgba(20,20,20,0.95);
+    }
+
+    /* Message styling */
+    .eri-widget-message-row {
+        display: flex;
+        width: 100%;
+    }
+
+    .eri-widget-message-row.eri {
+        justify-content: flex-start;
+    }
+
+    .eri-widget-message-row.user {
+        justify-content: flex-end;
+    }
+
+    .eri-widget-bubble {
+        display: inline-block;
+        max-width: 85%;
+        padding: 8px 12px;
+        border-radius: 12px;
+        line-height: 1.4;
+        word-break: break-word;
+        font-size: 14px;
+    }
+
+    .eri-widget-bubble.eri {
+        background-color: rgba(44,44,44,0.9);
+        color: #e9eef6;
+        border-bottom-left-radius: 4px;
+    }
+
+    .eri-widget-bubble.user {
+        background-color: #1e90ff;
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+
+    .eri-widget-bubble .sender {
+        display: block;
+        font-weight: 600;
+        color: #ffdede;
+        font-size: 12px;
+        margin-bottom: 2px;
+    }
+
+    .eri-widget-bubble .msg {
+        display: block;
+        font-size: 14px;
+        white-space: pre-wrap;
+    }
+
+    /* Markdown styles */
+    .eri-widget-bubble .msg pre {
+        background: rgba(0,0,0,0.6);
+        padding: 6px;
+        border-radius: 4px;
+        overflow: auto;
+        font-family: monospace;
+        font-size: 12px;
+        margin: 4px 0;
+    }
+
+    .eri-widget-bubble .msg code {
+        background: rgba(0,0,0,0.4);
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-family: monospace;
+        font-size: 12px;
+    }
+
+    .eri-widget-bubble .msg a {
+        color: #4da6ff;
+        text-decoration: underline;
+    }
+
+    .eri-widget-bubble .msg a:hover {
+        color: #80bfff;
+    }
+
+    /* Input area */
+    .eri-widget-input-area {
+        padding: 12px;
+        background: rgba(30,30,30,0.95);
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .eri-widget-input-wrapper {
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+    }
+
+    .eri-widget-input {
+        flex-grow: 1;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 20px;
+        padding: 8px 14px;
+        color: white;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s;
+        font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+        resize: none;
+        overflow-y: auto;
+        min-height: 36px;
+        max-height: 120px;
+        line-height: 1.4;
+    }
+
+    .eri-widget-input:focus {
+        border-color: #1e90ff;
+    }
+
+    .eri-widget-input::placeholder {
+        color: rgba(255,255,255,0.5);
+    }
+
+    .eri-widget-input::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .eri-widget-input::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.05);
+        border-radius: 2px;
+    }
+
+    .eri-widget-input::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.2);
+        border-radius: 2px;
+    }
+
+    .eri-widget-send-btn {
+        background: #1e90ff;
+        border: none;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+        flex-shrink: 0;
+    }
+
+    .eri-widget-send-btn:hover {
+        background: #0066cc;
+    }
+
+    .eri-widget-send-btn:disabled {
+        background: #555;
+        cursor: not-allowed;
+    }
+
+    .eri-widget-loading {
+        color: #a0a0a0;
+        font-style: italic;
+        font-size: 13px;
+        padding: 4px 12px;
+        text-align: center;
+    }
+
+    .eri-admin-badge {
+        color: #00ffbb;
+        font-size: 14px;
+        margin-right: 4px;
+    }
+
+    /* Mobile responsiveness */
+    @media (max-width: 480px) {
+        .eri-chat-window {
+            width: 100%;
+            height: 100%;
+            bottom: 0;
+            right: 0;
+            border-radius: 0;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+
+        .eri-chat-header {
+            border-radius: 0;
+        }
+
+        .eri-chat-widget {
+            bottom: 10px;
+            right: 10px;
+        }
+
+        .eri-chat-widget.minimized-to-side {
+            right: -60px;
+        }
+
+        .eri-side-arrow {
+            display: none !important;
+        }
+
+        .eri-bubble-widget {
+            display: none;
+        }
+    }
+
+    /* Scrollbar styling */
+    .eri-widget-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .eri-widget-messages::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.05);
+        border-radius: 3px;
+    }
+
+    .eri-widget-messages::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.2);
+        border-radius: 3px;
+    }
+
+    .eri-widget-messages::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.3);
+    }
+</style>
+
+<div class="eri-chat-widget" id="eriChatWidget">
+    <!-- Minimized trigger -->
+    <div class="eri-widget-trigger" id="eriWidgetTrigger">
+        <button class="eri-side-arrow" id="eriSideArrow" title="{{ _("Minimize to side") }}">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+        <div class="eri-bubble-widget" id="eriBubbleWidget">{{ _("💬 Got a question?") }}</div>
+        <img src="/static/eri_chibi.png" alt="Eri" class="eri-chibi-widget">
+    </div>
+
+    <!-- Chat window -->
+    <div class="eri-chat-window" id="eriChatWindow">
+        <div class="eri-chat-header">
+            <div class="eri-chat-header-title">
+                <img src="/static/eri_chibi.png" alt="Eri">
+                <span>{{ _("Chat with Eri") }}</span>
+                <span class="eri-admin-badge" id="eriWidgetAdminBadge" style="display:none;" title="Admin mode active">🛡️</span>
+            </div>
+            <button class="eri-minimize-btn" id="eriMinimizeBtn" title="{{ _("Minimize") }}">
+                <i class="bi bi-dash-lg"></i>
+            </button>
+        </div>
+
+        <div class="eri-widget-messages" id="eriWidgetMessages">
+            <div class="eri-widget-message-row eri">
+                <div class="eri-widget-bubble eri">
+                    <span class="sender">{{ _("Eri") }}</span>
+                    <span class="msg">{{ _("Hey, I'm Eri - HoloChatStats' virtual assistant. How can I help you today?") }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="eri-widget-input-area">
+            <div class="eri-widget-input-wrapper">
+                <textarea 
+                    class="eri-widget-input" 
+                    id="eriWidgetInput" 
+                    placeholder="{{ _("Ask Eri a question...") }}"
+                    autocomplete="off"
+                    rows="1"
+                ></textarea>
+                <button class="eri-widget-send-btn" id="eriWidgetSendBtn" title="{{ _("Send") }}">
+                    <i class="bi bi-send-fill"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global object for Eri widget context
+window.EriWidgetContext = window.EriWidgetContext || {};
+
+(function() {
+    // Widget-specific variables
+    let widgetChatHistory = [];
+    let widgetAdminKey = null;
+    let isMinimizedToSide = false;
+    
+    // Check for admin key
+    const urlParams = new URLSearchParams(window.location.search);
+    widgetAdminKey = urlParams.get("admin_key");
+    
+    if (widgetAdminKey) {
+        document.getElementById('eriWidgetAdminBadge').style.display = 'inline';
+    }
+
+    // Status messages
+    const widgetStatusMessages = {
+        'status_connecting': {{ _("Let's see...") | tojson }},
+        'status_translating': {{ _("Deciphering your request...") | tojson }},
+        'status_planner': {{ _("Alright, plotting a course of action.") | tojson }},
+        'status_tools': {{ _("Searching the HoloChatStats archives...") | tojson }},
+        'status_responder': {{ _("Compiling the data...") | tojson }},
+        'rate_limit_exceeded': {{ _("Looks like you've reached the daily query limit. Please try again tomorrow.") | tojson }}
+    };
+
+    // Auto-resize textarea as user types
+    const textarea = document.getElementById('eriWidgetInput');
+    
+    textarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // Arrow and minimize functionality
+    const sideArrow = document.getElementById('eriSideArrow');
+    const widgetTrigger = document.getElementById('eriWidgetTrigger');
+    const chatWidget = document.getElementById('eriChatWidget');
+    const arrowIcon = sideArrow.querySelector('i');
+    
+    // Prevent arrow from interfering with hover detection
+    let hoverTimeout = null;
+
+    // Keep arrow visible when hovering near it
+    sideArrow.addEventListener('mouseenter', function() {
+        clearTimeout(hoverTimeout);
+        this.classList.add('show');
+    });
+
+    sideArrow.addEventListener('mouseleave', function() {
+        const arrow = this;
+        if (!isMinimizedToSide) {
+            hoverTimeout = setTimeout(() => {
+                arrow.classList.remove('show');
+            }, 200);
+        }
+    });
+
+    widgetTrigger.addEventListener('mouseenter', function() {
+        clearTimeout(hoverTimeout);
+    });
+
+    widgetTrigger.addEventListener('mouseleave', function() {
+        if (!isMinimizedToSide) {
+            hoverTimeout = setTimeout(() => {
+                sideArrow.classList.remove('show');
+            }, 200);
+        }
+    });
+
+    sideArrow.addEventListener('click', function(e) {
+        e.stopPropagation();
+        
+        if (isMinimizedToSide) {
+            chatWidget.classList.remove('minimized-to-side');
+            arrowIcon.className = 'bi bi-chevron-right';
+            sideArrow.title = {{ _("Minimize to side") | tojson }};
+            isMinimizedToSide = false;
+        } else {
+            chatWidget.classList.add('minimized-to-side');
+            arrowIcon.className = 'bi bi-chevron-left';
+            sideArrow.title = {{ _("Restore") | tojson }};
+            isMinimizedToSide = true;
+        }
+    });
+
+    // Toggle chat window
+    widgetTrigger.addEventListener('click', function(e) {
+        if (e.target.closest('.eri-side-arrow')) {
+            return;
+        }
+        
+        document.getElementById('eriChatWindow').classList.add('active');
+        this.classList.add('hidden');
+        textarea.focus();
+    });
+
+    document.getElementById('eriMinimizeBtn').addEventListener('click', function() {
+        document.getElementById('eriChatWindow').classList.remove('active');
+        widgetTrigger.classList.remove('hidden');
+    });
+
+    // Get page context for the message
+    function getPageContext() {
+        if (window.EriWidgetContext && window.EriWidgetContext.getContext) {
+            return window.EriWidgetContext.getContext();
+        }
+        return null;
+    }
+
+    // Append message function
+    function appendWidgetMessage(sender, text, isAssistantMarkdown = false) {
+        const messagesContainer = document.getElementById('eriWidgetMessages');
+        const row = document.createElement('div');
+        row.className = `eri-widget-message-row ${sender === 'eri' ? 'eri' : 'user'}`;
+        
+        const bubble = document.createElement('div');
+        bubble.className = `eri-widget-bubble ${sender === 'eri' ? 'eri' : 'user'}`;
+        
+        if (sender === 'eri') {
+            const senderSpan = document.createElement('span');
+            senderSpan.className = 'sender';
+            senderSpan.textContent = 'Eri';
+            bubble.appendChild(senderSpan);
+            
+            const msgSpan = document.createElement('span');
+            msgSpan.className = 'msg';
+            
+            if (isAssistantMarkdown) {
+                try {
+                    const rawHtml = marked.parse(text || '');
+                    const cleanHtml = DOMPurify.sanitize(rawHtml, { ALLOWED_ATTR: ['href', 'target', 'rel'] });
+                    msgSpan.innerHTML = cleanHtml;
+                } catch {
+                    msgSpan.textContent = text;
+                }
+            } else {
+                msgSpan.textContent = text;
+            }
+            bubble.appendChild(msgSpan);
+        } else {
+            const msgSpan = document.createElement('span');
+            msgSpan.className = 'msg';
+            msgSpan.textContent = text;
+            bubble.appendChild(msgSpan);
+        }
+        
+        row.appendChild(bubble);
+        messagesContainer.appendChild(row);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Send message function
+    async function sendWidgetMessage() {
+        const sendBtn = document.getElementById('eriWidgetSendBtn');
+        const message = textarea.value.trim();
+        if (!message) return;
+        
+        appendWidgetMessage('user', message);
+        textarea.value = '';
+        textarea.style.height = 'auto';
+        textarea.disabled = true;
+        sendBtn.disabled = true;
+        
+        // Get page context
+        const pageContext = getPageContext();
+        let enrichedMessage = message;
+        
+        if (pageContext) {
+            // Add context to the message
+            enrichedMessage = `[Page Context: ${JSON.stringify(pageContext)}]\n${message}`;
+        }
+        
+        widgetChatHistory.push({"role": "user", "content": enrichedMessage});
+
+        const loadingMsg = document.createElement('div');
+        loadingMsg.className = 'eri-widget-loading';
+        loadingMsg.textContent = widgetStatusMessages['status_connecting'];
+        document.getElementById('eriWidgetMessages').appendChild(loadingMsg);
+        document.getElementById('eriWidgetMessages').scrollTop = document.getElementById('eriWidgetMessages').scrollHeight;
+
+        try {
+            const payload = { 
+                message: enrichedMessage, 
+                chat_history: widgetChatHistory,
+                page_context: pageContext 
+            };
+            if (widgetAdminKey) { payload.admin_key = widgetAdminKey; }
+
+            const baseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8080' : 'https://llm.holochatstats.info';
+
+            const response = await fetch(`${baseUrl}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                if (response.status === 429) {
+                    try {
+                        const errorData = await response.json();
+                        const errorKey = errorData.detail?.key;
+                        const errorMessage = widgetStatusMessages[errorKey] || errorData.detail?.message || widgetStatusMessages['rate_limit_exceeded'];
+                        
+                        loadingMsg.remove();
+                        appendWidgetMessage('eri', errorMessage);
+                    } catch (parseError) {
+                        console.error("Failed to parse 429 error:", parseError);
+                        loadingMsg.remove();
+                        appendWidgetMessage('eri', widgetStatusMessages['rate_limit_exceeded']);
+                    }
+                } else {
+                    const text = await response.text();
+                    console.error("LLM fetch failed:", response.status, text);
+                    loadingMsg.remove();
+                    appendWidgetMessage('eri', {{ _("Sorry — I couldn't reach the assistant (network error).") | tojson }});
+                }
+                textarea.disabled = false;
+                sendBtn.disabled = false;
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const textDecoder = new TextDecoder();
+            let sseBuffer = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                sseBuffer += textDecoder.decode(value, { stream: true });
+                const events = sseBuffer.split("\n\n");
+                sseBuffer = events.pop();
+
+                for (const ev of events) {
+                    const line = ev.trim();
+                    if (!line.startsWith("data:")) continue;
+                    const jsonStr = line.slice(5).trim();
+
+                    try {
+                        const update = JSON.parse(jsonStr);
+                        if (update.type === "status") {
+                            loadingMsg.textContent = widgetStatusMessages[update.key] || "Working...";
+                        } else if (update.type === "answer") {
+                            loadingMsg.remove();
+                            appendWidgetMessage("eri", update.message, true);
+                            widgetChatHistory.push({ role: "assistant", content: update.message });
+                        } else if (update.type === "error") {
+                            loadingMsg.textContent = update.message;
+                        }
+                    } catch (e) {
+                        console.error("Invalid SSE data:", jsonStr, e);
+                    }
+                }
+            }
+
+            if (sseBuffer.trim().startsWith("data:")) {
+                const jsonStr = sseBuffer.slice(5).trim();
+                try {
+                    const update = JSON.parse(jsonStr);
+                    if (update.type === "answer") {
+                        loadingMsg.remove();
+                        appendWidgetMessage("eri", update.message, true);
+                        widgetChatHistory.push({ role: "assistant", content: update.message });
+                    }
+                } catch (e) {
+                    console.error("Failed to parse final SSE event:", jsonStr, e);
+                }
+            }
+
+        } catch (err) {
+            loadingMsg.remove();
+            console.error(err);
+            appendWidgetMessage('eri', "Sorry, something went wrong while contacting the assistant.");
+        } finally {
+            textarea.disabled = false;
+            sendBtn.disabled = false;
+            textarea.focus();
+        }
+    }
+
+    // Event listeners
+    document.getElementById('eriWidgetSendBtn').addEventListener('click', sendWidgetMessage);
+    
+    // Handle Enter and Shift+Enter
+    textarea.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey && !this.disabled) {
+            e.preventDefault();
+            sendWidgetMessage();
+        }
+    });
+
+    // Hide bubble after a few seconds
+    setTimeout(function() {
+        const bubble = document.getElementById('eriBubbleWidget');
+        if (bubble) {
+            bubble.style.opacity = '0';
+            bubble.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => bubble.style.display = 'none', 500);
+        }
+    }, 8000);
+})();
+</script>

@@ -189,13 +189,7 @@
     </div>
   </div>
 </div>
-<!-- === Eri Sticky Widget === -->
-<a href="/eri" class="eri-widget" title="{{ _("Chat with Eri") }}">
-    <div class="eri-bubble">
-        {{ _("💬 Got a question for me?") }}
-    </div>
-    <img src="/static/eri_chibi.png" alt="Eri chibi" class="eri-chibi">
-</a>
+{% include 'eri_widget.html' %}
 <script>
   $(document).ready(function() {
     $('#monthPicker').datepicker({
@@ -306,6 +300,24 @@ $('#downloadCSV').on('click', function() {
     });
 });
 
+</script>
+<script>
+// Define the context for this specific page
+window.EriWidgetContext.getContext = function() {
+    // Get current page data
+    const channel = $('#channelSelect').val();
+    const month = $('#monthPicker').val() || new Date().toISOString().slice(
+    
+    return {
+        page: 'funniest_timestamps',
+        endpoint: '/api/get_funniest_timestamps',
+        parameters: {
+            channel: channel,
+            month: month
+        },
+        description: `Viewing funniest timestamps for ${channel} in ${month}`
+    };
+};
 </script>
 </body>
 </html>

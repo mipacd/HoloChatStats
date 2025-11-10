@@ -132,13 +132,7 @@
         </div>
     </div>
 </div>
-<!-- === Eri Sticky Widget === -->
-<a href="/eri" class="eri-widget" title="{{ _("Chat with Eri") }}">
-    <div class="eri-bubble">
-        {{ _("💬 Got a question for me?") }}
-    </div>
-    <img src="/static/eri_chibi.png" alt="Eri chibi" class="eri-chibi">
-</a>
+{% include 'eri_widget.html' %}
 
 <script>
 $(document).ready(function() {
@@ -258,92 +252,28 @@ $(document).ready(function() {
         document.body.removeChild(link);
 });
 
- // Chat toggle functionality
- const toggleChat = () => {
-            const chat = document.getElementById('chat-container');
-            chat.classList.toggle('collapsed');
-        };
-        
-        document.getElementById('toggle-chat').addEventListener('click', function(e) {
-            e.stopPropagation();
-            toggleChat();
-        });
-        
-        document.getElementById('chat-header').addEventListener('click', function(e) {
-            if(e.target === this) {
-                toggleChat();
-            }
-        });
-
-        // Chat functionality
-        document.getElementById('chat-send').addEventListener('click', sendQuestion);
-        document.getElementById('chat-question').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') sendQuestion();
-        });
-
-        function addMessage(text, isUser) {
-            const messages = document.getElementById('chat-messages');
-            const msg = document.createElement('div');
-            msg.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
-            msg.textContent = text;
-            messages.appendChild(msg);
-            messages.scrollTop = messages.scrollHeight;
-        }
-
-        function formatChartData() {
-            if (!streamingChart || !streamingChart.data || !streamingChart.data.labels || !streamingChart.data.datasets) {
-                return "No chart data available";
-            }
-            
-            const data = streamingChart.data;
-            let csvContent = "Channel,EN/ES/ID/etc.,JP,KR,RU,Emote\n";
-
-            for (let i = 0; i < data.labels.length; i++) {
-                csvContent += `${data.labels[i]}`;
-                for (let j = 0; j < data.datasets.length; j++) {
-                    csvContent += `,${(data.datasets[j].data[i] || 0).toFixed(2)}`;
-                }
-                csvContent += `\n`;
-            }
-            
-            return csvContent;
-        }
-
-        async function sendQuestion() {
-            const input = document.getElementById('chat-question');
-            const question = input.value.trim();
-            if (!question) return;
-
-            addMessage(question, true);
-            input.value = '';
-
-            try {
-                const response = await fetch('/api/llm/query', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        question: question,
-                        chart_context: {
-                            chart_type: 'chat_makeup',
-                            current_data: formatChartData(),
-                            selected_group: document.getElementById('groupSelect').value,
-                            selected_month: document.getElementById('monthSelect').value
-                        }
-                    })
-                });
-
-                const data = await response.json();
-                if (data.error) throw new Error(data.error);
-                addMessage(data.answer, false);
-            } catch (error) {
-                addMessage(error, false);
-                console.error("Chat error:", error);
-            }
-        }
 
 });
 
        
+</script>
+<script>
+// Define the context for this specific page
+window.EriWidgetContext.getContext = function() {
+    // Get current page data
+    const group = $('#groupSelect').val();
+    const month = $('#monthSelect').val() || new Date().toISOString().slice(0, 7);
+    
+    return {
+        page: 'chat_makeup',
+        endpoint: '/api/get_group_chat_makeup',
+        parameters: {
+            month: month,
+            group: group
+        },
+        description: `Viewing group chat makeup data for ${group} in ${month}`
+    };
+};
 </script>
 
 </body>

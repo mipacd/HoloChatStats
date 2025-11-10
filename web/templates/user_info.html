@@ -143,13 +143,7 @@
         <tbody></tbody>
     </table>
 </div>
-<!-- === Eri Sticky Widget === -->
-<a href="/eri" class="eri-widget" title="{{ _("Chat with Eri") }}">
-    <div class="eri-bubble">
-        {{ _("💬 Got a question for me?") }}
-    </div>
-    <img src="/static/eri_chibi.png" alt="Eri chibi" class="eri-chibi">
-</a>
+{% include 'eri_widget.html' %}
 
 <script>
 $(document).ready(function() {
@@ -174,18 +168,15 @@ $(document).ready(function() {
         $('#spinnerContainer').show();
         $('#userStatsTable').hide();
         
-        // --- JAVASCRIPT FIX 1: Use the 'identifier' parameter for the API call ---
         $.get('/api/get_user_info', { identifier: identifier, month: month }, function(response) {
             $('#spinnerContainer').hide();
 
-            // --- JAVASCRIPT FIX 2: Check response.success and response.data ---
             if (!response.success || !response.data || response.data.length === 0) {
                 alert("{{ _("No data available for the selected user and month.") }}");
                 return;
             }
 
             let tbody = "";
-            // --- JAVASCRIPT FIX 3: Iterate over response.data, not the top-level object ---
             response.data.forEach((channel, index) => {
                 tbody += `<tr>
                     <td>${channel.channel_name}</td>
@@ -208,6 +199,23 @@ $(document).ready(function() {
     });
 });
 </script>
-
+<script>
+// Define the context for this specific page
+window.EriWidgetContext.getContext = function() {
+    // Get current page data
+    const month = $('#monthPicker').val();
+    const identifier = $('#identifierInput').val().trim();
+    
+    return {
+        page: 'user_info',
+        endpoint: '/api/get_user_info',
+        parameters: {
+            identifier: identifier,
+            month: month
+        },
+        description: `Viewing message frequencies for user: ${identifier} in ${month}`
+    };
+};
+</script>
 </body>
 </html>

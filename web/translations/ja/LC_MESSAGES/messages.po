@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-08 13:08-0500\n"
+"POT-Creation-Date: 2025-11-10 16:21-0500\n"
 "PO-Revision-Date: 2025-10-24 14:00-0400\n"
 "Last-Translator: Gemini Assistant\n"
 "Language: ja\n"
@@ -35,11 +35,11 @@ msgstr "無効な言語パラメーターです。EN、JP、KR、RUのいずれ�
 msgid "Channel Clusters by Common Users"
 msgstr "共通ユーザーによるチャンネルクラスタ"
 
-#: templates/channel_clustering.html:55
+#: templates/channel_clustering.html:119
 msgid "Channel Clustering"
 msgstr "チャンネルクラスタリング"
 
-#: templates/channel_clustering.html:57
+#: templates/channel_clustering.html:121
 msgid ""
 "Determined by common chat users using cosine similarity and Leiden "
 "community detection. Channels must meet a similarity threshold with at "
@@ -47,246 +47,251 @@ msgid ""
 "to reset."
 msgstr "コサイン類似性とLeidenコミュニティ検出を使用して、共通のチャットユーザーに基づきクラスタを決定します。表示されるには、他のチャンネルとの類似性閾値を満たす必要があります。クリック＆ドラッグでズーム、ダブルクリックでリセットします。"
 
-#: templates/channel_clustering.html:62
+#: templates/channel_clustering.html:126
 msgid "Select Month:"
 msgstr "月を選択:"
 
-#: templates/channel_clustering.html:63
+#: templates/channel_clustering.html:127
 msgid "YYYY-MM"
 msgstr "YYYY-MM"
 
-#: templates/channel_clustering.html:66
+#: templates/channel_clustering.html:130
 msgid "Threshold:"
 msgstr "しきい値:"
 
-#: templates/channel_clustering.html:68
+#: templates/channel_clustering.html:132
 msgid "High (Top 5%)"
 msgstr "高 (上位5%)"
 
-#: templates/channel_clustering.html:69
+#: templates/channel_clustering.html:133
 msgid "Medium (Top 10%)"
 msgstr "中 (上位10%)"
 
-#: templates/channel_clustering.html:70
+#: templates/channel_clustering.html:134
 msgid "Low (Top 20%)"
 msgstr "低 (上位20%)"
 
-#: templates/channel_clustering.html:74
+#: templates/channel_clustering.html:138
 msgid "3D View:"
 msgstr "3Dビュー:"
 
-#: templates/channel_clustering.html:75
+#: templates/channel_clustering.html:139
 msgid "Click and drag to rotate. Mouse wheel to zoom."
 msgstr "クリックしてドラッグすると回転、マウスホイールでズーム。"
 
-#: templates/channel_clustering.html:80
+#: templates/channel_clustering.html:144
 msgid "Load Clustering Graph"
 msgstr "クラスタリンググラフを読み込む"
 
-#: templates/channel_clustering.html:85 templates/channel_clustering.html:91
-#: templates/chat_leaderboards.html:59 templates/common_members.html:77
-#: templates/common_users.html:79 templates/recommendation_engine.html:61
-#: templates/user_info.html:67
+#: templates/channel_clustering.html:149 templates/channel_clustering.html:155
+#: templates/chat_leaderboards.html:123 templates/common_members.html:141
+#: templates/common_users.html:143 templates/recommendation_engine.html:125
+#: templates/user_info.html:131
 msgid "Loading..."
 msgstr "読み込み中..."
 
-#: templates/channel_clustering.html:114
+#: templates/channel_clustering.html:179
 msgid "Please select a month."
 msgstr "月を選択してください。"
 
-#: templates/channel_clustering.html:135
+#: templates/channel_clustering.html:200
 msgid "Failed to load clustering graph."
 msgstr "クラスタリンググラフの読み込みに失敗しました。"
 
-#: templates/chat_leaderboards.html:8 templates/chat_leaderboards.html:41
+#: templates/chat_leaderboards.html:8 templates/chat_leaderboards.html:105
 #: templates/menu.html:63
 msgid "Chat Leaderboards"
 msgstr "チャットリーダーボード"
 
-#: templates/chat_leaderboards.html:45 templates/exclusive_chat.html:46
-#: templates/funniest_timestamps.html:105 templates/highlights.html:97
-#: templates/jp_user_percents.html:47 templates/message_types.html:47
-#: templates/monthly_streaming_hours.html:47
+#: templates/chat_leaderboards.html:109 templates/exclusive_chat.html:110
+#: templates/funniest_timestamps.html:169 templates/highlights.html:161
+#: templates/jp_user_percents.html:111 templates/message_types.html:111
+#: templates/monthly_streaming_hours.html:111
 msgid "Channel:"
 msgstr "チャンネル:"
 
-#: templates/chat_leaderboards.html:49 templates/chat_makeup.html:137
-#: templates/engagement.html:49 templates/funniest_timestamps.html:111
-#: templates/heatmap.html:68 templates/highlights.html:101
-#: templates/membership_change.html:124 templates/membership_counts.html:140
-#: templates/membership_percentages.html:49 templates/streaming_hours.html:73
-#: templates/streaming_hours_avg.html:73 templates/streaming_hours_diff.html:73
-#: templates/streaming_hours_max.html:73 templates/user_change.html:131
-#: templates/user_info.html:57
+#: templates/chat_leaderboards.html:113 templates/chat_makeup.html:120
+#: templates/engagement.html:113 templates/funniest_timestamps.html:175
+#: templates/heatmap.html:132 templates/highlights.html:165
+#: templates/membership_change.html:120 templates/membership_counts.html:129
+#: templates/membership_percentages.html:113 templates/streaming_hours.html:137
+#: templates/streaming_hours_avg.html:137
+#: templates/streaming_hours_diff.html:138
+#: templates/streaming_hours_max.html:137 templates/user_change.html:127
+#: templates/user_info.html:121
 msgid "Month:"
 msgstr "月:"
 
-#: templates/chat_leaderboards.html:54
+#: templates/chat_leaderboards.html:118
 msgid "Get Leaderboard"
 msgstr "リーダーボードを取得"
 
-#: templates/chat_leaderboards.html:68
+#: templates/chat_leaderboards.html:132
 msgid "Username"
 msgstr "ユーザー名"
 
-#: templates/chat_leaderboards.html:69 templates/user_info.html:75
+#: templates/chat_leaderboards.html:133 templates/user_info.html:139
 msgid "Message Count"
 msgstr "メッセージ数"
 
-#: templates/chat_leaderboards.html:88 templates/common_members.html:119
-#: templates/common_users.html:121 templates/exclusive_chat.html:48
-#: templates/funniest_timestamps.html:107
-#: templates/funniest_timestamps.html:139 templates/highlights.html:147
-#: templates/jp_user_percents.html:49 templates/message_types.html:49
-#: templates/monthly_streaming_hours.html:49
+#: templates/chat_leaderboards.html:153 templates/common_members.html:184
+#: templates/common_users.html:186 templates/exclusive_chat.html:112
+#: templates/funniest_timestamps.html:171
+#: templates/funniest_timestamps.html:204 templates/highlights.html:212
+#: templates/jp_user_percents.html:113 templates/message_types.html:113
+#: templates/monthly_streaming_hours.html:113
 msgid "Select Channel"
 msgstr "チャンネルを選択"
 
-#: templates/chat_leaderboards.html:101 templates/common_members.html:135
-#: templates/common_users.html:137
+#: templates/chat_leaderboards.html:166 templates/common_members.html:200
+#: templates/common_users.html:202
 msgid "Please fill in all fields."
 msgstr "すべての項目を入力してください。"
 
-#: templates/chat_leaderboards.html:113
+#: templates/chat_leaderboards.html:178
 msgid "No data available for the selected criteria."
 msgstr "選択した条件に該当するデータがありません。"
 
-#: templates/chat_leaderboards.html:129 templates/common_members.html:165
-#: templates/common_users.html:167 templates/funniest_timestamps.html:180
-#: templates/funniest_timestamps.html:225 templates/highlight_search.html:168
-#: templates/highlights.html:210 templates/recommendation_engine.html:120
-#: templates/user_info.html:130
+#: templates/chat_leaderboards.html:194 templates/common_members.html:230
+#: templates/common_users.html:232 templates/funniest_timestamps.html:245
+#: templates/funniest_timestamps.html:290 templates/highlight_search.html:233
+#: templates/highlights.html:275 templates/recommendation_engine.html:185
+#: templates/user_info.html:192
 msgid "Error fetching data. Please try again later."
 msgstr "データの取得に失敗しました。後でもう一度お試しください。"
 
-#: templates/chat_makeup.html:8 templates/chat_makeup.html:108
+#: templates/chat_makeup.html:8 templates/chat_makeup.html:104
 #: templates/menu.html:80
 msgid "Chat Makeup"
 msgstr "チャット構成"
 
-#: templates/chat_makeup.html:110
+#: templates/chat_makeup.html:106
 msgid ""
 "Rates per minute using character set detection. Emote category counts "
 "both Unicode and YouTube style emote-only messages."
 msgstr "文字セット検出を使用した分単位の割合。絵文字カテゴリは Unicode および YouTube スタイルの絵文字のみのメッセージを含みます。"
 
-#: templates/chat_makeup.html:116 templates/engagement.html:42
-#: templates/heatmap.html:64 templates/membership_change.html:116
-#: templates/membership_counts.html:133
-#: templates/membership_percentages.html:42 templates/streaming_hours.html:65
-#: templates/streaming_hours_avg.html:65 templates/streaming_hours_diff.html:65
-#: templates/streaming_hours_max.html:65 templates/user_change.html:123
+#: templates/chat_makeup.html:112 templates/engagement.html:106
+#: templates/heatmap.html:128 templates/membership_change.html:112
+#: templates/membership_counts.html:122
+#: templates/membership_percentages.html:106 templates/streaming_hours.html:129
+#: templates/streaming_hours_avg.html:129
+#: templates/streaming_hours_diff.html:130
+#: templates/streaming_hours_max.html:129 templates/user_change.html:119
 msgid "Channel Group:"
 msgstr "チャンネルグループ:"
 
-#: templates/chat_makeup.html:118 templates/membership_change.html:118
-#: templates/streaming_hours.html:67 templates/streaming_hours_avg.html:67
-#: templates/streaming_hours_diff.html:67 templates/streaming_hours_max.html:67
-#: templates/user_change.html:125
+#: templates/chat_makeup.html:114 templates/membership_change.html:114
+#: templates/streaming_hours.html:131 templates/streaming_hours_avg.html:131
+#: templates/streaming_hours_diff.html:132
+#: templates/streaming_hours_max.html:131 templates/user_change.html:121
 msgid "All"
 msgstr "すべて"
 
-#: templates/chat_makeup.html:119 templates/engagement.html:44
-#: templates/membership_change.html:119 templates/membership_counts.html:135
-#: templates/membership_percentages.html:44 templates/streaming_hours.html:68
-#: templates/streaming_hours_avg.html:68 templates/streaming_hours_diff.html:68
-#: templates/streaming_hours_max.html:68 templates/user_change.html:126
+#: templates/chat_makeup.html:115 templates/engagement.html:108
+#: templates/membership_change.html:115 templates/membership_counts.html:124
+#: templates/membership_percentages.html:108 templates/streaming_hours.html:132
+#: templates/streaming_hours_avg.html:132
+#: templates/streaming_hours_diff.html:133
+#: templates/streaming_hours_max.html:132 templates/user_change.html:122
 msgid "Hololive"
 msgstr "ホロライブ"
 
-#: templates/chat_makeup.html:120 templates/engagement.html:45
-#: templates/membership_change.html:120 templates/membership_counts.html:136
-#: templates/membership_percentages.html:45 templates/streaming_hours.html:69
-#: templates/streaming_hours_avg.html:69 templates/streaming_hours_diff.html:69
-#: templates/streaming_hours_max.html:69 templates/user_change.html:127
+#: templates/chat_makeup.html:116 templates/engagement.html:109
+#: templates/membership_change.html:116 templates/membership_counts.html:125
+#: templates/membership_percentages.html:109 templates/streaming_hours.html:133
+#: templates/streaming_hours_avg.html:133
+#: templates/streaming_hours_diff.html:134
+#: templates/streaming_hours_max.html:133 templates/user_change.html:123
 msgid "Indie"
 msgstr "インディー"
 
-#: templates/chat_makeup.html:143 templates/engagement.html:55
-#: templates/funniest_timestamps.html:117 templates/membership_change.html:130
-#: templates/membership_counts.html:146
-#: templates/membership_percentages.html:55 templates/streaming_hours.html:79
-#: templates/streaming_hours_avg.html:79 templates/streaming_hours_diff.html:79
-#: templates/streaming_hours_max.html:79 templates/user_change.html:137
+#: templates/chat_makeup.html:126 templates/engagement.html:119
+#: templates/funniest_timestamps.html:181 templates/membership_change.html:126
+#: templates/membership_counts.html:135
+#: templates/membership_percentages.html:119 templates/streaming_hours.html:143
+#: templates/streaming_hours_avg.html:143
+#: templates/streaming_hours_diff.html:144
+#: templates/streaming_hours_max.html:143 templates/user_change.html:133
 msgid "Download CSV"
 msgstr "CSV をダウンロード"
 
-#: templates/common_members.html:8 templates/common_members.html:46
+#: templates/common_members.html:8 templates/common_members.html:110
 #: templates/menu.html:59
 msgid "Common Members by Channel / Month"
 msgstr "チャンネル/月ごとの共通メンバー"
 
-#: templates/common_members.html:51 templates/common_users.html:52
+#: templates/common_members.html:115 templates/common_users.html:116
 msgid "Channel A:"
 msgstr "チャンネル A:"
 
-#: templates/common_members.html:55 templates/common_users.html:56
+#: templates/common_members.html:119 templates/common_users.html:120
 msgid "Month for A:"
 msgstr "A の月:"
 
-#: templates/common_members.html:62 templates/common_users.html:63
+#: templates/common_members.html:126 templates/common_users.html:127
 msgid "Channel B:"
 msgstr "チャンネル B:"
 
-#: templates/common_members.html:66 templates/common_users.html:67
+#: templates/common_members.html:130 templates/common_users.html:131
 msgid "Month for B:"
 msgstr "B の月:"
 
-#: templates/common_members.html:72 templates/common_users.html:73
+#: templates/common_members.html:136 templates/common_users.html:137
 msgid "Calculate"
 msgstr "計算"
 
-#: templates/common_members.html:84
+#: templates/common_members.html:148
 msgid ""
 "Percent of Channel A's members in Month A that are also members of "
 "Channel B in Month B:"
 msgstr "月AのチャンネルAのメンバーの中で、月BのチャンネルBのメンバーでもある割合:"
 
-#: templates/common_members.html:88
+#: templates/common_members.html:152
 msgid ""
 "Percent of Channel B's members in Month B that are also members of "
 "Channel A in Month A:"
 msgstr "月BのチャンネルBのメンバーの中で、月AのチャンネルAのメンバーでもある割合:"
 
-#: templates/common_members.html:92
+#: templates/common_members.html:156
 msgid "Number of common members:"
 msgstr "共通メンバーの数:"
 
-#: templates/common_members.html:145
+#: templates/common_members.html:210
 msgid "No common members found for the selected criteria."
 msgstr "選択された条件では共通メンバーが見つかりませんでした。"
 
-#: templates/common_users.html:6 templates/common_users.html:47
+#: templates/common_users.html:6 templates/common_users.html:111
 #: templates/menu.html:58
 msgid "Common Users by Channel / Month"
 msgstr "チャンネル/月ごとの共通ユーザー"
 
-#: templates/common_users.html:87
+#: templates/common_users.html:151
 msgid ""
 "Percent of Channel A's chat in Month A that participated in Channel B's "
 "chat in Month B:"
 msgstr "月AのチャンネルAのチャット参加者中、月BのチャンネルBのチャットにも参加したユーザーの割合:"
 
-#: templates/common_users.html:91
+#: templates/common_users.html:155
 msgid ""
 "Percent of Channel B's chat in Month B that participated in Channel A's "
 "chat in Month A:"
 msgstr "月BのチャンネルBのチャット参加者中、月AのチャンネルAのチャットにも参加したユーザーの割合:"
 
-#: templates/common_users.html:95
+#: templates/common_users.html:159
 msgid "Number of common users:"
 msgstr "共通ユーザーの数:"
 
-#: templates/common_users.html:147
+#: templates/common_users.html:212
 msgid "No common users found for the selected criteria."
 msgstr "選択した条件に一致する共通ユーザーが見つかりませんでした。"
 
-#: templates/engagement.html:8 templates/engagement.html:38
+#: templates/engagement.html:8 templates/engagement.html:102
 #: templates/menu.html:65
 msgid "Engagement Rates"
 msgstr "エンゲージメント率"
 
-#: templates/engagement.html:38
+#: templates/engagement.html:102
 msgid "Average chat message count per user."
 msgstr "ユーザーごとの平均チャットメッセージ数。"
 
@@ -294,15 +299,15 @@ msgstr "ユーザーごとの平均チャットメッセージ数。"
 msgid "Eri Chat"
 msgstr "えりチャット"
 
-#: templates/eri.html:191
+#: templates/eri.html:191 templates/eri_widget.html:467
 msgid "Eri"
 msgstr "えり"
 
-#: templates/eri.html:192
+#: templates/eri.html:192 templates/eri_widget.html:468
 msgid "Hey, I'm Eri - HoloChatStats' virtual assistant. How can I help you today?"
 msgstr "こんにちは、HoloChatStatsのバーチャルアシスタント「えり」です。今日はどういったご用件でしょうか？"
 
-#: templates/eri.html:198
+#: templates/eri.html:198 templates/eri_widget.html:478
 msgid "Ask Eri a question..."
 msgstr "えりに質問する..."
 
@@ -419,66 +424,93 @@ msgstr "えりは不正確な情報を表示する場合がありますので、
 msgid "Conversations in English may be more accurate than in other languages."
 msgstr "英語での会話は、他の言語よりも正確な場合があります。"
 
-#: templates/eri.html:255
+#: templates/eri.html:255 templates/eri_widget.html:510
 msgid "Let's see..."
 msgstr "えっと..."
 
-#: templates/eri.html:256
+#: templates/eri.html:256 templates/eri_widget.html:511
 msgid "Deciphering your request..."
 msgstr "リクエストを確認しています..."
 
-#: templates/eri.html:257
+#: templates/eri.html:257 templates/eri_widget.html:512
 msgid "Alright, plotting a course of action."
 msgstr "わかった、計画を立てているよ。"
 
-#: templates/eri.html:258
+#: templates/eri.html:258 templates/eri_widget.html:513
 msgid "Searching the HoloChatStats archives..."
 msgstr "HoloChatStatsのアーカイブを検索中..."
 
-#: templates/eri.html:259
+#: templates/eri.html:259 templates/eri_widget.html:514
 msgid "Compiling the data..."
 msgstr "データをまとめています..."
 
-#: templates/eri.html:260
+#: templates/eri.html:260 templates/eri_widget.html:515
 msgid ""
 "Looks like you've reached the daily query limit. Please try again "
 "tomorrow."
 msgstr "1日のクエリ上限に達しちゃったみたい。明日また来てね！"
 
-#: templates/eri.html:325
+#: templates/eri.html:325 templates/eri_widget.html:707
 msgid "Sorry — I couldn't reach the assistant (network error)."
 msgstr "ごめんなさい — アシスタントに接続できませんでした（ネットワークエラー）。"
 
-#: templates/exclusive_chat.html:8 templates/exclusive_chat.html:39
+#: templates/eri_widget.html:444 templates/eri_widget.html:568
+msgid "Minimize to side"
+msgstr ""
+
+#: templates/eri_widget.html:447
+#, fuzzy
+msgid "💬 Got a question?"
+msgstr "💬 私に質問がありますか？"
+
+#: templates/eri_widget.html:456
+msgid "Chat with Eri"
+msgstr "えりとチャット"
+
+#: templates/eri_widget.html:459
+#, fuzzy
+msgid "Minimize"
+msgstr "インディー"
+
+#: templates/eri_widget.html:482
+#, fuzzy
+msgid "Send"
+msgstr "終了:"
+
+#: templates/eri_widget.html:573
+msgid "Restore"
+msgstr ""
+
+#: templates/exclusive_chat.html:8 templates/exclusive_chat.html:103
 #: templates/menu.html:64
 msgid "Exclusive Chat Users"
 msgstr "独占チャットユーザー"
 
-#: templates/exclusive_chat.html:41
+#: templates/exclusive_chat.html:105
 msgid ""
 "Percentage of chat users exclusive to this channel each month, within the"
 " same group (e.g. Hololive, Indie)."
 msgstr "各月において、同じグループ（例：ホロライブ、インディー）内で、このチャンネルだけにチャットしたユーザーの割合。"
 
-#: templates/exclusive_chat.html:89 templates/jp_user_percents.html:85
-#: templates/message_types.html:101 templates/monthly_streaming_hours.html:90
+#: templates/exclusive_chat.html:154 templates/jp_user_percents.html:150
+#: templates/message_types.html:166 templates/monthly_streaming_hours.html:155
 msgid "Month"
 msgstr "月"
 
-#: templates/exclusive_chat.html:93 templates/exclusive_chat.html:149
+#: templates/exclusive_chat.html:158 templates/exclusive_chat.html:214
 msgid "Exclusive Users (%)"
 msgstr "独占ユーザー (%)"
 
-#: templates/exclusive_chat.html:123 templates/jp_user_percents.html:116
-#: templates/monthly_streaming_hours.html:125
+#: templates/exclusive_chat.html:188 templates/jp_user_percents.html:181
+#: templates/monthly_streaming_hours.html:190
 msgid "Please select a channel."
 msgstr "チャンネルを選択してください。"
 
-#: templates/funniest_timestamps.html:8 templates/funniest_timestamps.html:100
+#: templates/funniest_timestamps.html:8 templates/funniest_timestamps.html:164
 msgid "Funniest Timestamps"
 msgstr "最も面白いタイムスタンプ"
 
-#: templates/funniest_timestamps.html:101
+#: templates/funniest_timestamps.html:165
 #, fuzzy
 msgid ""
 "Determined using the highest concentration of humerous reactions by chat "
@@ -490,47 +522,47 @@ msgstr ""
 "各配信でチャット内の最も面白い反応が集中したタイムスタンプを使用して決定されます。<br><br>各リンクはYouTubeで新しいウィンドウで開きます。<br><br>CSVダウンロードには"
 "、yt-dlp、ffmpegなどでクリッピングに使用できるHH:MM:SS形式のタイムスタンプが含まれています。"
 
-#: templates/funniest_timestamps.html:116
+#: templates/funniest_timestamps.html:180
 msgid "Fetch Funniest Moments"
 msgstr "最も面白い瞬間を取得する"
 
-#: templates/funniest_timestamps.html:150 templates/highlights.html:159
+#: templates/funniest_timestamps.html:215 templates/highlights.html:224
 msgid "Please select a channel and a month."
 msgstr "チャンネルと月を選択してください。"
 
-#: templates/funniest_timestamps.html:160
+#: templates/funniest_timestamps.html:225
 msgid "No data available."
 msgstr "データがありません。"
 
-#: templates/funniest_timestamps.html:192
+#: templates/funniest_timestamps.html:257
 msgid "Please select a channel and a month before downloading."
 msgstr "ダウンロードする前にチャンネルと月を選択してください。"
 
-#: templates/funniest_timestamps.html:198
+#: templates/funniest_timestamps.html:263
 msgid "No data available for export."
 msgstr "エクスポートするデータがありません。"
 
-#: templates/heatmap.html:6 templates/heatmap.html:60 templates/menu.html:60
+#: templates/heatmap.html:6 templates/heatmap.html:124 templates/menu.html:60
 msgid "Common User Heatmap"
 msgstr "共通ユーザーヒートマップ"
 
-#: templates/heatmap.html:75
+#: templates/heatmap.html:139
 msgid "Members Only"
 msgstr "メンバーのみ"
 
-#: templates/heatmap.html:205
+#: templates/heatmap.html:270
 msgid "members"
 msgstr "メンバー"
 
-#: templates/heatmap.html:205
+#: templates/heatmap.html:270
 msgid "chatters"
 msgstr "チャット参加者"
 
-#: templates/highlight_search.html:8 templates/highlight_search.html:86
+#: templates/highlight_search.html:8 templates/highlight_search.html:150
 msgid "AI Highlight Search"
 msgstr "AIハイライト検索"
 
-#: templates/highlight_search.html:87
+#: templates/highlight_search.html:151
 msgid ""
 "Search for moments using semantic meaning. You can use operators like "
 "channel:<name>, from:<YYYY-MM-DD>, and to:<YYYY-MM-DD>."
@@ -538,41 +570,41 @@ msgstr ""
 "意味的な意味合いで瞬間を検索します。 channel:<名前>、from:<YYYY-MM-DD>、to:<YYYY-MM-DD> "
 "のような演算子が使用できます。"
 
-#: templates/highlight_search.html:95
+#: templates/highlight_search.html:159
 msgid "e.g., paper boat channel:saba from:2025-08-01"
 msgstr "例: ペーパーボート channel:saba from:2025-08-01"
 
-#: templates/highlight_search.html:96
+#: templates/highlight_search.html:160
 msgid "Search"
 msgstr "検索"
 
-#: templates/highlight_search.html:100
+#: templates/highlight_search.html:164
 msgid "Search for highlights to see results."
 msgstr "ハイライトを検索して結果を表示します。"
 
-#: templates/highlight_search.html:131
+#: templates/highlight_search.html:196
 msgid "Please enter a search query."
 msgstr "検索クエリを入力してください。"
 
-#: templates/highlight_search.html:142
+#: templates/highlight_search.html:207
 msgid "No results found."
 msgstr "結果が見つかりません。"
 
-#: templates/highlights.html:8 templates/highlights.html:87
+#: templates/highlights.html:8 templates/highlights.html:151
 msgid "AI Video Highlights"
 msgstr "AI動画ハイライト"
 
-#: templates/highlights.html:88
+#: templates/highlights.html:152
 msgid ""
 "AI-generated summaries of the most interesting moments in a stream, "
 "determined by analyzing chat reactions."
 msgstr "チャットの反応を分析して決定された、配信の最も興味深い瞬間のAI生成要約。"
 
-#: templates/highlights.html:105
+#: templates/highlights.html:169
 msgid "Fetch Highlights"
 msgstr "ハイライトを取得"
 
-#: templates/highlights.html:170
+#: templates/highlights.html:235
 msgid "No highlights available for this selection."
 msgstr "このセレクションで利用可能なハイライトはありません。"
 
@@ -605,7 +637,7 @@ msgid "Common User Channel Clusters"
 msgstr "共通ユーザーによるチャンネルクラスタ"
 
 #: templates/index.html:187 templates/membership_counts.html:8
-#: templates/membership_counts.html:129 templates/menu.html:67
+#: templates/membership_counts.html:118 templates/menu.html:67
 msgid "Membership Counts"
 msgstr "メンバーシップ数"
 
@@ -633,113 +665,105 @@ msgstr "メッセージ数を読み込み中..."
 msgid "Latest Updates"
 msgstr "最新の更新情報"
 
-#: templates/index.html:220 templates/index.html:294
+#: templates/index.html:220 templates/index.html:288
 msgid "No updates available."
 msgstr "更新はありません。"
 
-#: templates/index.html:236
-msgid "Chat with Eri"
-msgstr "えりとチャット"
-
-#: templates/index.html:238
-msgid "💬 Got a question for me?"
-msgstr "💬 私に質問がありますか？"
-
-#: templates/index.html:253
+#: templates/index.html:247
 msgid "Start:"
 msgstr "開始:"
 
-#: templates/index.html:254
+#: templates/index.html:248
 msgid "End:"
 msgstr "終了:"
 
-#: templates/index.html:257
+#: templates/index.html:251
 msgid "Unable to fetch date ranges."
 msgstr "日付範囲を取得できませんでした。"
 
-#: templates/index.html:260
+#: templates/index.html:254
 msgid "Error fetching date ranges."
 msgstr "日付範囲の取得中にエラーが発生しました。"
 
-#: templates/index.html:266
+#: templates/index.html:260
 msgid "Number of Chat Logs Processed:"
 msgstr "処理されたチャットログの数:"
 
-#: templates/index.html:268
+#: templates/index.html:262
 msgid "Unable to fetch chat log count."
 msgstr "チャットログ数を取得できませんでした。"
 
-#: templates/index.html:271
+#: templates/index.html:265
 msgid "Error fetching chat log count."
 msgstr "チャットログ数の取得中にエラーが発生しました。"
 
-#: templates/index.html:277
+#: templates/index.html:271
 msgid "Number of Chat Messages Processed:"
 msgstr "処理されたチャットメッセージ数:"
 
-#: templates/index.html:279
+#: templates/index.html:273
 msgid "Unable to fetch message count."
 msgstr "メッセージ数を取得できませんでした。"
 
-#: templates/index.html:282
+#: templates/index.html:276
 msgid "Error fetching message count."
 msgstr "メッセージ数の取得中にエラーが発生しました。"
 
-#: templates/index.html:297
+#: templates/index.html:291
 #, fuzzy
 msgid "Error fetching updates."
 msgstr "日付範囲の取得中にエラーが発生しました。"
 
-#: templates/jp_user_percents.html:8 templates/jp_user_percents.html:40
+#: templates/jp_user_percents.html:8 templates/jp_user_percents.html:104
 #: templates/menu.html:82
 msgid "JP User Percentages"
 msgstr "日本語ユーザーの割合"
 
-#: templates/jp_user_percents.html:42
+#: templates/jp_user_percents.html:106
 msgid ""
 "Percentage of users who primarily use Japanese (>50%) in chat across all "
 "channels, excluding emoji-only messages."
 msgstr "すべてのチャンネルで、主に日本語（>50%）を使用してチャットするユーザーの割合。絵文字のみのメッセージは除外されます。"
 
-#: templates/jp_user_percents.html:89 templates/jp_user_percents.html:141
+#: templates/jp_user_percents.html:154 templates/jp_user_percents.html:206
 msgid "JP User Percentage"
 msgstr "日本語ユーザーの割合"
 
-#: templates/membership_change.html:8 templates/membership_change.html:109
+#: templates/membership_change.html:8 templates/membership_change.html:105
 #: templates/menu.html:69
 msgid "Membership Gain / Loss"
 msgstr "メンバーシップ増減"
 
-#: templates/membership_change.html:111
+#: templates/membership_change.html:107
 msgid ""
 "Determined using the last recorded message for each user between the "
 "specified month and the previous month."
 msgstr "指定された月と前月の各ユーザーの最後の記録されたメッセージに基づいて決定されます。"
 
-#: templates/membership_change.html:232
+#: templates/membership_change.html:216
 msgid "Gains"
 msgstr "増加"
 
-#: templates/membership_change.html:239
+#: templates/membership_change.html:223
 msgid "Losses"
 msgstr "減少"
 
-#: templates/membership_counts.html:129
+#: templates/membership_counts.html:118
 msgid ""
 "Only counts members that participated in chat. Membership durations are "
 "based on available badges for each channel."
 msgstr "チャットに参加したメンバーのみをカウントします。メンバーシップ期間は、各チャンネルで利用可能なバッジに基づいています。"
 
 #: templates/membership_percentages.html:8
-#: templates/membership_percentages.html:38 templates/menu.html:68
+#: templates/membership_percentages.html:102 templates/menu.html:68
 msgid "Membership Percentages"
 msgstr "メンバーシップ割合"
 
-#: templates/membership_percentages.html:38
+#: templates/membership_percentages.html:102
 msgid "Only counts members that participated in chat."
 msgstr "チャットに参加したメンバーのみをカウントします。"
 
-#: templates/membership_percentages.html:137
+#: templates/membership_percentages.html:202
 msgid "Membership Percentage"
 msgstr "メンバーシップの割合"
 
@@ -756,12 +780,12 @@ msgid "Active User Gain / Loss"
 msgstr "アクティブユーザーの増減"
 
 #: templates/menu.html:66 templates/user_info.html:8
-#: templates/user_info.html:42
+#: templates/user_info.html:106
 msgid "Message Frequencies by User"
 msgstr "ユーザーごとのメッセージ頻度"
 
 #: templates/menu.html:70 templates/recommendation_engine.html:8
-#: templates/recommendation_engine.html:39
+#: templates/recommendation_engine.html:103
 msgid "Recommendation Engine"
 msgstr "推薦エンジン"
 
@@ -770,26 +794,26 @@ msgid "Language Stats"
 msgstr "言語統計"
 
 #: templates/menu.html:81 templates/message_types.html:8
-#: templates/message_types.html:40
+#: templates/message_types.html:104
 msgid "Message Percentages and Rates by Language"
 msgstr "言語別のメッセージ割合とレート"
 
-#: templates/menu.html:89 templates/monthly_streaming_hours.html:94
-#: templates/monthly_streaming_hours.html:179
+#: templates/menu.html:89 templates/monthly_streaming_hours.html:159
+#: templates/monthly_streaming_hours.html:244
 msgid "Streaming Hours"
 msgstr "配信時間"
 
 #: templates/menu.html:92 templates/streaming_hours.html:8
-#: templates/streaming_hours.html:60
+#: templates/streaming_hours.html:124
 msgid "Total Streaming Hours"
 msgstr "総配信時間"
 
-#: templates/menu.html:93 templates/streaming_hours_avg.html:60
+#: templates/menu.html:93 templates/streaming_hours_avg.html:124
 msgid "Average Streaming Hours"
 msgstr "平均配信時間"
 
 #: templates/menu.html:94 templates/streaming_hours_max.html:8
-#: templates/streaming_hours_max.html:60
+#: templates/streaming_hours_max.html:124
 msgid "Longest Stream Duration"
 msgstr "最長配信時間"
 
@@ -798,7 +822,7 @@ msgid "Streaming Hour Change"
 msgstr "配信時間の変化"
 
 #: templates/menu.html:96 templates/monthly_streaming_hours.html:8
-#: templates/monthly_streaming_hours.html:40
+#: templates/monthly_streaming_hours.html:104
 msgid "Monthly Streaming Hours"
 msgstr "月間ストリーミング時間"
 
@@ -830,79 +854,79 @@ msgstr "サイト指標"
 msgid "Blog"
 msgstr "ブログ (英語のみ)"
 
-#: templates/message_types.html:42
+#: templates/message_types.html:106
 msgid ""
 "Emote messages are excluded from the total count. Total duration is "
 "computed using only streams with available chat logs."
 msgstr "絵文字メッセージは総数に含まれません。総ストリーム時間は、チャットログが利用可能なストリームのみを使用して計算されます。"
 
-#: templates/message_types.html:53
+#: templates/message_types.html:117
 msgid "Language:"
 msgstr "言語："
 
-#: templates/message_types.html:55
+#: templates/message_types.html:119
 msgid "English (or none of the others)"
 msgstr "英語（またはその他なし）"
 
-#: templates/message_types.html:56
+#: templates/message_types.html:120
 msgid "Japanese"
 msgstr "日本語"
 
-#: templates/message_types.html:57
+#: templates/message_types.html:121
 msgid "Korean"
 msgstr "韓国語"
 
-#: templates/message_types.html:58
+#: templates/message_types.html:122
 msgid "Russian"
 msgstr "ロシア語"
 
-#: templates/message_types.html:107 templates/message_types.html:173
+#: templates/message_types.html:172 templates/message_types.html:238
 msgid "Percentage"
 msgstr "割合"
 
-#: templates/message_types.html:113 templates/message_types.html:181
+#: templates/message_types.html:178 templates/message_types.html:246
 msgid "Rate (messages/min)"
 msgstr "レート（メッセージ/分）"
 
-#: templates/message_types.html:146
+#: templates/message_types.html:211
 msgid "Please select both a channel and a language."
 msgstr "チャンネルと言語を両方選択してください。"
 
-#: templates/monthly_streaming_hours.html:42
+#: templates/monthly_streaming_hours.html:106
 msgid "Only counts public archived streams from YouTube."
 msgstr "YouTubeの公開アーカイブストリームのみをカウントします。"
 
-#: templates/recommendation_engine.html:40
+#: templates/recommendation_engine.html:104
 msgid ""
 "Calculated using chat data from the previous month. Only shows channels "
 "where the user has no recorded interactions."
 msgstr "前月のチャットデータを使用して計算。ユーザーが記録されたやり取りを持たないチャンネルのみを表示。"
 
-#: templates/recommendation_engine.html:51
+#: templates/recommendation_engine.html:115
 msgid "Your Channel ID or @handle:"
 msgstr "あなたのチャンネルIDまたは@ハンドル:"
 
-#: templates/recommendation_engine.html:52 templates/user_info.html:54
+#: templates/recommendation_engine.html:116 templates/user_info.html:118
 msgid "Enter Channel ID or handle"
 msgstr "チャンネルIDまたはハンドル名を入力"
 
-#: templates/recommendation_engine.html:55
+#: templates/recommendation_engine.html:119
 msgid "Get Recommendations"
 msgstr "推薦を取得"
 
-#: templates/recommendation_engine.html:68
+#: templates/recommendation_engine.html:132
 msgid "Recommended Channel"
 msgstr "おすすめチャンネル"
 
-#: templates/recommendation_engine.html:69
+#: templates/recommendation_engine.html:133
 msgid "Similarity Score (0-100)"
 msgstr "類似度スコア (0-100)"
 
-#: templates/recommendation_engine.html:88
+#: templates/recommendation_engine.html:153
 msgid "Please enter a Channel ID or handle."
 msgstr "チャンネルIDまたはハンドル名を入力してください。"
 
-#: templates/recommendation_engine.html:105
+#: templates/recommendation_engine.html:170
 msgid ""
 "No recommendations could be generated. This usually means there is not "
 "enough recent chat history for the user."
@@ -912,13 +936,14 @@ msgstr "推薦を生成できませんでした。これは通常、ユーザー
 msgid "Live Site Metrics"
 msgstr "ライブサイト指標"
 
-#: templates/streaming_hours.html:60 templates/streaming_hours_avg.html:60
-#: templates/streaming_hours_diff.html:60 templates/streaming_hours_max.html:60
+#: templates/streaming_hours.html:124 templates/streaming_hours_avg.html:124
+#: templates/streaming_hours_diff.html:125
+#: templates/streaming_hours_max.html:124
 msgid "Archived, non-member streams from YouTube only."
 msgstr "YouTubeのアーカイブされた、メンバー限定ではない配信のみ。"
 
-#: templates/streaming_hours.html:162 templates/streaming_hours_avg.html:169
-#: templates/streaming_hours_max.html:166
+#: templates/streaming_hours.html:227 templates/streaming_hours_avg.html:234
+#: templates/streaming_hours_max.html:231
 msgid "No data available to export."
 msgstr "エクスポートするデータがありません。"
 
@@ -926,49 +951,50 @@ msgstr "エクスポートするデータがありません。"
 msgid "Average Streaming Duration"
 msgstr "平均配信時間"
 
-#: templates/streaming_hours_diff.html:8 templates/streaming_hours_diff.html:60
+#: templates/streaming_hours_diff.html:8
+#: templates/streaming_hours_diff.html:125
 msgid "Streaming Hour Change Since Previous Month"
 msgstr "前月からの配信時間の変化"
 
-#: templates/user_change.html:8 templates/user_change.html:116
+#: templates/user_change.html:8 templates/user_change.html:112
 msgid "Active User Gains / Losses"
 msgstr "アクティブユーザーの増減"
 
-#: templates/user_change.html:118
+#: templates/user_change.html:114
 msgid ""
 "Determined by users who met a 5 message threshold in one month but not in"
 " the other. Channels that didn't stream in either month are not included."
 msgstr "1か月で5メッセージの閾値を満たし、もう1か月で満たさなかったユーザーで決定されます。どちらの月でも配信されなかったチャンネルは含まれません。"
 
-#: templates/user_change.html:233
+#: templates/user_change.html:217
 msgid "Users Gained"
 msgstr "獲得したユーザー"
 
-#: templates/user_change.html:240
+#: templates/user_change.html:224
 msgid "Users Lost"
 msgstr "失ったユーザー"
 
-#: templates/user_info.html:53
+#: templates/user_info.html:117
 msgid "Channel ID or @handle:"
 msgstr "チャンネルIDまたは@ハンドル:"
 
-#: templates/user_info.html:61
+#: templates/user_info.html:125
 msgid "Get Data"
 msgstr "データを取得"
 
-#: templates/user_info.html:74
+#: templates/user_info.html:138
 msgid "Channel"
 msgstr "チャンネル"
 
-#: templates/user_info.html:76
+#: templates/user_info.html:140
 msgid "Percentile"
 msgstr "パーセンタイル"
 
-#: templates/user_info.html:99
+#: templates/user_info.html:164
 msgid "Please enter a Channel ID or handle and select a month."
 msgstr "チャンネルIDまたはハンドル名を入力し、月を選択してください。"
 
-#: templates/user_info.html:112
+#: templates/user_info.html:175
 msgid "No data available for the selected user and month."
 msgstr "選択したユーザーと月のデータはありません。"
 

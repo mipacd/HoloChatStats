@@ -131,13 +131,7 @@
         <canvas id="messageChart"></canvas>
     </div>
 </div>
-<!-- === Eri Sticky Widget === -->
-<a href="/eri" class="eri-widget" title="{{ _("Chat with Eri") }}">
-    <div class="eri-bubble">
-        {{ _("💬 Got a question for me?") }}
-    </div>
-    <img src="/static/eri_chibi.png" alt="Eri chibi" class="eri-chibi">
-</a>
+{% include 'eri_widget.html' %}
 
 <script>
     $(document).ready(function()  {
@@ -285,6 +279,24 @@
             new bootstrap.Dropdown(dropdown);
         });
     });
+</script>
+<script>
+// Define the context for this specific page
+window.EriWidgetContext.getContext = function() {
+    // Get current page data
+    const channel = $('#channelSelect').val();
+    const language = $('#languageSelection').val();
+    
+    return {
+        page: 'message_types',
+        endpoint: '/api/get_message_type_percents',
+        parameters: {
+            channel: channel,
+            language: language
+        },
+        description: `Viewing message percentages and rates by language for ${channel} in ${language}`
+    };
+};
 </script>
 
 </body>

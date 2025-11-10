@@ -122,13 +122,7 @@
         <canvas id="jpUserChart"></canvas>
     </div>
 </div>
-<!-- === Eri Sticky Widget === -->
-<a href="/eri" class="eri-widget" title="{{ _("Chat with Eri") }}">
-    <div class="eri-bubble">
-        {{ _("💬 Got a question for me?") }}
-    </div>
-    <img src="/static/eri_chibi.png" alt="Eri chibi" class="eri-chibi">
-</a>
+{% include 'eri_widget.html' %}
 
 <script>
     $(document).ready(function() {
@@ -236,6 +230,22 @@
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
     });
+</script>
+<script>
+// Define the context for this specific page
+window.EriWidgetContext.getContext = function() {
+    // Get current page data
+    const channel = $('#channelSelect').val();
+    
+    return {
+        page: 'jp_user_percents',
+        endpoint: '/api/get_jp_user_percent',
+        parameters: {
+            channel: channel
+        },
+        description: `Viewing Japanese user percentages for ${channel}`
+    };
+};
 </script>
 
 </body>

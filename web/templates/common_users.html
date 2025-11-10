@@ -163,13 +163,7 @@
     </table>
     </div>
 </div>
-<!-- === Eri Sticky Widget === -->
-<a href="/eri" class="eri-widget" title="{{ _("Chat with Eri") }}">
-    <div class="eri-bubble">
-        {{ _("💬 Got a question for me?") }}
-    </div>
-    <img src="/static/eri_chibi.png" alt="Eri chibi" class="eri-chibi">
-</a>
+{% include 'eri_widget.html' %}
 
 <script>
 $(document).ready(function() {
@@ -240,6 +234,28 @@ $(document).ready(function() {
         });
     });
 });
+</script>
+<script>
+// Define the context for this specific page
+window.EriWidgetContext.getContext = function() {
+    // Get current page data
+    const channelA = $('#channelASelect').val();
+    const monthA = $('#monthAPicker').val() || new Date().toISOString().slice(0, 7);
+    const channelB = $('#channelBSelect').val();
+    const monthB = $('#monthBPicker').val() || new Date().toISOString().slice(0, 7);
+    
+    return {
+        page: 'common_users',
+        endpoint: '/api/get_common_users',
+        parameters: {
+            channel_a: channelA,
+            month_a: monthA,
+            channel_b: channelB,
+            month_b: monthB
+        },
+        description: `Viewing common user data between ${channelA} (${monthA}) and ${channelB} (${monthB})`
+    };
+};
 </script>
 
 </body>

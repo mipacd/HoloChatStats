@@ -137,13 +137,7 @@
         <canvas id="userChangeChart"></canvas>
     </div>
 </div>
-<!-- === Eri Sticky Widget === -->
-<a href="/eri" class="eri-widget" title="{{ _("Chat with Eri") }}">
-    <div class="eri-bubble">
-        {{ _("💬 Got a question for me?") }}
-    </div>
-    <img src="/static/eri_chibi.png" alt="Eri chibi" class="eri-chibi">
-</a>
+{% include 'eri_widget.html' %}
 
 <script>
     $(document).ready(function() {
@@ -278,85 +272,25 @@
         tooltipTriggerList.map(function(tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
-
-        // Chat toggle functionality
-        const toggleChat = () => {
-            const chat = document.getElementById('chat-container');
-            chat.classList.toggle('collapsed');
-        };
-        
-        document.getElementById('toggle-chat').addEventListener('click', function(e) {
-            e.stopPropagation();
-            toggleChat();
-        });
-        
-        document.getElementById('chat-header').addEventListener('click', function(e) {
-            if(e.target === this) {
-                toggleChat();
-            }
-        });
-
-        // Chat functionality
-        document.getElementById('chat-send').addEventListener('click', sendQuestion);
-        document.getElementById('chat-question').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') sendQuestion();
-        });
-
-        function addMessage(text, isUser) {
-            const messages = document.getElementById('chat-messages');
-            const msg = document.createElement('div');
-            msg.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
-            msg.textContent = text;
-            messages.appendChild(msg);
-            messages.scrollTop = messages.scrollHeight;
-        }
-
-        function formatChartData() {
-            const data = chart.data;
-            let csvContent = "Channel,Users Gained,Users Lost,Net Change\n";
-
-            for (let i = 0; i < data.labels.length; i++) {
-                let gains = data.datasets[0].data[i];
-                let losses = Math.abs(data.datasets[1].data[i]);
-                let netChange = gains - losses;
-                csvContent += `${data.labels[i]},${gains},${losses},${netChange}\n`;
-            }
-            
-            return csvContent;
-        }
-
-        async function sendQuestion() {
-            const input = document.getElementById('chat-question');
-            const question = input.value.trim();
-            if (!question) return;
-
-            addMessage(question, true);
-            input.value = '';
-
-            try {
-                const response = await fetch('/api/llm/query', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        question: question,
-                        chart_context: {
-                            chart_type: 'user_changes',
-                            current_data: formatChartData(),
-                            selected_group: document.getElementById('groupSelect').value,
-                            selected_month: document.getElementById('monthSelect').value
-                        }
-                    })
-                });
-
-                const data = await response.json();
-                if (data.error) throw new Error(data.error);
-                addMessage(data.answer, false);
-            } catch (error) {
-                addMessage(error, false);
-                console.error("Chat error:", error);
-            }
-        }
     });
+</script>
+<script>
+// Define the context for this specific page
+window.EriWidgetContext.getContext = function() {
+    // Get current page data
+    const month = $('#monthSelect').val() || new Date().toISOString().slice(0, 7);
+    const group = $('#groupSelect').val() || "All";
+    
+    return {
+        page: 'user_change',
+        endpoint: '/api/get_user_changes',
+        parameters: {
+            month: month,
+            group: group
+        },
+        description: `Viewing active user gains/losses for ${group} in ${month}`
+    };
+};
 </script>
 
 </body>

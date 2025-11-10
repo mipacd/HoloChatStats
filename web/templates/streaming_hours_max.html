@@ -144,13 +144,7 @@
         <canvas id="streamingChart"></canvas>
     </div>
 </div>
-<!-- === Eri Sticky Widget === -->
-<a href="/eri" class="eri-widget" title="{{ _("Chat with Eri") }}">
-    <div class="eri-bubble">
-        {{ _("💬 Got a question for me?") }}
-    </div>
-    <img src="/static/eri_chibi.png" alt="Eri chibi" class="eri-chibi">
-</a>
+{% include 'eri_widget.html' %}
 
 <script>
     $(document).ready(function() {
@@ -256,6 +250,24 @@
         document.body.removeChild(link);
 });
     });
+</script>
+<script>
+// Define the context for this specific page
+window.EriWidgetContext.getContext = function() {
+    // Get current page data
+    const month = $('#monthSelect').val() || new Date().toISOString().slice(0, 7);
+    const group = $('#groupSelect').val() || "All";
+    
+    return {
+        page: 'streaming_hours_max',
+        endpoint: '/api/get_group_max_streaming_hours',
+        parameters: {
+            month: month,
+            group: group
+        },
+        description: `Viewing maximum streaming hours for group: ${group}, month: ${month}`
+    };
+};
 </script>
 
 </body>

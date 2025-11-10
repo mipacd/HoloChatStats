@@ -31,6 +31,7 @@ Strict rules:
 - If the message is casual chitchat, small talk, or doesn't clearly request data (e.g., "What's your favorite anime?" or "Hi Eri!"), output an empty list [].
 - Only plan API calls for questions that directly relate to the available tools (e.g., "What are Pekora's streaming hours last month?").
 - If you are unsure, or the question can't be satisfied with the available tools, output an empty list [].
+- If the message contains a page context, use it to inform your planning.
 - If the user mentions a VTuber by nickname or in Japanese, use this mapping to find the correct channel parameter.
 {settings.VTUBER_NAME_MAP}
 
