@@ -116,6 +116,11 @@
     </div>
 
     <div class="chart-container">
+        <div class="position-absolute top-0 end-0 m-3 d-flex gap-2">
+        <button id="downloadPNG" class="btn btn-sm btn-primary">
+            <i class="fas fa-image"></i> {{ _("Download PNG") }}
+        </button>
+    </div>
         <div id="chartSpinner" class="spinner-border text-primary position-absolute top-50 start-50" role="status" style="display: none;">
             <span class="visually-hidden">Loading...</span>
         </div>
@@ -229,6 +234,43 @@
         tooltipTriggerList.map(function(tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
+        // Download chart as PNG with title
+    $('#downloadPNG').on('click', function() {
+        const chartTitle = "JP User Percentages - " + $('#channelSelect').val() + " - holochatstats.info";
+        const backgroundColor = getComputedStyle(document.body).backgroundColor || '#1a1a1a';
+        
+        // Get the original canvas
+        const originalCanvas = document.getElementById('jpUserChart');
+        
+        // Create a new canvas with extra space for the title
+        const newCanvas = document.createElement('canvas');
+        const titleHeight = 60;
+        const padding = 20;
+        
+        newCanvas.width = originalCanvas.width;
+        newCanvas.height = originalCanvas.height + titleHeight;
+        
+        const newCtx = newCanvas.getContext('2d');
+        
+        // Fill background
+        newCtx.fillStyle = backgroundColor;
+        newCtx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+        
+        // Draw title
+        newCtx.fillStyle = 'white';
+        newCtx.font = 'bold 24px Arial';
+        newCtx.textAlign = 'center';
+        newCtx.fillText(chartTitle, newCanvas.width / 2, titleHeight / 2 + 10);
+        
+        // Draw the chart below the title
+        newCtx.drawImage(originalCanvas, 0, titleHeight);
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.download = 'jp_user_percents.png';
+        link.href = newCanvas.toDataURL('image/png');
+        link.click();
+    });
     });
 </script>
 <script>

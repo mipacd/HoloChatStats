@@ -1,29 +1,32 @@
-from fastapi import FastAPI, Request, HTTPException
+"""LLM Server application with FastAPI and LangGraph workflow."""
+
+import asyncio
+import datetime
+import hashlib
+import json
+import logging
+import re
+import sys
+from typing import List, Optional, TypedDict
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from langchain_core.messages import BaseMessage
+from langgraph.graph import END, StateGraph
+
 from config import settings
-from tools import get_api_tools, call_hcs_api, close_api_client
 from llm.model import call_openrouter
 from llm.planner import plan_api_calls
 from rate_limit import is_rate_limited
-from fastapi.middleware.cors import CORSMiddleware
-from typing import TypedDict, List, Optional
-from langchain_core.messages import BaseMessage
-from langgraph.graph import StateGraph, END
-import asyncio
-import json, datetime
-import logging
-import re
-import hashlib
-import sys
+from tools import call_hcs_api, close_api_client, get_api_tools
 
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 
 app = FastAPI(title="HoloChatStats LLM")
@@ -33,7 +36,7 @@ app.add_middleware(
     allow_origins=[
         "http://127.0.0.1:5000",
         "http://localhost:5000",
-        "https://holochatstats.info",
+		"https://holochatstats.info",
         "https://llm.holochatstats.info",
     ],
     allow_credentials=True,
@@ -41,10 +44,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class AgentState(TypedDict):
+    """Represents the state of the agent throughout the workflow.
+
+    Attributes:
+        input: The original user input string.
+        language: The detected language code (e.g., 'en', 'ja').
+        structured_query: A dictionary containing the processed query.
+        chat_history: A list of previous messages in the conversation.
+        plan: A list of planned tool calls to execute.
+        tool_results: Optional list of results from tool executions.
+        response: The final generated response string.
     """
-    Represents the state of our agent.
-    """
+
     input: str
     language: str
     structured_query: dict
@@ -53,16 +66,27 @@ class AgentState(TypedDict):
     tool_results: Optional[List[dict]]
     response: str
 
-async def translate_and_structure_query(state: AgentState):
+
+async def translate_and_structure_query(state: AgentState) -> dict:
+    """Translate non-English queries and structure them for the planner.
+
+    Detects the language of the user input, translates it to English if
+    necessary, and extracts key entities for further processing.
+
+    Args:
+        state: The current agent state containing the user input.
+
+    Returns:
+        A dictionary with 'language' and 'structured_query' keys.
     """
-    Translates non-English queries and structures them for the planner.
-    """
-    print("---TRANSLATING & STRUCTURING QUERY---")
-    user_input = state['input']
-    
+    logger.info("Translating and structuring query")
+    user_input = state["input"]
+
     # Simple language detection
-    lang = "ja" if any("\u3040" <= c <= "\u30ff" for c in user_input) else "en"
-    
+    lang = (
+        "ja" if any("\u3040" <= c <= "\u30ff" for c in user_input) else "en"
+    )
+
     if lang != "en":
         prompt = f"""Translate the following user query to English. Extract key entities like channel names and desired metrics.
         User Query: "{user_input}"
@@ -71,36 +95,54 @@ async def translate_and_structure_query(state: AgentState):
         Respond with a JSON object with 'english_query' and 'channels' keys.
         If the query has a page context, preserve it in the 'english_query'.
         """
-        response = await call_openrouter([{"role": "user", "content": prompt}], temperature=0)
+        response = await call_openrouter(
+            [{"role": "user", "content": prompt}], temperature=0
+        )
         try:
             structured_query = json.loads(response.get("text", "{}"))
         except json.JSONDecodeError:
-            structured_query = {"english_query": user_input} # Fallback
+            structured_query = {"english_query": user_input}
     else:
         structured_query = {"english_query": user_input}
 
     return {"language": lang, "structured_query": structured_query}
 
-async def planner(state: AgentState):
+
+async def planner(state: AgentState) -> dict:
+    """Create a plan of tool calls based on the structured query.
+
+    Analyzes the user's query and chat history to determine which API
+    calls need to be made to fulfill the request.
+
+    Args:
+        state: The current agent state with structured query and history.
+
+    Returns:
+        A dictionary with 'plan' and updated 'chat_history' keys.
     """
-    Creates a plan of tool calls to execute based on the structured query.
-    """
-    print("---PLANNING---")
-    query = state['structured_query'].get('english_query', state['input'])
+    logger.info("Planning API calls")
+    query = state["structured_query"].get("english_query", state["input"])
     plan = await plan_api_calls(
-        query,
-        state['chat_history'],
-        SYSTEM_PROMPT,
-        tools_description
+        query, state["chat_history"], SYSTEM_PROMPT, tools_description
     )
     # Append the user's latest message to history as a dictionary
-    history = state.get('chat_history', []) + [{"role": "user", "content": state['input']}]
+    history = state.get("chat_history", []) + [
+        {"role": "user", "content": state["input"]}
+    ]
     return {"plan": plan, "chat_history": history}
 
-async def execute_call(call_item: dict):
-    """
-    Executes a single tool call, either locally or via the remote API.
-    This is the bridge between the planner and the actual tool execution.
+
+async def execute_call(call_item: dict) -> dict:
+    """Execute a single tool call locally or via remote API.
+
+    Acts as a bridge between the planner and actual tool execution,
+    handling both local LangChain tools and remote API calls.
+
+    Args:
+        call_item: A dictionary containing 'endpoint' and optional 'params'.
+
+    Returns:
+        The result of the tool execution, or an error dictionary if failed.
     """
     endpoint = call_item.get("endpoint")
     params = call_item.get("params", {})
@@ -120,7 +162,10 @@ async def execute_call(call_item: dict):
 
         # Normalize the response if it's an error
         if isinstance(result, dict) and result.get("error"):
-            raise HTTPException(status_code=500, detail=result.get("message", "Unknown API error"))
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("message", "Unknown API error"),
+            )
 
         return result
 
@@ -128,85 +173,112 @@ async def execute_call(call_item: dict):
         # Return a structured error that the graph can inspect
         return {
             "error": "ToolExecutionError",
-            "message": f"Failed to execute tool '{endpoint}': {getattr(e, 'detail', str(e))}",
+            "message": (
+                f"Failed to execute tool '{endpoint}': "
+                f"{getattr(e, 'detail', str(e))}"
+            ),
             "endpoint": endpoint,
-            "params": params
+            "params": params,
         }
 
 
-async def execute_tools(state: AgentState):
+async def execute_tools(state: AgentState) -> dict:
+    """Execute all planned tool calls concurrently.
+
+    Args:
+        state: The current agent state containing the plan.
+
+    Returns:
+        A dictionary with 'tool_results' containing execution results.
     """
-    Executes the planned tool calls.
-    """
-    print("---EXECUTING TOOLS---")
+    logger.info("Executing tools")
     plan = state.get("plan", [])
     if not plan:
         return {"tool_results": []}
-    
-    # This logic is adapted from your original main.py
+
     results = await asyncio.gather(*(execute_call(call) for call in plan))
     return {"tool_results": results}
 
-async def generate_response(state: AgentState):
+
+async def generate_response(state: AgentState) -> dict:
+    """Generate the final response by synthesizing tool results.
+
+    Creates a response in the user's original language by combining
+    the tool results with the conversation history.
+
+    Args:
+        state: The current agent state with tool results and history.
+
+    Returns:
+        A dictionary with the 'response' key containing the final answer.
     """
-    Generates the final response by synthesizing tool results (if any)
-    and responding in the user's original language.
-    """
-    print("---GENERATING FINAL RESPONSE---")
+    logger.info("Generating final response")
     persona = settings.SYSTEM_PERSONA
     tool_results = state.get("tool_results")
-    
+
     # Start with the base persona and the full chat history
     messages = [
         {"role": "system", "content": persona},
-        *state['chat_history'] 
+        *state["chat_history"],
     ]
 
     if tool_results:
-        # If we have tool results, create a clear "tool" message block
-        # This is a more standard and reliable way to feed tool output to a model
+        # Create a clear "tool" message block for tool output
         tool_context_message = {
             "role": "assistant",
-            "content": f"""Here is the data I found to answer your question:
-{json.dumps(tool_results, indent=2, ensure_ascii=False)}
-
-Based on this data, I will now formulate a response in {state['language']}.
-"""
+            "content": (
+                f"Here is the data I found to answer your question:\n"
+                f"{json.dumps(tool_results, indent=2, ensure_ascii=False)}\n\n"
+                f"Based on this data, I will now formulate a response in "
+                f"{state['language']}."
+            ),
         }
         messages.append(tool_context_message)
-        
+
         # Add a final prompt to ensure it responds correctly
-        final_instruction = {"role": "user", "content": f"Great. Now, please provide your final, helpful answer in {state['language']}."}
+        final_instruction = {
+            "role": "user",
+            "content": (
+                f"Great. Now, please provide your final, helpful answer in "
+                f"{state['language']}."
+            ),
+        }
         messages.append(final_instruction)
-    
-    # If there were no tool results, the history is already complete and the model will respond conversationally.
 
     final_response = await call_openrouter(messages, temperature=0.7)
-    
+
     response_text = final_response.get("text", "")
 
-    print(f"---FINAL RESPONSE GENERATED---\n{response_text}\n---------------------------")
+    logger.info(f"Final response generated: {response_text[:200]}...")
 
-    return {"response": response_text or "I'm sorry, I encountered an issue and can't provide a response right now."}
+    return {
+        "response": response_text
+        or "I'm sorry, I encountered an issue and can't provide a response "
+        "right now."
+    }
+
 
 tools = {t.name: t for t in get_api_tools()}
-tools_description = "\n".join([f"- {t.name}: {t.description}" for t in get_api_tools()])
-
+tools_description = "\n".join(
+    [f"- {t.name}: {t.description}" for t in get_api_tools()]
+)
 
 SYSTEM_PROMPT = f"""
 Today is {datetime.date.today()}.
 """
 
+
 def sanitize_prompt(message: str) -> str:
-    """
-    Sanitizes a user's prompt by removing phrases from a denylist
-    using case-insensitive regex patterns. Logs any attempts.
+    """Sanitize user prompts by removing forbidden patterns.
+
+    Removes phrases from a denylist using case-insensitive regex patterns
+    and logs any detected injection attempts.
 
     Args:
         message: The user-provided input string.
 
     Returns:
-        A sanitized version of the string.
+        A sanitized version of the string with forbidden patterns removed.
     """
     if not settings.PROMPT_SANITIZATION_ENABLED:
         return message
@@ -222,7 +294,7 @@ def sanitize_prompt(message: str) -> str:
             message = re.sub(pattern, "", message)
 
     if found_patterns:
-        # Log a security warning if any forbidden patterns were found and removed
+        # Log a security warning if forbidden patterns were found and removed
         logger.warning(
             "Potential prompt injection attempt detected. "
             f"Removed patterns: {found_patterns}. "
@@ -230,96 +302,207 @@ def sanitize_prompt(message: str) -> str:
         )
 
     # Remove extra whitespace that may result from replacements
-    return re.sub(r'\s+', ' ', message).strip()
+    return re.sub(r"\s+", " ", message).strip()
+
+
+def parse_page_context(message: str) -> tuple[Optional[str], str]:
+   """Parse page context from a user message if present.
+
+   Extracts the page context JSON from the message and returns it
+   separately from the remaining prompt text.
+
+   Args:
+       message: The user message potentially containing page context.
+
+   Returns:
+       A tuple of (page_context, cleaned_prompt) where page_context
+       is the extracted context string or None, and cleaned_prompt
+       is the message with context removed.
+   """
+   # Match [Page Context: {...}] pattern - using non-greedy match for content
+   pattern = r"\[Page Context:\s*(\{.+?\})\]"
+   match = re.search(pattern, message, re.DOTALL)
+
+   if match:
+       page_context = match.group(1)
+       # Remove the page context from the message
+       cleaned_prompt = re.sub(pattern, "", message, flags=re.DOTALL).strip()
+       return page_context, cleaned_prompt
+
+   return None, message
+
 
 @app.post("/chat")
 async def chat(request: Request):
-    data = await request.json()
-    client_ip = request.headers.get("CF-Connecting-IP") or request.client.host or "unknown"
-    user_key = hashlib.sha256(client_ip.encode()).hexdigest()[:16]
+   """Handle chat requests from users.
 
-    logger.info(f"User {user_key} prompt: {data.get('message', '')[:500]}")
+   Processes incoming chat messages, applies rate limiting, and streams
+   the response back to the client using Server-Sent Events.
 
-    message = sanitize_prompt(data.get("message", ""))
-    chat_history = data.get("chat_history", [])
-    admin = data.get("admin_key") == settings.LLM_ADMIN_KEY
+   Args:
+       request: The FastAPI request object containing the chat data.
 
-    if is_rate_limited(user_key, admin):
-        raise HTTPException(status_code=429, detail={"key": "rate_limit_exceeded", "message": "Daily LLM limit reached"})
+   Returns:
+       A StreamingResponse with the chat response events.
 
-    inputs = {
-        "input": message,
-        "chat_history": chat_history,
-    }
+   Raises:
+       HTTPException: If the user has exceeded their rate limit (429).
+   """
+   data = await request.json()
+   client_ip = (
+       request.headers.get("CF-Connecting-IP")
+       or request.client.host
+       or "unknown"
+   )
+   user_key = hashlib.sha256(client_ip.encode()).hexdigest()[:16]
 
-    async def event_stream():
-        final_answer_sent = False
-        try:
-            async for event in app_runnable.astream_events(inputs, version="v1"):
-                kind = event["event"]
+   raw_message = data.get("message", "")
+   page_context, prompt_text = parse_page_context(raw_message)
 
-                if kind == "on_chain_start":
-                    node_name = event["name"]
-                    status_key_map = {
-                        "translator": "status_translating",
-                        "planner": "status_planner",
-                        "tools": "status_tools",
-                        "responder": "status_responder"
-                    }
-                    if node_name in status_key_map:
-                        yield f"data: {json.dumps({'type':'status','key':status_key_map[node_name]})}\n\n"
+   if page_context:
+       logger.info(f"User {user_key} page context: {page_context}")
+   
+   # Log prompt on separate line, showing truncated version if too long
+   prompt_preview = prompt_text[:500] if len(prompt_text) > 500 else prompt_text
+   logger.info(f"User {user_key} prompt: {prompt_preview}")
 
-                elif kind == "on_chain_end":
-                    node_name = event["name"]
+   message = sanitize_prompt(raw_message)
+   chat_history = data.get("chat_history", [])
+   admin = data.get("admin_key") == settings.LLM_ADMIN_KEY
 
-                    if node_name == "responder":
-                        output_data = event.get("data", {}).get("output", {})
-                        final_answer = output_data.get(
-                            "response", "I'm sorry, an error occurred."
-                        )
-                        yield f"data: {json.dumps({'type':'answer','message':final_answer})}\n\n"
-                        final_answer_sent = True
+   if is_rate_limited(user_key, admin):
+       raise HTTPException(
+           status_code=429,
+           detail={
+               "key": "rate_limit_exceeded",
+               "message": "Daily LLM limit reached",
+           },
+       )
 
-            if not final_answer_sent:
-                yield f"data: {json.dumps({'type':'error','message':'No response generated.'})}\n\n"
+   inputs = {
+       "input": message,
+       "chat_history": chat_history,
+   }
 
-        except Exception as e:
-            logger.error(f"Error during graph stream: {e}", exc_info=True)
-            if not final_answer_sent:
-                yield f"data: {json.dumps({'type':'error','message':'Internal error occurred.'})}\n\n"
+   async def event_stream():
+       """Generate Server-Sent Events for the chat response.
 
+       Yields:
+           JSON-formatted SSE data strings for status updates and responses.
+       """
+       final_answer_sent = False
+       try:
+           async for event in app_runnable.astream_events(
+               inputs, version="v1"
+           ):
+               kind = event["event"]
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+               if kind == "on_chain_start":
+                   node_name = event["name"]
+                   status_key_map = {
+                       "translator": "status_translating",
+                       "planner": "status_planner",
+                       "tools": "status_tools",
+                       "responder": "status_responder",
+                   }
+                   if node_name in status_key_map:
+                       status_data = {
+                           "type": "status",
+                           "key": status_key_map[node_name],
+                       }
+                       yield f"data: {json.dumps(status_data)}\n\n"
+
+               elif kind == "on_chain_end":
+                   node_name = event["name"]
+
+                   if node_name == "responder":
+                       output_data = event.get("data", {}).get("output", {})
+                       final_answer = output_data.get(
+                           "response", "I'm sorry, an error occurred."
+                       )
+                       answer_data = {
+                           "type": "answer",
+                           "message": final_answer,
+                       }
+                       yield f"data: {json.dumps(answer_data)}\n\n"
+                       final_answer_sent = True
+
+           if not final_answer_sent:
+               error_data = {
+                   "type": "error",
+                   "message": "No response generated.",
+               }
+               yield f"data: {json.dumps(error_data)}\n\n"
+
+       except Exception as e:
+           logger.error(f"Error during graph stream: {e}", exc_info=True)
+           if not final_answer_sent:
+               error_data = {
+                   "type": "error",
+                   "message": "Internal error occurred.",
+               }
+               yield f"data: {json.dumps(error_data)}\n\n"
+
+   return StreamingResponse(event_stream(), media_type="text/event-stream")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    """Clean up resources on application shutdown.
+
+    Closes the API client connection to prevent resource leaks.
+    """
     await close_api_client()
 
-def route_after_planning(state: AgentState):
-    """
-    Decides whether to call tools or respond directly.
+
+def route_after_planning(state: AgentState) -> str:
+    """Decide whether to execute tools or respond directly.
+
+    Examines the plan generated by the planner to determine the next step
+    in the workflow.
+
+    Args:
+        state: The current agent state containing the plan.
+
+    Returns:
+        The name of the next node: 'responder' if no plan exists,
+        'tools' otherwise.
     """
     if not state.get("plan"):
-        print("---DECISION: NO PLAN, RESPONDING DIRECTLY---")
+        logger.debug("No plan generated, responding directly")
         return "responder"
     else:
-        print("---DECISION: PLAN EXISTS, EXECUTING TOOLS---")
+        logger.debug("Plan exists, executing tools")
         return "tools"
 
-def route_after_tools(state: AgentState):
+
+def route_after_tools(state: AgentState) -> str:
+    """Check tool execution results and route to responder.
+
+    Evaluates whether tool execution was successful and always routes
+    to the responder to generate a final answer.
+
+    Args:
+        state: The current agent state with tool results.
+
+    Returns:
+        Always returns 'responder' as the next node.
     """
-    Checks if tool execution was successful.
-    In either case, it routes to the responder to generate a final answer.
-    """
-    print("---ASSESSING TOOL RESULTS---")
+    logger.debug("Assessing tool results")
     tool_results = state.get("tool_results", [])
 
-    if not tool_results or any(res is None or (isinstance(res, dict) and res.get("error")) for res in tool_results):
-        print("---DECISION: TOOL FAILED OR RETURNED NO DATA. ROUTING TO RESPONDER.---")
+    if not tool_results or any(
+        res is None or (isinstance(res, dict) and res.get("error"))
+        for res in tool_results
+    ):
+        logger.warning(
+            "Tool execution failed or returned no data, routing to responder"
+        )
     else:
-        print("---DECISION: TOOL SUCCEEDED. ROUTING TO RESPONDER.---")
+        logger.debug("Tool execution succeeded, routing to responder")
 
     return "responder"
+
 
 # Build the state graph
 workflow = StateGraph(AgentState)
@@ -338,19 +521,14 @@ workflow.add_edge("translator", "planner")
 workflow.add_conditional_edges(
     "planner",
     route_after_planning,
-    {
-        "responder": "responder",
-        "tools": "tools"
-    }
+    {"responder": "responder", "tools": "tools"},
 )
 
 # Conditional edge after tool execution
 workflow.add_conditional_edges(
     "tools",
     route_after_tools,
-    {
-        "responder": "responder"
-    }
+    {"responder": "responder"},
 )
 
 workflow.add_edge("responder", END)

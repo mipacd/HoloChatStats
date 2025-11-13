@@ -131,15 +131,24 @@
         </div>
     </div>
 
-    <div class="chart-container">
-        <button id="downloadCSV" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-3">{{ _("Download CSV") }}</button>
-        <canvas id="membershipChart"></canvas>
-        <div id="chartLoading" class="position-absolute top-50 start-50 translate-middle d-none">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
+    <div class="chart-container position-relative">
+    <div class="position-absolute top-0 end-0 m-3 d-flex gap-2">
+        <button id="downloadCSV" class="btn btn-sm btn-primary">
+            {{ _("Download CSV") }}
+        </button>
+        <button id="downloadPNG" class="btn btn-sm btn-primary">
+            <i class="fas fa-image"></i> {{ _("Download PNG") }}
+        </button>
+    </div>
+
+    <canvas id="membershipChart"></canvas>
+
+    <div id="chartLoading" class="position-absolute top-50 start-50 translate-middle d-none">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
         </div>
     </div>
+</div>
 </div>
 {% include 'eri_widget.html' %}
 
@@ -154,9 +163,6 @@ $(document).ready(function() {
         fetchData();
     });
     Chart.defaults.color = 'white';
-
-    
-
 
     let ctx = document.getElementById('membershipChart').getContext('2d');
     let chart = new Chart(ctx, {
@@ -196,26 +202,27 @@ $(document).ready(function() {
                         footer: function(tooltipItems) {
                             const dataIndex = tooltipItems[0].dataIndex;
                             let totalMembers = 0;
-                            let totalChatters = 0;
+                            let nonMembersValue = 0;
                             
-                            const nonMembersDataset = chart.data.datasets.find(d => d.label === 'Non-Members');
-                            const nonMembersVisible = nonMembersDataset && !nonMembersDataset.hidden;
+                            // Find the Non-Members dataset and check its visibility
+                            const nonMembersDatasetIndex = chart.data.datasets.findIndex(d => d.label === 'Non-Members');
+                            const nonMembersVisible = nonMembersDatasetIndex !== -1 && 
+                                !chart.getDatasetMeta(nonMembersDatasetIndex).hidden;
 
-                            chart.data.datasets.forEach(function(dataset) {
+                            chart.data.datasets.forEach(function(dataset, index) {
                                 const value = dataset.data[dataIndex] || 0;
-                                if (dataset.label !== 'Non-Members') {
+                                if (dataset.label === 'Non-Members') {
+                                    nonMembersValue = value;
+                                } else {
                                     totalMembers += value;
-                                }
-
-                                if (!dataset.hidden) {
-                                    totalChatters += value;
                                 }
                             });
                             
                             if (nonMembersVisible) {
-                                return `\nTotal Members: ${totalMembers}\nTotal Chatters: ${totalChatters}`;
+                                const totalChatters = totalMembers + nonMembersValue;
+                                return `Total Members: ${totalMembers}\nTotal Chatters: ${totalChatters}`;
                             } else {
-                                return `\nTotal Members: ${totalMembers}`;
+                                return `Total Members: ${totalMembers}`;
                             }
                         }
                     }
@@ -225,10 +232,8 @@ $(document).ready(function() {
                     position: 'top',
                     labels: { color: "white" },
                     onClick: function(e, legendItem, legend) {
-
                         Chart.defaults.plugins.legend.onClick(e, legendItem, legend);
                         
-
                         if (legendItem.text === 'Non-Members') {
                             sortChartData(chart);
                         }
@@ -238,19 +243,39 @@ $(document).ready(function() {
         }
     });
 
+    function isDatasetHidden(chartInstance, datasetIndex) {
+        // Check both the dataset property and metadata
+        // This handles both initial load (where metadata might not be set) and runtime toggling
+        const dataset = chartInstance.data.datasets[datasetIndex];
+        const meta = chartInstance.getDatasetMeta(datasetIndex);
+        
+        // If metadata.hidden is explicitly set (not undefined), use it
+        // Otherwise fall back to the dataset's hidden property
+        if (meta && typeof meta.hidden !== 'undefined' && meta.hidden !== null) {
+            return meta.hidden;
+        }
+        return dataset.hidden === true;
+    }
+
     function sortChartData(chartInstance) {
         // Safeguard against recursion
         if (chartInstance._sorting) return;
         chartInstance._sorting = true;
 
-        const nonMembersDataset = chartInstance.data.datasets.find(d => d.label === 'Non-Members');
-        const includeNonMembers = nonMembersDataset && !nonMembersDataset.hidden;
+        const nonMembersDatasetIndex = chartInstance.data.datasets.findIndex(d => d.label === 'Non-Members');
+        const includeNonMembers = nonMembersDatasetIndex !== -1 && 
+            !isDatasetHidden(chartInstance, nonMembersDatasetIndex);
 
         const channelTotals = chartInstance.data.labels.map((label, index) => {
             let total = 0;
-            chartInstance.data.datasets.forEach(dataset => {
-
-                if (!dataset.hidden && (dataset.label !== 'Non-Members' || includeNonMembers)) {
+            chartInstance.data.datasets.forEach((dataset, datasetIndex) => {
+                if (dataset.label === 'Non-Members') {
+                    // Only include Non-Members if it's visible
+                    if (includeNonMembers) {
+                        total += dataset.data[index] || 0;
+                    }
+                } else {
+                    // Always include member datasets in the total
                     total += dataset.data[index] || 0;
                 }
             });
@@ -274,12 +299,10 @@ $(document).ready(function() {
         chartInstance._sorting = false;
     }
 
-
     function fetchData() {
         let group = $('#groupSelect').val();
         let month = $('#monthSelect').val() || new Date().toISOString().slice(0, 7);
         let url = `/api/get_group_membership_data?month=${month}&channel_group=${encodeURIComponent(group)}`;
-
 
         $('#chartLoading').removeClass('d-none');
         $('#membershipChart').addClass('d-none');
@@ -329,7 +352,6 @@ $(document).ready(function() {
             "#3c475a"
         ];
 
-
         data.forEach(d => {
             let channel = d[0];
             let membership_rank = d[1];
@@ -347,7 +369,6 @@ $(document).ready(function() {
                 groupedData[channel].membership_counts[label] = count;
                 groupedData[channel].total += count;
             }
-
         });
 
         let sortedChannels = Object.entries(groupedData)
@@ -356,7 +377,7 @@ $(document).ready(function() {
 
         let labels = sortedChannels;
         let rankLabels = Array.from(new Set(Object.values(groupedData).flatMap(c => Object.keys(c.membership_counts))))
-            .sort((a, b) => rankSortOrder(a) - rankSortOrder(b)); // Sort by membership rank (oldest at the bottom)
+            .sort((a, b) => rankSortOrder(a) - rankSortOrder(b));
 
         let datasets = rankLabels.map(rank => ({
             label: rank,
@@ -375,7 +396,6 @@ $(document).ready(function() {
         };
         datasets.unshift(specialDataset);
 
-
         return { labels, datasets };
     }
 
@@ -385,7 +405,6 @@ $(document).ready(function() {
         if (rank < 12) return `${rank} Month${rank > 1 ? "s" : ""}`;
         return `${Math.floor(rank / 12)} Year${rank >= 24 ? "s" : ""}`;
     }
-
 
     function rankSortOrder(label) {
         if (label === "New Members") return 0;
@@ -401,117 +420,72 @@ $(document).ready(function() {
 
     $('#groupSelect').on("change", fetchData);
 
-    // Initialize Bootstrap Toooltips
+    // Initialize Bootstrap Tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-          return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
 
-        $('#downloadCSV').on('click', function() {
-            let data = chart.data;
-            let header = "Channel," + data.datasets.map(dataset => dataset.label).join(',');
-            let csvContent = "data:text/csv;charset=utf-8," + header + "\n";
+    $('#downloadCSV').on('click', function() {
+        let data = chart.data;
+        let header = "Channel," + data.datasets.map(dataset => dataset.label).join(',');
+        let csvContent = "data:text/csv;charset=utf-8," + header + "\n";
 
-            for (let i = 0; i < data.labels.length; i++) {
-                let row = data.labels[i];
-                for (let j = 0; j < data.datasets.length; j++) {
-                    row += `,${data.datasets[j].data[i]}`;
-                }
-                csvContent += row + "\n";
+        for (let i = 0; i < data.labels.length; i++) {
+            let row = data.labels[i];
+            for (let j = 0; j < data.datasets.length; j++) {
+                row += `,${data.datasets[j].data[i]}`;
             }
+            csvContent += row + "\n";
+        }
 
-            var encodedUri = encodeURI(csvContent);
-            var link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "membership_counts.csv");
+        var encodedUri = encodeURI(csvContent);
+        var link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "membership_counts.csv");
 
-            document.body.appendChild(link); // Required for FF
-            link.click();
-            document.body.removeChild(link);
-        });
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
 
-
-        // Chat toggle functionality
-        // Initialize chat toggle
-        const toggleChat = () => {
-            const chat = document.getElementById('chat-container');
-            chat.classList.toggle('collapsed');
-        };
+    // Download chart as PNG with title
+    $('#downloadPNG').on('click', function() {
+        const chartTitle = "Membership Counts - " + $('#groupSelect').val() + " - " + ($('#monthSelect').val() || new Date().toISOString().slice(0, 7)) + " - holochatstats.info";
+        const backgroundColor = getComputedStyle(document.body).backgroundColor || '#1a1a1a';
         
-        document.getElementById('toggle-chat').addEventListener('click', function(e) {
-            e.stopPropagation();
-            toggleChat();
-        });
+        // Get the original canvas
+        const originalCanvas = document.getElementById('membershipChart');
         
-        // Also make entire header clickable
-        document.getElementById('chat-header').addEventListener('click', function(e) {
-            if(e.target === this) { // Only if clicking header itself, not children
-                toggleChat();
-            }
-        });
-
-        // Chat functionality
-        document.getElementById('chat-send').addEventListener('click', sendQuestion);
-        document.getElementById('chat-question').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') sendQuestion();
-        });
-
-        function addMessage(text, isUser) {
-        const messages = document.getElementById('chat-messages');
-        const msg = document.createElement('div');
-        msg.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
-        msg.textContent = text;
-        messages.appendChild(msg);
-        messages.scrollTop = messages.scrollHeight;
-        }
-
-        function formatChartData() {
-            const data = chart.data;
-            let header = "Channel," + data.datasets.map(dataset => dataset.label).join(',');
-            let csvContent = header + "\n";
-            
-            for (let i = 0; i < data.labels.length; i++) {
-                let row = data.labels[i];
-                for (let j = 0; j < data.datasets.length; j++) {
-                    row += `,${data.datasets[j].data[i]}`;
-                }
-                csvContent += row + "\n";
-            }
-            
-            return csvContent;
-        }
-
-        async function sendQuestion() {
-            const input = document.getElementById('chat-question');
-            const question = input.value.trim();
-            if (!question) return;
-
-            addMessage(question, true);
-            input.value = '';
-
-            try {
-                const response = await fetch('/api/llm/query', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        question: question,
-                        chart_context: {
-                            chart_type: 'membership_counts',
-                            current_data: formatChartData(),
-                            selected_group: document.getElementById('groupSelect').value,
-                            selected_month: document.getElementById('monthSelect').value
-                        }
-                    })
-                });
-
-            const data = await response.json();
-            if (data.error) throw new Error(data.error);
-            addMessage(data.answer, false);
-        } catch (error) {
-            addMessage(error, false);
-            console.error("Chat error:", error);
-        }
-        }
+        // Create a new canvas with extra space for the title
+        const newCanvas = document.createElement('canvas');
+        const titleHeight = 60;
+        const padding = 20;
+        
+        newCanvas.width = originalCanvas.width;
+        newCanvas.height = originalCanvas.height + titleHeight;
+        
+        const newCtx = newCanvas.getContext('2d');
+        
+        // Fill background
+        newCtx.fillStyle = backgroundColor;
+        newCtx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+        
+        // Draw title
+        newCtx.fillStyle = 'white';
+        newCtx.font = 'bold 24px Arial';
+        newCtx.textAlign = 'center';
+        newCtx.fillText(chartTitle, newCanvas.width / 2, titleHeight / 2 + 10);
+        
+        // Draw the chart below the title
+        newCtx.drawImage(originalCanvas, 0, titleHeight);
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.download = 'membership_counts.png';
+        link.href = newCanvas.toDataURL('image/png');
+        link.click();
+    });
 });
 </script>
 <script>
