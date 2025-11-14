@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 pydantic-settings
 redis
@@ -5,3 +6,5 @@ httpx
 langchain-core
 uvicorn
 langgraph
+sentence-transformers
+torch

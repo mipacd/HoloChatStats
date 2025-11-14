@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6380
 
+    # Database
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5433
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "12345"
+    POSTGRES_DB: str = "youtube_data"
+
     # Limits
     MAX_API_CALLS_PER_PROMPT: int = 3
     LLM_DAILY_LIMIT: int = 10

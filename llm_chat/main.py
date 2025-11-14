@@ -20,6 +20,7 @@ from llm.model import call_openrouter
 from llm.planner import plan_api_calls
 from rate_limit import is_rate_limited
 from tools import call_hcs_api, close_api_client, get_api_tools
+from tool_store import tool_store
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ app.add_middleware(
     allow_origins=[
         "http://127.0.0.1:5000",
         "http://localhost:5000",
-		"https://holochatstats.info",
+        "https://holochatstats.info",
         "https://llm.holochatstats.info",
     ],
     allow_credentials=True,
@@ -215,12 +216,33 @@ async def generate_response(state: AgentState) -> dict:
     logger.info("Generating final response")
     persona = settings.SYSTEM_PERSONA
     tool_results = state.get("tool_results")
+    
+    # Get relevant knowledge for the response
+    from tool_store import tool_store
+    knowledge_items = await tool_store.search_knowledge(
+        state["input"],
+        top_k=3,
+        similarity_threshold=0.4
+    )
+    
+    # Format knowledge context
+    knowledge_context = ""
+    if knowledge_items:
+        knowledge_parts = [f"- {item.content}" for item in knowledge_items]
+        knowledge_context = "\n".join(knowledge_parts)
 
     # Start with the base persona and the full chat history
     messages = [
         {"role": "system", "content": persona},
         *state["chat_history"],
     ]
+    
+    # Add knowledge context if available
+    if knowledge_context:
+        messages.append({
+            "role": "system",
+            "content": f"Relevant context:\n{knowledge_context}"
+        })
 
     if tool_results:
         # Create a clear "tool" message block for tool output
@@ -306,153 +328,161 @@ def sanitize_prompt(message: str) -> str:
 
 
 def parse_page_context(message: str) -> tuple[Optional[str], str]:
-   """Parse page context from a user message if present.
+    """Parse page context from a user message if present.
 
-   Extracts the page context JSON from the message and returns it
-   separately from the remaining prompt text.
+    Extracts the page context JSON from the message and returns it
+    separately from the remaining prompt text.
 
-   Args:
-       message: The user message potentially containing page context.
+    Args:
+        message: The user message potentially containing page context.
 
-   Returns:
-       A tuple of (page_context, cleaned_prompt) where page_context
-       is the extracted context string or None, and cleaned_prompt
-       is the message with context removed.
-   """
-   # Match [Page Context: {...}] pattern - using non-greedy match for content
-   pattern = r"\[Page Context:\s*(\{.+?\})\]"
-   match = re.search(pattern, message, re.DOTALL)
+    Returns:
+        A tuple of (page_context, cleaned_prompt) where page_context
+        is the extracted context string or None, and cleaned_prompt
+        is the message with context removed.
+    """
+    # Match [Page Context: {...}] pattern - using non-greedy match for content
+    pattern = r"\[Page Context:\s*(\{.+?\})\]"
+    match = re.search(pattern, message, re.DOTALL)
 
-   if match:
-       page_context = match.group(1)
-       # Remove the page context from the message
-       cleaned_prompt = re.sub(pattern, "", message, flags=re.DOTALL).strip()
-       return page_context, cleaned_prompt
+    if match:
+        page_context = match.group(1)
+        # Remove the page context from the message
+        cleaned_prompt = re.sub(pattern, "", message, flags=re.DOTALL).strip()
+        return page_context, cleaned_prompt
 
-   return None, message
+    return None, message
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize resources on application startup."""
+    logger.info("Initializing tool store...")
+    await tool_store.initialize()
+    logger.info("Tool store initialized successfully")
 
 
 @app.post("/chat")
 async def chat(request: Request):
-   """Handle chat requests from users.
+    """Handle chat requests from users.
 
-   Processes incoming chat messages, applies rate limiting, and streams
-   the response back to the client using Server-Sent Events.
+    Processes incoming chat messages, applies rate limiting, and streams
+    the response back to the client using Server-Sent Events.
 
-   Args:
-       request: The FastAPI request object containing the chat data.
+    Args:
+        request: The FastAPI request object containing the chat data.
 
-   Returns:
-       A StreamingResponse with the chat response events.
+    Returns:
+        A StreamingResponse with the chat response events.
 
-   Raises:
-       HTTPException: If the user has exceeded their rate limit (429).
-   """
-   data = await request.json()
-   client_ip = (
-       request.headers.get("CF-Connecting-IP")
-       or request.client.host
-       or "unknown"
-   )
-   user_key = hashlib.sha256(client_ip.encode()).hexdigest()[:16]
+    Raises:
+        HTTPException: If the user has exceeded their rate limit (429).
+    """
+    data = await request.json()
+    client_ip = (
+        request.headers.get("CF-Connecting-IP")
+        or request.client.host
+        or "unknown"
+    )
+    user_key = hashlib.sha256(client_ip.encode()).hexdigest()[:16]
 
-   raw_message = data.get("message", "")
-   page_context, prompt_text = parse_page_context(raw_message)
+    raw_message = data.get("message", "")
+    page_context, prompt_text = parse_page_context(raw_message)
 
-   if page_context:
-       logger.info(f"User {user_key} page context: {page_context}")
-   
-   # Log prompt on separate line, showing truncated version if too long
-   prompt_preview = prompt_text[:500] if len(prompt_text) > 500 else prompt_text
-   logger.info(f"User {user_key} prompt: {prompt_preview}")
+    if page_context:
+        logger.info(f"User {user_key} page context: {page_context}")
 
-   message = sanitize_prompt(raw_message)
-   chat_history = data.get("chat_history", [])
-   admin = data.get("admin_key") == settings.LLM_ADMIN_KEY
+    # Log prompt on separate line, showing truncated version if too long
+    prompt_preview = prompt_text[:500] if len(prompt_text) > 500 else prompt_text
+    logger.info(f"User {user_key} prompt: {prompt_preview}")
 
-   if is_rate_limited(user_key, admin):
-       raise HTTPException(
-           status_code=429,
-           detail={
-               "key": "rate_limit_exceeded",
-               "message": "Daily LLM limit reached",
-           },
-       )
+    message = sanitize_prompt(raw_message)
+    chat_history = data.get("chat_history", [])
+    admin = data.get("admin_key") == settings.LLM_ADMIN_KEY
 
-   inputs = {
-       "input": message,
-       "chat_history": chat_history,
-   }
+    if is_rate_limited(user_key, admin):
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "key": "rate_limit_exceeded",
+                "message": "Daily LLM limit reached",
+            },
+        )
 
-   async def event_stream():
-       """Generate Server-Sent Events for the chat response.
+    inputs = {
+        "input": message,
+        "chat_history": chat_history,
+    }
 
-       Yields:
-           JSON-formatted SSE data strings for status updates and responses.
-       """
-       final_answer_sent = False
-       try:
-           async for event in app_runnable.astream_events(
-               inputs, version="v1"
-           ):
-               kind = event["event"]
+    async def event_stream():
+        """Generate Server-Sent Events for the chat response.
 
-               if kind == "on_chain_start":
-                   node_name = event["name"]
-                   status_key_map = {
-                       "translator": "status_translating",
-                       "planner": "status_planner",
-                       "tools": "status_tools",
-                       "responder": "status_responder",
-                   }
-                   if node_name in status_key_map:
-                       status_data = {
-                           "type": "status",
-                           "key": status_key_map[node_name],
-                       }
-                       yield f"data: {json.dumps(status_data)}\n\n"
+        Yields:
+            JSON-formatted SSE data strings for status updates and responses.
+        """
+        final_answer_sent = False
+        try:
+            async for event in app_runnable.astream_events(
+                inputs, version="v1"
+            ):
+                kind = event["event"]
 
-               elif kind == "on_chain_end":
-                   node_name = event["name"]
+                if kind == "on_chain_start":
+                    node_name = event["name"]
+                    status_key_map = {
+                        "translator": "status_translating",
+                        "planner": "status_planner",
+                        "tools": "status_tools",
+                        "responder": "status_responder",
+                    }
+                    if node_name in status_key_map:
+                        status_data = {
+                            "type": "status",
+                            "key": status_key_map[node_name],
+                        }
+                        yield f"data: {json.dumps(status_data)}\n\n"
 
-                   if node_name == "responder":
-                       output_data = event.get("data", {}).get("output", {})
-                       final_answer = output_data.get(
-                           "response", "I'm sorry, an error occurred."
-                       )
-                       answer_data = {
-                           "type": "answer",
-                           "message": final_answer,
-                       }
-                       yield f"data: {json.dumps(answer_data)}\n\n"
-                       final_answer_sent = True
+                elif kind == "on_chain_end":
+                    node_name = event["name"]
 
-           if not final_answer_sent:
-               error_data = {
-                   "type": "error",
-                   "message": "No response generated.",
-               }
-               yield f"data: {json.dumps(error_data)}\n\n"
+                    if node_name == "responder":
+                        output_data = event.get("data", {}).get("output", {})
+                        final_answer = output_data.get(
+                            "response", "I'm sorry, an error occurred."
+                        )
+                        answer_data = {
+                            "type": "answer",
+                            "message": final_answer,
+                        }
+                        yield f"data: {json.dumps(answer_data)}\n\n"
+                        final_answer_sent = True
 
-       except Exception as e:
-           logger.error(f"Error during graph stream: {e}", exc_info=True)
-           if not final_answer_sent:
-               error_data = {
-                   "type": "error",
-                   "message": "Internal error occurred.",
-               }
-               yield f"data: {json.dumps(error_data)}\n\n"
+            if not final_answer_sent:
+                error_data = {
+                    "type": "error",
+                    "message": "No response generated.",
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
 
-   return StreamingResponse(event_stream(), media_type="text/event-stream")
+        except Exception as e:
+            logger.error(f"Error during graph stream: {e}", exc_info=True)
+            if not final_answer_sent:
+                error_data = {
+                    "type": "error",
+                    "message": "Internal error occurred.",
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Clean up resources on application shutdown.
-
-    Closes the API client connection to prevent resource leaks.
-    """
+    """Clean up resources on application shutdown."""
+    logger.info("Shutting down...")
     await close_api_client()
+    await tool_store.close()
+    logger.info("Cleanup complete")
 
 
 def route_after_planning(state: AgentState) -> str:
