@@ -12,10 +12,10 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6380
 
     # Database
-    POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5433
+    POSTGRES_HOST: str = "db"
+    POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "12345"
+    POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = "youtube_data"
 
     # Limits
