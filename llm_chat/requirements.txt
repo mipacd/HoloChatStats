@@ -8,3 +8,4 @@ uvicorn
 langgraph
 sentence-transformers
 torch
+asyncpg
