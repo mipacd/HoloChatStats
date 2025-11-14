@@ -9,6 +9,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: always
+    networks:
+      - default
 
   redis:
     image: redis:alpine
@@ -18,6 +20,8 @@ services:
     volumes:
       - redis_data:/data
     restart: always
+    networks:
+      - default
 
   web:
     build: ./web
@@ -33,6 +37,8 @@ services:
       - db
       - redis
     restart: always
+    networks:
+      - default
 
   llm_chat:
     build: ./llm_chat
