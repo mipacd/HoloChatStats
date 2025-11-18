@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-12 21:25-0500\n"
+"POT-Creation-Date: 2025-11-18 15:52-0500\n"
 "PO-Revision-Date: 2025-10-24 14:05-0400\n"
 "Last-Translator: Gemini Assistant\n"
 "Language: ko\n"
@@ -18,20 +18,21 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:938 server.py:1135 server.py:1298 server.py:1382 server.py:1489
-#: server.py:1656 server.py:1710 server.py:1780 server.py:1866
+#: api.py:779 api.py:1030 api.py:1210 api.py:1297 api.py:1420 api.py:1602
+#: api.py:1665 api.py:1742 api.py:1835
 msgid "Missing required parameters"
 msgstr "필수 매개변수가 누락되었습니다"
 
-#: server.py:1688
+#: api.py:1633
 msgid "No data found"
 msgstr "데이터를 찾을 수 없습니다"
 
-#: server.py:1869
+#: api.py:1838
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr "잘못된 언어 매개변수입니다. EN, JP, KR, RU 중 하나여야 합니다."
 
 #: templates/channel_clustering.html:8 templates/menu.html:61
+#: templates/menu_pwa.html:36
 msgid "Channel Clusters by Common Users"
 msgstr "공통 사용자 기반 채널 클러스터"
 
@@ -87,8 +88,8 @@ msgstr "클러스터링 그래프 로드"
 
 #: templates/channel_clustering.html:149 templates/channel_clustering.html:155
 #: templates/chat_leaderboards.html:123 templates/common_members.html:141
-#: templates/common_users.html:143 templates/recommendation_engine.html:125
-#: templates/user_info.html:131
+#: templates/common_users.html:143 templates/index_pwa.html:182
+#: templates/recommendation_engine.html:125 templates/user_info.html:131
 msgid "Loading..."
 msgstr "로딩 중..."
 
@@ -101,7 +102,7 @@ msgid "Failed to load clustering graph."
 msgstr "클러스터링 그래프를 로드하지 못했습니다."
 
 #: templates/chat_leaderboards.html:8 templates/chat_leaderboards.html:105
-#: templates/menu.html:63
+#: templates/menu.html:63 templates/menu_pwa.html:38
 msgid "Chat Leaderboards"
 msgstr "채팅 리더보드"
 
@@ -163,7 +164,7 @@ msgid "Error fetching data. Please try again later."
 msgstr "데이터를 가져오는 중 오류가 발생했습니다. 나중에 다시 시도하세요."
 
 #: templates/chat_makeup.html:8 templates/chat_makeup.html:104
-#: templates/menu.html:80
+#: templates/menu.html:80 templates/menu_pwa.html:59
 msgid "Chat Makeup"
 msgstr "채팅 구성"
 
@@ -192,6 +193,7 @@ msgstr "전체"
 
 #: templates/chat_makeup.html:115 templates/engagement.html:108
 #: templates/membership_change.html:115 templates/membership_counts.html:124
+#: templates/membership_counts_pwa.html:456
 #: templates/membership_percentages.html:108 templates/streaming_hours.html:132
 #: templates/streaming_hours_avg.html:132
 #: templates/streaming_hours_diff.html:133
@@ -201,6 +203,7 @@ msgstr "홀로라이브"
 
 #: templates/chat_makeup.html:116 templates/engagement.html:109
 #: templates/membership_change.html:116 templates/membership_counts.html:125
+#: templates/membership_counts_pwa.html:457
 #: templates/membership_percentages.html:109 templates/streaming_hours.html:133
 #: templates/streaming_hours_avg.html:133
 #: templates/streaming_hours_diff.html:134
@@ -211,6 +214,7 @@ msgstr "인디"
 #: templates/chat_makeup.html:128 templates/engagement.html:121
 #: templates/funniest_timestamps.html:181 templates/membership_change.html:128
 #: templates/membership_counts.html:137
+#: templates/membership_counts_pwa.html:441
 #: templates/membership_percentages.html:121 templates/streaming_hours.html:145
 #: templates/streaming_hours_avg.html:145
 #: templates/streaming_hours_diff.html:146
@@ -221,6 +225,7 @@ msgstr "CSV 다운로드"
 #: templates/chat_makeup.html:131 templates/engagement.html:124
 #: templates/exclusive_chat.html:120 templates/jp_user_percents.html:121
 #: templates/membership_change.html:131 templates/membership_counts.html:140
+#: templates/membership_counts_pwa.html:444
 #: templates/membership_percentages.html:124 templates/message_types.html:130
 #: templates/monthly_streaming_hours.html:121
 #: templates/streaming_hours.html:148 templates/streaming_hours_avg.html:148
@@ -231,7 +236,7 @@ msgid "Download PNG"
 msgstr "PNG 다운로드"
 
 #: templates/common_members.html:8 templates/common_members.html:110
-#: templates/menu.html:59
+#: templates/menu.html:59 templates/menu_pwa.html:34
 msgid "Common Members by Channel / Month"
 msgstr "채널/월별 공통 멤버"
 
@@ -276,7 +281,7 @@ msgid "No common members found for the selected criteria."
 msgstr "선택한 조건에 대한 공통 멤버를 찾을 수 없습니다."
 
 #: templates/common_users.html:6 templates/common_users.html:111
-#: templates/menu.html:58
+#: templates/menu.html:58 templates/menu_pwa.html:33
 msgid "Common Users by Channel / Month"
 msgstr "채널 / 월별 공통 사용자"
 
@@ -301,7 +306,7 @@ msgid "No common users found for the selected criteria."
 msgstr "선택한 기준에 대한 공통 사용자를 찾을 수 없습니다."
 
 #: templates/engagement.html:8 templates/engagement.html:102
-#: templates/menu.html:65
+#: templates/menu.html:65 templates/menu_pwa.html:40
 msgid "Engagement Rates"
 msgstr "참여율"
 
@@ -427,7 +432,16 @@ msgstr "지난달 제가 채팅했던 채널을 알려줄 수 있나요? 제 채
 msgid "Show me Hololive merch currently on sale for [VTUBER_NAME]"
 msgstr "[VTUBER_NAME]의 현재 판매 중인 홀로라이브 굿즈를 보여줘"
 
-#: templates/eri.html:234
+#: templates/eri.html:229
+#, fuzzy
+msgid "How many subscribers does [VTUBER_NAME] have?"
+msgstr "[VTUBER_NAME]은(는) 지난달 몇 시간 방송했나요?"
+
+#: templates/eri.html:230
+msgid "What was [VTUBER_NAME]'s last stream?"
+msgstr ""
+
+#: templates/eri.html:236
 msgid ""
 "Eri may display inaccurate information, so double-check its responses. "
 "Your conversations are logged to help make Eri better. By using Eri, you "
@@ -436,37 +450,37 @@ msgstr ""
 "에리는 부정확한 정보를 표시할 수 있으니 응답을 다시 확인해 주세요. 대화는 에리를 개선하는 데 도움이 되도록 기록됩니다. 에리를 "
 "사용하면 이에 동의하는 것입니다."
 
-#: templates/eri.html:237
+#: templates/eri.html:239
 msgid "Conversations in English may be more accurate than in other languages."
 msgstr "영어로 대화하는 것이 다른 언어보다 더 정확할 수 있습니다."
 
-#: templates/eri.html:255 templates/eri_widget.html:510
+#: templates/eri.html:257 templates/eri_widget.html:510
 msgid "Let's see..."
 msgstr "어디 보자..."
 
-#: templates/eri.html:256 templates/eri_widget.html:511
+#: templates/eri.html:258 templates/eri_widget.html:511
 msgid "Deciphering your request..."
 msgstr "요청 내용을 확인하는 중..."
 
-#: templates/eri.html:257 templates/eri_widget.html:512
+#: templates/eri.html:259 templates/eri_widget.html:512
 msgid "Alright, plotting a course of action."
 msgstr "알겠어요, 계획을 세우는 중이에요."
 
-#: templates/eri.html:258 templates/eri_widget.html:513
+#: templates/eri.html:260 templates/eri_widget.html:513
 msgid "Searching the HoloChatStats archives..."
 msgstr "HoloChatStats 아카이브를 검색하는 중..."
 
-#: templates/eri.html:259 templates/eri_widget.html:514
+#: templates/eri.html:261 templates/eri_widget.html:514
 msgid "Compiling the data..."
 msgstr "데이터를 정리하는 중..."
 
-#: templates/eri.html:260 templates/eri_widget.html:515
+#: templates/eri.html:262 templates/eri_widget.html:515
 msgid ""
 "Looks like you've reached the daily query limit. Please try again "
 "tomorrow."
 msgstr "오늘의 질문 횟수를 다 사용하셨어요. 내일 다시 시도해 주세요."
 
-#: templates/eri.html:325 templates/eri_widget.html:707
+#: templates/eri.html:327 templates/eri_widget.html:707
 msgid "Sorry — I couldn't reach the assistant (network error)."
 msgstr "죄송해요 — 어시스턴트에 연결할 수 없었어요 (네트워크 오류)."
 
@@ -498,7 +512,7 @@ msgid "Restore"
 msgstr ""
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:103
-#: templates/menu.html:64
+#: templates/menu.html:64 templates/menu_pwa.html:39
 msgid "Exclusive Chat Users"
 msgstr "독점 채팅 사용자"
 
@@ -560,6 +574,7 @@ msgid "No data available for export."
 msgstr "내보낼 데이터가 없습니다."
 
 #: templates/heatmap.html:6 templates/heatmap.html:124 templates/menu.html:60
+#: templates/menu_pwa.html:35
 msgid "Common User Heatmap"
 msgstr "공통 사용자 히트맵"
 
@@ -625,11 +640,11 @@ msgstr "하이라이트 가져오기"
 msgid "No highlights available for this selection."
 msgstr "이 선택 항목에 대해 사용 가능한 하이라이트가 없습니다."
 
-#: templates/index.html:156
+#: templates/index.html:156 templates/index_pwa.html:188
 msgid "Welcome to HoloChatStats!"
 msgstr "HoloChatStats에 오신 것을 환영합니다!"
 
-#: templates/index.html:157
+#: templates/index.html:157 templates/index_pwa.html:189
 msgid "Explore statistics and insights for Hololive and Indie VTuber chats."
 msgstr "홀로라이브 및 인디 VTuber 채팅에 대한 통계와 통찰력을 탐색하세요."
 
@@ -654,7 +669,9 @@ msgid "Common User Channel Clusters"
 msgstr "공통 사용자 채널 클러스터"
 
 #: templates/index.html:187 templates/membership_counts.html:8
-#: templates/membership_counts.html:118 templates/menu.html:67
+#: templates/membership_counts.html:118 templates/membership_counts_pwa.html:16
+#: templates/membership_counts_pwa.html:395 templates/menu.html:67
+#: templates/menu_pwa.html:42
 msgid "Membership Counts"
 msgstr "멤버십 수"
 
@@ -662,7 +679,7 @@ msgstr "멤버십 수"
 msgid "User Message Counts"
 msgstr "사용자 메시지 수"
 
-#: templates/index.html:203
+#: templates/index.html:203 templates/index_pwa.html:194
 msgid "Data Coverage"
 msgstr "데이터 범위"
 
@@ -678,27 +695,28 @@ msgstr "채팅 로그 수를 불러오는 중..."
 msgid "Loading message count..."
 msgstr "메시지 수 로딩 중..."
 
-#: templates/index.html:218
+#: templates/index.html:218 templates/index_pwa.html:209
 msgid "Latest Updates"
 msgstr "최신 업데이트"
 
 #: templates/index.html:220 templates/index.html:288
+#: templates/index_pwa.html:358
 msgid "No updates available."
 msgstr "새로운 업데이트가 없습니다."
 
-#: templates/index.html:247
+#: templates/index.html:247 templates/index_pwa.html:305
 msgid "Start:"
 msgstr "시작:"
 
-#: templates/index.html:248
+#: templates/index.html:248 templates/index_pwa.html:306
 msgid "End:"
 msgstr "종료:"
 
-#: templates/index.html:251
+#: templates/index.html:251 templates/index_pwa.html:309
 msgid "Unable to fetch date ranges."
 msgstr "날짜 범위를 가져올 수 없습니다."
 
-#: templates/index.html:254
+#: templates/index.html:254 templates/index_pwa.html:313
 msgid "Error fetching date ranges."
 msgstr "날짜 범위를 가져오는 중 오류가 발생했습니다."
 
@@ -710,7 +728,7 @@ msgstr "처리된 채팅 로그 수:"
 msgid "Unable to fetch chat log count."
 msgstr "채팅 로그 수를 가져올 수 없습니다."
 
-#: templates/index.html:265
+#: templates/index.html:265 templates/index_pwa.html:328
 msgid "Error fetching chat log count."
 msgstr "채팅 로그 수를 가져오는 중 오류가 발생했습니다."
 
@@ -722,16 +740,33 @@ msgstr "처리된 채팅 메시지 수:"
 msgid "Unable to fetch message count."
 msgstr "메시지 수를 가져올 수 없습니다."
 
-#: templates/index.html:276
+#: templates/index.html:276 templates/index_pwa.html:343
 msgid "Error fetching message count."
 msgstr "메시지 수를 가져오는 중 오류가 발생했습니다."
 
-#: templates/index.html:291
+#: templates/index.html:291 templates/index_pwa.html:362
 msgid "Error fetching updates."
 msgstr "업데이트를 가져오는 중 오류가 발생했습니다."
 
+#: templates/index_pwa.html:176
+msgid "You are offline. Some features may be limited."
+msgstr "현재 오프라인 상태입니다. 일부 기능이 제한될 수 있습니다."
+
+#: templates/index_pwa.html:224
+msgid "Install App"
+msgstr "앱 설치"
+
+#: templates/index_pwa.html:323
+msgid "Chat Logs:"
+msgstr "채팅 로그:"
+
+#: templates/index_pwa.html:338
+#, fuzzy
+msgid "Messages:"
+msgstr "메시지:"
+
 #: templates/jp_user_percents.html:8 templates/jp_user_percents.html:104
-#: templates/menu.html:82
+#: templates/menu.html:82 templates/menu_pwa.html:61
 msgid "JP User Percentages"
 msgstr "일본어 사용자 비율"
 
@@ -746,7 +781,7 @@ msgid "JP User Percentage"
 msgstr "일본어 사용자 비율"
 
 #: templates/membership_change.html:8 templates/membership_change.html:105
-#: templates/menu.html:69
+#: templates/menu.html:69 templates/menu_pwa.html:44
 msgid "Membership Gain / Loss"
 msgstr "멤버십 증감"
 
@@ -765,13 +800,32 @@ msgid "Losses"
 msgstr "감소"
 
 #: templates/membership_counts.html:118
+#: templates/membership_counts_pwa.html:397
 msgid ""
 "Only counts members that participated in chat. Membership durations are "
 "based on available badges for each channel."
 msgstr "채팅에 참여한 멤버만 계산됩니다. 멤버십 기간은 각 채널에서 사용 가능한 배지를 기준으로 합니다."
 
+#: templates/membership_counts_pwa.html:404
+msgid "Toggle Header"
+msgstr "헤더 토글"
+
+#: templates/membership_counts_pwa.html:409
+msgid "Rotate device for better chart visibility"
+msgstr "차트 가시성을 높이기 위해 장치를 회전하세요"
+
+#: templates/membership_counts_pwa.html:423
+#, fuzzy
+msgid "Swipe to see more channels"
+msgstr "더 많은 채널을 보려면 스와이프하세요"
+
+#: templates/membership_counts_pwa.html:447
+msgid "Toggle Legend"
+msgstr "범례 전환"
+
 #: templates/membership_percentages.html:8
 #: templates/membership_percentages.html:102 templates/menu.html:68
+#: templates/menu_pwa.html:43
 msgid "Membership Percentages"
 msgstr "멤버십 비율"
 
@@ -783,92 +837,102 @@ msgstr "채팅에 참여한 멤버만 집계됩니다."
 msgid "Membership Percentage"
 msgstr "멤버십 비율"
 
-#: templates/menu.html:49
+#: templates/menu.html:49 templates/menu_pwa.html:20
 msgid "Home"
 msgstr "홈"
 
-#: templates/menu.html:55
+#: templates/menu.html:55 templates/menu_pwa.html:28
 msgid "Users and Memberships"
 msgstr "사용자 및 멤버십"
 
-#: templates/menu.html:62
+#: templates/menu.html:62 templates/menu_pwa.html:37
 msgid "Active User Gain / Loss"
 msgstr "활동 사용자 증감"
 
-#: templates/menu.html:66 templates/user_info.html:8
+#: templates/menu.html:66 templates/menu_pwa.html:41 templates/user_info.html:8
 #: templates/user_info.html:106
 msgid "Message Frequencies by User"
 msgstr "사용자별 메시지 빈도"
 
-#: templates/menu.html:70 templates/recommendation_engine.html:8
+#: templates/menu.html:70 templates/menu_pwa.html:45
+#: templates/recommendation_engine.html:8
 #: templates/recommendation_engine.html:103
 msgid "Recommendation Engine"
 msgstr "추천 엔진"
 
-#: templates/menu.html:77
+#: templates/menu.html:77 templates/menu_pwa.html:54
 msgid "Language Stats"
 msgstr "언어 통계"
 
-#: templates/menu.html:81 templates/message_types.html:8
-#: templates/message_types.html:104
+#: templates/menu.html:81 templates/menu_pwa.html:60
+#: templates/message_types.html:8 templates/message_types.html:104
 msgid "Message Percentages and Rates by Language"
 msgstr "언어별 메시지 비율 및 속도"
 
-#: templates/menu.html:89 templates/monthly_streaming_hours.html:164
+#: templates/menu.html:89 templates/menu_pwa.html:70
+#: templates/monthly_streaming_hours.html:164
 #: templates/monthly_streaming_hours.html:249
 msgid "Streaming Hours"
 msgstr "스트리밍 시간"
 
-#: templates/menu.html:92 templates/streaming_hours.html:8
-#: templates/streaming_hours.html:124
+#: templates/menu.html:92 templates/menu_pwa.html:75
+#: templates/streaming_hours.html:8 templates/streaming_hours.html:124
 msgid "Total Streaming Hours"
 msgstr "총 스트리밍 시간"
 
-#: templates/menu.html:93 templates/streaming_hours_avg.html:124
+#: templates/menu.html:93 templates/menu_pwa.html:76
+#: templates/streaming_hours_avg.html:124
 msgid "Average Streaming Hours"
 msgstr "평균 스트리밍 시간"
 
-#: templates/menu.html:94 templates/streaming_hours_max.html:8
-#: templates/streaming_hours_max.html:124
+#: templates/menu.html:94 templates/menu_pwa.html:77
+#: templates/streaming_hours_max.html:8 templates/streaming_hours_max.html:124
 msgid "Longest Stream Duration"
 msgstr "최장 스트리밍 시간"
 
-#: templates/menu.html:95
+#: templates/menu.html:95 templates/menu_pwa.html:78
 msgid "Streaming Hour Change"
 msgstr "스트리밍 시간 변화"
 
-#: templates/menu.html:96 templates/monthly_streaming_hours.html:8
+#: templates/menu.html:96 templates/menu_pwa.html:79
+#: templates/monthly_streaming_hours.html:8
 #: templates/monthly_streaming_hours.html:104
 msgid "Monthly Streaming Hours"
 msgstr "월간 스트리밍 시간"
 
-#: templates/menu.html:102
+#: templates/menu.html:102 templates/menu_pwa.html:88
 msgid "Highlights"
 msgstr "하이라이트"
 
-#: templates/menu.html:105
+#: templates/menu.html:105 templates/menu_pwa.html:93
 msgid "Funniest Moments"
 msgstr "가장 재미있는 순간"
 
-#: templates/menu.html:106
+#: templates/menu.html:106 templates/menu_pwa.html:94
 msgid "AI Summarized Highlights (BETA)"
 msgstr "AI 요약 하이라이트 (베타, 영어 전용)"
 
-#: templates/menu.html:107
+#: templates/menu.html:107 templates/menu_pwa.html:95
 msgid "Search AI Highlights (BETA)"
 msgstr "AI 하이라이트 검색 (베타, 영어 전용)"
 
-#: templates/menu.html:112
+#: templates/menu.html:112 templates/menu_pwa.html:102
 msgid "Ask Eri (NEW)"
 msgstr "에리에게 물어보기 (NEW)"
 
-#: templates/menu.html:118 templates/site_metrics.html:8
+#: templates/menu.html:118 templates/menu_pwa.html:108
+#: templates/site_metrics.html:8
 msgid "Site Metrics"
 msgstr "사이트 지표"
 
-#: templates/menu.html:121
+#: templates/menu.html:121 templates/menu_pwa.html:114
 msgid "Blog"
 msgstr "블로그 (영어 전용)"
+
+#: templates/menu_pwa.html:125
+#, fuzzy
+msgid "Language"
+msgstr "언어:"
 
 #: templates/message_types.html:106
 msgid ""

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="HoloChatStats - Explore statistics and insights for Hololive and Indie VTuber chats.">
+    <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat statistics, chat stats, streaming hours, membership counts">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/logo-192.png">
+    
+    <title>HoloChatStats</title>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            padding-top: 56px; /* Account for fixed navbar */
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            padding: 30px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        .hero .lead {
+            font-size: 1rem;
+        }
+
+        .info-box {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+
+        .info-box:active {
+            transform: scale(0.98);
+        }
+
+        .info-box h4 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+
+        .container {
+            padding: 15px;
+            max-width: 100%;
+        }
+
+        /* PWA Install Button */
+        .install-btn {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            transition: all 0.3s;
+        }
+
+        .install-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Loading Skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+            height: 20px;
+            margin: 10px 0;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .hero {
+                padding: 20px 15px;
+            }
+
+            .hero h1 {
+                font-size: 1.5rem;
+            }
+
+            .info-box {
+                padding: 12px;
+            }
+        }
+
+        /* Offline indicator */
+        .offline-indicator {
+            position: fixed;
+            top: 56px;
+            left: 0;
+            right: 0;
+            background: #e74c3c;
+            color: white;
+            padding: 8px;
+            text-align: center;
+            font-size: 0.9rem;
+            z-index: 999;
+            display: none;
+        }
+
+        /* Pull to refresh indicator */
+        .pull-to-refresh {
+            position: fixed;
+            top: 56px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 998;
+            display: none;
+        }
+
+        .spinner-border {
+            width: 2rem;
+            height: 2rem;
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* iOS safe area */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            body {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+        }
+    </style>
+</head>
+<body>
+
+{% include 'menu_pwa.html' %}
+
+<!-- Offline Indicator -->
+<div class="offline-indicator" id="offlineIndicator">
+    <i class="bi bi-wifi-off me-2"></i>{{ _("You are offline. Some features may be limited.") }}
+</div>
+
+<!-- Pull to Refresh Indicator -->
+<div class="pull-to-refresh" id="pullToRefresh">
+    <div class="spinner-border text-light" role="status">
+        <span class="visually-hidden">{{ _("Loading...") }}</span>
+    </div>
+</div>
+
+<div id="content" class="container">
+    <div class="hero">
+        <h1>{{ _("Welcome to HoloChatStats!") }}</h1>
+        <p class="lead">{{ _("Explore statistics and insights for Hololive and Indie VTuber chats.") }}</p>
+    </div>
+
+    <!-- Data Coverage Card -->
+    <div class="info-box">
+        <h4><i class="bi bi-database me-2"></i>{{ _("Data Coverage") }}</h4>
+        <div id="dateRangesContainer">
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+        </div>
+        <div id="chatLogCountContainer" class="mt-2">
+            <div class="skeleton"></div>
+        </div>
+        <div id="numMsgsContainer" class="mt-2">
+            <div class="skeleton"></div>
+        </div>
+    </div>
+
+    <!-- Latest Updates Card -->
+    <div class="info-box">
+        <h4><i class="bi bi-bell me-2"></i>{{ _("Latest Updates") }}</h4>
+        <div id="newsContainer">
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+        </div>
+    </div>
+
+    <!-- Contact Card -->
+    <div class="info-box text-center">
+        <p class="mb-0">Have a job for me? <a href="mailto:admin&#64;holochatstats.info" class="text-info">Contact me here</a>!</p>
+    </div>
+</div>
+
+<!-- PWA Install Button -->
+<button class="install-btn" id="installBtn">
+    <i class="bi bi-download me-2"></i>{{ _("Install App") }}
+</button>
+
+{% include 'eri_widget.html' %}
+
+<script>
+// Register Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/service-worker.js')
+            .then(registration => console.log('ServiceWorker registered:', registration))
+            .catch(err => console.log('ServiceWorker registration failed:', err));
+    });
+}
+
+// PWA Install Prompt
+let deferredPrompt;
+const installBtn = document.getElementById('installBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'block';
+});
+
+installBtn.addEventListener('click', () => {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+            }
+            deferredPrompt = null;
+            installBtn.style.display = 'none';
+        });
+    }
+});
+
+// Offline Detection
+window.addEventListener('online', () => {
+    document.getElementById('offlineIndicator').style.display = 'none';
+    loadData();
+});
+
+window.addEventListener('offline', () => {
+    document.getElementById('offlineIndicator').style.display = 'block';
+});
+
+// Pull to Refresh
+let touchStartY = 0;
+let touchEndY = 0;
+
+document.addEventListener('touchstart', (e) => {
+    touchStartY = e.touches[0].clientY;
+});
+
+document.addEventListener('touchend', (e) => {
+    touchEndY = e.changedTouches[0].clientY;
+    
+    if (touchEndY - touchStartY > 100 && window.scrollY === 0) {
+        document.getElementById('pullToRefresh').style.display = 'block';
+        loadData().then(() => {
+            setTimeout(() => {
+                document.getElementById('pullToRefresh').style.display = 'none';
+            }, 500);
+        });
+    }
+});
+
+// Load Data Function
+function loadData() {
+    const promises = [];
+    
+    // Fetch date ranges
+    promises.push(
+        $.get('/api/get_date_ranges')
+            .done(function(data) {
+                if (data && data.length === 2) {
+                    const startDate = new Date(data[0]).toLocaleDateString();
+                    const endDate = new Date(data[1]).toLocaleDateString();
+                    $('#dateRangesContainer').html(`
+                        <p class="mb-1"><strong>{{ _("Start:") }}</strong> ${startDate}</p>
+                        <p class="mb-1"><strong>{{ _("End:") }}</strong> ${endDate}</p>
+                    `);
+                } else {
+                    $('#dateRangesContainer').html(`<p class="text-danger mb-0">{{ _("Unable to fetch date ranges.") }}</p>`);
+                }
+            })
+            .fail(function() {
+                $('#dateRangesContainer').html(`<p class="text-danger mb-0">{{ _("Error fetching date ranges.") }}</p>`);
+            })
+    );
+
+    // Fetch chat log count
+    promises.push(
+        $.get('/api/get_number_of_chat_logs')
+            .done(function(data) {
+                if (data) {
+                    $('#chatLogCountContainer').html(`
+                        <p class="mb-1"><strong>{{ _("Chat Logs:") }}</strong> ${data.toLocaleString()}</p>
+                    `);
+                }
+            })
+            .fail(function() {
+                $('#chatLogCountContainer').html(`<p class="text-danger mb-0">{{ _("Error fetching chat log count.") }}</p>`);
+            })
+    );
+
+    // Fetch message count
+    promises.push(
+        $.get('/api/get_num_messages')
+            .done(function(data) {
+                if (data) {
+                    $('#numMsgsContainer').html(`
+                        <p class="mb-0"><strong>{{ _("Messages:") }}</strong> ${data.toLocaleString()}</p>
+                    `);
+                }
+            })
+            .fail(function() {
+                $('#numMsgsContainer').html(`<p class="text-danger mb-0">{{ _("Error fetching message count.") }}</p>`);
+            })
+    );
+
+    // Fetch latest updates
+    promises.push(
+        $.get('/api/get_latest_updates')
+            .done(function(data) {
+                if (data && data.length > 0) {
+                    let updates = "";
+                    data.slice(0, 3).forEach(update => {
+                        updates += `<p class="mb-2"><strong>${update.date}</strong>: ${update.message}</p>`;
+                    });
+                    $('#newsContainer').html(updates);
+                } else {
+                    $('#newsContainer').html(`<p class="text-muted mb-0">{{ _("No updates available.") }}</p>`);
+                }
+            })
+            .fail(function() {
+                $('#newsContainer').html(`<p class="text-danger mb-0">{{ _("Error fetching updates.") }}</p>`);
+            })
+    );
+    
+    return Promise.all(promises);
+}
+
+// Language Selector
+document.addEventListener("DOMContentLoaded", function () {
+    const languageSelect = document.getElementById("languageSelect");
+    if (languageSelect) {
+        languageSelect.addEventListener("change", function () {
+            const selectedLanguage = languageSelect.value;
+            window.location.href = `/set_language/${selectedLanguage}`;
+        });
+    }
+    
+    // Load data on page load
+    loadData();
+});
+</script>
+
+</body>
+</html>

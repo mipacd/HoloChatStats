@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from utils import (
     setup_logging, resolve_hostname, get_db_connection, get_sqlite_connection,
     get_redis_connection, get_locale, track_metrics, get_metrics,
-    SUSPICIOUS_PATHS, REDIS_CONFIG
+    SUSPICIOUS_PATHS
 )
 from api import api_bp
 from routes import routes_bp
@@ -30,6 +30,7 @@ app.config["JSON_AS_ASCII"] = False
 app.config["OPENROUTER_URL"] = os.getenv("OPENROUTER_URL")
 app.config["OPENROUTER_MODEL"] = os.getenv("OPENROUTER_MODEL")
 app.config["DAILY_LIMIT"] = os.getenv("LLM_DAILY_LIMIT")
+app.config["YOUTUBE_API_KEY"] = os.getenv("YOUTUBE_API_KEY")
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 

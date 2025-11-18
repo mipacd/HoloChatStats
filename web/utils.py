@@ -3,18 +3,20 @@ import os
 import time
 import re
 import socket
-import json
 import sqlite3
 import logging
 import redis
 import psycopg2
 import pytz
-from datetime import datetime, timedelta, timezone
+import json
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from flask import g, request, session, Response
+from flask import g, request, session
 from functools import wraps
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
+from googleapiclient.discovery import build
+
 
 load_dotenv()
 
@@ -345,3 +347,280 @@ def validate_month_format(month_str):
 def format_month_for_sql(month_str):
     """Convert YYYY-MM to YYYY-MM-01 for SQL queries."""
     return f"{month_str}-01"
+
+def load_channel_mapping():
+    """
+    Load and flatten channel name to ID mapping from channel.json.
+    
+    Returns:
+        dict: Mapping of lowercase channel names to their info
+    """
+    channel_file = os.path.join(
+        os.path.dirname(__file__), 
+        'channel.json'
+    )
+    
+    with open(channel_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    # Flatten the nested structure for easy lookup
+    mapping = {}
+    for organization, channels in data.items():
+        for name, channel_id in channels.items():
+            mapping[name.lower()] = {
+                'id': channel_id,
+                'name': name,
+                'organization': organization
+            }
+    
+    return mapping
+
+
+def get_youtube_service(current_app):
+    """
+    Build and return YouTube API service client.
+    
+    Returns:
+        googleapiclient.discovery.Resource: YouTube API service
+    """
+    api_key = current_app.config.get('YOUTUBE_API_KEY')
+    if not api_key:
+        raise ValueError("YouTube API key not configured")
+    
+    return build('youtube', 'v3', developerKey=api_key)
+
+
+def determine_content_type(video_info):
+    """
+    Determine if a video is a stream, premiere, or regular upload.
+    
+    Args:
+        video_info: Video details from YouTube API
+        
+    Returns:
+        str: 'stream', 'premiere', or 'video'
+    """
+    live_details = video_info.get('liveStreamingDetails', {})
+    snippet = video_info.get('snippet', {})
+    
+    # Check if it has live streaming details
+    if live_details:
+        # Check liveBroadcastContent for current status hints
+        broadcast_content = snippet.get('liveBroadcastContent', 'none')
+        
+        # If it has concurrent viewers or actual start time, it was live content
+        if live_details.get('concurrentViewers') or live_details.get('actualStartTime'):
+            # Premieres typically have shorter durations and no concurrent viewers history
+            # But this is hard to distinguish after the fact
+            # Check if it was originally a premiere by looking at the duration
+            # Premieres are usually pre-recorded so they have exact durations
+            content_details = video_info.get('contentDetails', {})
+            duration = content_details.get('duration', '')
+            
+            # If there's an actual end time close to scheduled + duration, likely premiere
+            # For now, we'll mark anything with liveStreamingDetails as stream
+            # unless we can find better indicators
+            return 'stream'
+        
+        # Has scheduled time but no actual start = upcoming
+        if live_details.get('scheduledStartTime'):
+            return 'stream'
+    
+    return 'video'
+
+
+def fetch_live_and_upcoming_streams(youtube, channel_id, event_type, limit):
+    """
+    Fetch live or upcoming streams/premieres for a channel.
+    
+    Args:
+        youtube: YouTube API service
+        channel_id: YouTube channel ID
+        event_type: 'live' or 'upcoming'
+        limit: Maximum results to return
+        
+    Returns:
+        list: List of stream data dictionaries
+    """
+    streams = []
+    
+    # Search for live/upcoming content
+    search_response = youtube.search().list(
+        part='snippet',
+        channelId=channel_id,
+        type='video',
+        eventType=event_type,
+        maxResults=limit,
+        order='date'
+    ).execute()
+    
+    items = search_response.get('items', [])
+    if not items:
+        return streams
+    
+    # Get video IDs for batch details request
+    video_ids = [item['id']['videoId'] for item in items]
+    
+    # Fetch detailed video information
+    videos_response = youtube.videos().list(
+        part='liveStreamingDetails,snippet,contentDetails,statistics',
+        id=','.join(video_ids)
+    ).execute()
+    
+    # Create a lookup for video details
+    video_details = {
+        v['id']: v for v in videos_response.get('items', [])
+    }
+    
+    for item in items:
+        video_id = item['id']['videoId']
+        snippet = item['snippet']
+        
+        video_info = video_details.get(video_id, {})
+        live_details = video_info.get('liveStreamingDetails', {})
+        statistics = video_info.get('statistics', {})
+        
+        content_type = determine_content_type(video_info)
+        
+        stream_data = {
+            'title': snippet['title'],
+            'video_id': video_id,
+            'url': f'https://www.youtube.com/watch?v={video_id}',
+            'thumbnail': snippet.get('thumbnails', {}).get('medium', {}).get('url', ''),
+            'status': event_type,
+            'content_type': content_type,
+            'published_at': snippet.get('publishedAt', '')
+        }
+        
+        # Add timing information based on stream status
+        if event_type == 'upcoming':
+            scheduled_time = live_details.get('scheduledStartTime')
+            if scheduled_time:
+                stream_data['scheduled_start'] = scheduled_time
+                
+        elif event_type == 'live':
+            actual_start = live_details.get('actualStartTime')
+            concurrent_viewers = live_details.get('concurrentViewers')
+            if actual_start:
+                stream_data['started_at'] = actual_start
+            if concurrent_viewers:
+                stream_data['concurrent_viewers'] = int(concurrent_viewers)
+        
+        streams.append(stream_data)
+    
+    return streams
+
+
+def fetch_past_videos(youtube, channel_id, limit):
+    """
+    Fetch past videos including completed streams, premieres, and uploads.
+    
+    Args:
+        youtube: YouTube API service
+        channel_id: YouTube channel ID
+        limit: Maximum results to return
+        
+    Returns:
+        list: List of video data dictionaries
+    """
+    videos = []
+    
+    # First, get the channel's uploads playlist ID
+    channel_response = youtube.channels().list(
+        part='contentDetails',
+        id=channel_id
+    ).execute()
+    
+    if not channel_response.get('items'):
+        return videos
+    
+    uploads_playlist_id = (
+        channel_response['items'][0]
+        .get('contentDetails', {})
+        .get('relatedPlaylists', {})
+        .get('uploads')
+    )
+    
+    if not uploads_playlist_id:
+        return videos
+    
+    # Get videos from the uploads playlist
+    playlist_response = youtube.playlistItems().list(
+        part='snippet,contentDetails',
+        playlistId=uploads_playlist_id,
+        maxResults=limit
+    ).execute()
+    
+    items = playlist_response.get('items', [])
+    if not items:
+        return videos
+    
+    # Get video IDs for detailed information
+    video_ids = [
+        item['contentDetails']['videoId'] 
+        for item in items
+    ]
+    
+    # Fetch detailed video information including statistics
+    videos_response = youtube.videos().list(
+        part='liveStreamingDetails,snippet,contentDetails,statistics',
+        id=','.join(video_ids)
+    ).execute()
+    
+    for video_info in videos_response.get('items', []):
+        video_id = video_info['id']
+        snippet = video_info.get('snippet', {})
+        live_details = video_info.get('liveStreamingDetails', {})
+        content_details = video_info.get('contentDetails', {})
+        statistics = video_info.get('statistics', {})
+        
+        # Determine content type
+        if live_details:
+            # Has live streaming details - was a stream or premiere
+            if live_details.get('actualEndTime'):
+                content_type = 'stream'
+            elif live_details.get('scheduledStartTime'):
+                # Had a scheduled start, likely was a premiere or stream
+                content_type = 'stream'
+            else:
+                content_type = 'stream'
+        else:
+            content_type = 'video'
+        
+        video_data = {
+            'title': snippet.get('title', ''),
+            'video_id': video_id,
+            'url': f'https://www.youtube.com/watch?v={video_id}',
+            'thumbnail': snippet.get('thumbnails', {}).get('medium', {}).get('url', ''),
+            'status': 'completed',
+            'content_type': content_type,
+            'published_at': snippet.get('publishedAt', ''),
+            'duration': content_details.get('duration', '')
+        }
+        
+        # Add view count for completed videos
+        view_count = statistics.get('viewCount')
+        if view_count:
+            video_data['view_count'] = int(view_count)
+        
+        # Add like count if available
+        like_count = statistics.get('likeCount')
+        if like_count:
+            video_data['like_count'] = int(like_count)
+        
+        # Add timing information from live streaming details
+        if live_details:
+            actual_start = live_details.get('actualStartTime')
+            actual_end = live_details.get('actualEndTime')
+            scheduled_start = live_details.get('scheduledStartTime')
+            
+            if scheduled_start:
+                video_data['scheduled_start'] = scheduled_start
+            if actual_start:
+                video_data['started_at'] = actual_start
+            if actual_end:
+                video_data['ended_at'] = actual_end
+        
+        videos.append(video_data)
+    
+    return videos

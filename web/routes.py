@@ -8,7 +8,20 @@ routes_bp = Blueprint('routes', __name__)
 
 @routes_bp.route('/')
 def index():
-    return render_template("index.html", _=_, get_locale=get_locale)
+    user_agent = request.headers.get('User-Agent', '').lower()
+    is_mobile = any(x in user_agent for x in ['mobile', 'android', 'iphone'])
+    if is_mobile:
+        return render_template("index_pwa.html", _=_, get_locale=get_locale)
+    else:
+        return render_template("index.html", _=_, get_locale=get_locale)
+
+# Serve service worker from root
+@routes_bp.route('/service-worker.js')
+def service_worker():
+    return routes_bp.send_static_file('service-worker.js'), 200, {
+        'Content-Type': 'application/javascript',
+        'Service-Worker-Allowed': '/'
+    }
 
 
 @routes_bp.route('/set_language/<language>')
@@ -52,7 +65,12 @@ def common_users_view():
 
 @routes_bp.route('/membership_counts')
 def membership_counts_view():
-    return render_template('membership_counts.html', _=_, get_locale=get_locale)
+    user_agent = request.headers.get('User-Agent', '').lower()
+    is_mobile = any(x in user_agent for x in ['mobile', 'android', 'iphone'])
+    if is_mobile:
+        return render_template('membership_counts_pwa.html', _=_, get_locale=get_locale)
+    else:
+        return render_template('membership_counts.html', _=_, get_locale=get_locale)
 
 
 @routes_bp.route('/membership_percentages')

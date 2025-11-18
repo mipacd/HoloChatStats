@@ -1,0 +1,151 @@
+<nav class="navbar navbar-dark fixed-top" style="background-color: #2c3e50;">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="/">
+            <img src="/static/logo.png" alt="HoloChatStats Logo" width="25" height="25" class="me-2">
+            HoloChatStats
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasNavbar" style="background-color: #2c3e50;">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title text-white">Menu</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+            </div>
+            <div class="offcanvas-body">
+                <ul class="navbar-nav justify-content-end flex-grow-1 pe-3">
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="/">
+                            <i class="bi bi-house-door me-2"></i>{{ _("Home") }}
+                        </a>
+                    </li>
+
+                    <!-- Users and Memberships -->
+                    <li class="nav-item">
+                        <a class="nav-link text-white d-flex justify-content-between align-items-center" 
+                           data-bs-toggle="collapse" href="#usersSubmenu">
+                            <span><i class="bi bi-people me-2"></i>{{ _("Users and Memberships") }}</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </a>
+                        <div class="collapse" id="usersSubmenu">
+                            <ul class="list-unstyled ps-4">
+                                <li><a class="nav-link text-white-50" href="/common_users">{{ _("Common Users by Channel / Month") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/common_members">{{ _("Common Members by Channel / Month") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/heatmap">{{ _("Common User Heatmap") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/channel_clustering">{{ _("Channel Clusters by Common Users") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/user_change">{{ _("Active User Gain / Loss") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/chat_leaderboards">{{ _("Chat Leaderboards") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/exclusive_chat">{{ _("Exclusive Chat Users") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/engagement">{{ _("Engagement Rates") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/user_info">{{ _("Message Frequencies by User") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/membership_counts">{{ _("Membership Counts") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/membership_percentages">{{ _("Membership Percentages") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/membership_change">{{ _("Membership Gain / Loss") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/recommendation_engine">{{ _("Recommendation Engine") }}</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Language Stats -->
+                    <li class="nav-item">
+                        <a class="nav-link text-white d-flex justify-content-between align-items-center" 
+                           data-bs-toggle="collapse" href="#languageSubmenu">
+                            <span><i class="bi bi-translate me-2"></i>{{ _("Language Stats") }}</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </a>
+                        <div class="collapse" id="languageSubmenu">
+                            <ul class="list-unstyled ps-4">
+                                <li><a class="nav-link text-white-50" href="/chat_makeup">{{ _("Chat Makeup") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/message_types">{{ _("Message Percentages and Rates by Language") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/jp_user_percents">{{ _("JP User Percentages") }}</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Streaming Hours -->
+                    <li class="nav-item">
+                        <a class="nav-link text-white d-flex justify-content-between align-items-center" 
+                           data-bs-toggle="collapse" href="#streamingSubmenu">
+                            <span><i class="bi bi-clock me-2"></i>{{ _("Streaming Hours") }}</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </a>
+                        <div class="collapse" id="streamingSubmenu">
+                            <ul class="list-unstyled ps-4">
+                                <li><a class="nav-link text-white-50" href="/streaming_hours">{{ _("Total Streaming Hours") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/streaming_hours_avg">{{ _("Average Streaming Hours") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/streaming_hours_max">{{ _("Longest Stream Duration") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/streaming_hours_diff">{{ _("Streaming Hour Change") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/monthly_streaming_hours">{{ _("Monthly Streaming Hours") }}</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Highlights -->
+                    <li class="nav-item">
+                        <a class="nav-link text-white d-flex justify-content-between align-items-center" 
+                           data-bs-toggle="collapse" href="#highlightsSubmenu">
+                            <span><i class="bi bi-star me-2"></i>{{ _("Highlights") }}</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </a>
+                        <div class="collapse" id="highlightsSubmenu">
+                            <ul class="list-unstyled ps-4">
+                                <li><a class="nav-link text-white-50" href="/funniest_timestamps">{{ _("Funniest Moments") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/highlights">{{ _("AI Summarized Highlights (BETA)") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/highlight_search">{{ _("Search AI Highlights (BETA)") }}</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="/eri">
+                            <i class="bi bi-chat-dots me-2"></i>{{ _("Ask Eri (NEW)") }}
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="/site_metrics">
+                            <i class="bi bi-graph-up me-2"></i>{{ _("Site Metrics") }}
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="https://holochatstats.wordpress.com">
+                            <i class="bi bi-journal-text me-2"></i>{{ _("Blog") }}
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="https://old.holochatstats.info">
+                            <i class="bi bi-archive me-2"></i>HoloChatStats v1
+                        </a>
+                    </li>
+
+                    <li class="nav-item mt-3">
+                        <label class="text-white mb-2">{{ _("Language") }}</label>
+                        <select id="languageSelect" class="form-select">
+                            <option value="en" {% if get_locale() == 'en' %}selected{% endif %}>English</option>
+                            <option value="ja" {% if get_locale() == 'ja' %}selected{% endif %}>日本語</option>
+                            <option value="ko" {% if get_locale() == 'ko' %}selected{% endif %}>한국어</option>
+                        </select>
+                    </li>
+                </ul>
+
+                <!-- Social Links at Bottom -->
+                <div class="mt-auto pt-4 border-top border-secondary">
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="https://github.com/mipacd/HoloChatStats" target="_blank" class="text-white">
+                            <i class="bi bi-github fs-4"></i>
+                        </a>
+                        <a href="https://twitter.com/HoloChatStat" target="_blank" class="text-white">
+                            <i class="bi bi-twitter fs-4"></i>
+                        </a>
+                        <a href="https://bsky.app/profile/holochatstats.info" target="_blank" class="text-white">
+                            <i class="bi bi-cloud fs-4"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>

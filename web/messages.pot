@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-12 21:25-0500\n"
+"POT-Creation-Date: 2025-11-18 15:52-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,20 +17,21 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: server.py:938 server.py:1135 server.py:1298 server.py:1382 server.py:1489
-#: server.py:1656 server.py:1710 server.py:1780 server.py:1866
+#: api.py:779 api.py:1030 api.py:1210 api.py:1297 api.py:1420 api.py:1602
+#: api.py:1665 api.py:1742 api.py:1835
 msgid "Missing required parameters"
 msgstr ""
 
-#: server.py:1688
+#: api.py:1633
 msgid "No data found"
 msgstr ""
 
-#: server.py:1869
+#: api.py:1838
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
 #: templates/channel_clustering.html:8 templates/menu.html:61
+#: templates/menu_pwa.html:36
 msgid "Channel Clusters by Common Users"
 msgstr ""
 
@@ -84,8 +85,8 @@ msgstr ""
 
 #: templates/channel_clustering.html:149 templates/channel_clustering.html:155
 #: templates/chat_leaderboards.html:123 templates/common_members.html:141
-#: templates/common_users.html:143 templates/recommendation_engine.html:125
-#: templates/user_info.html:131
+#: templates/common_users.html:143 templates/index_pwa.html:182
+#: templates/recommendation_engine.html:125 templates/user_info.html:131
 msgid "Loading..."
 msgstr ""
 
@@ -98,7 +99,7 @@ msgid "Failed to load clustering graph."
 msgstr ""
 
 #: templates/chat_leaderboards.html:8 templates/chat_leaderboards.html:105
-#: templates/menu.html:63
+#: templates/menu.html:63 templates/menu_pwa.html:38
 msgid "Chat Leaderboards"
 msgstr ""
 
@@ -160,7 +161,7 @@ msgid "Error fetching data. Please try again later."
 msgstr ""
 
 #: templates/chat_makeup.html:8 templates/chat_makeup.html:104
-#: templates/menu.html:80
+#: templates/menu.html:80 templates/menu_pwa.html:59
 msgid "Chat Makeup"
 msgstr ""
 
@@ -189,6 +190,7 @@ msgstr ""
 
 #: templates/chat_makeup.html:115 templates/engagement.html:108
 #: templates/membership_change.html:115 templates/membership_counts.html:124
+#: templates/membership_counts_pwa.html:456
 #: templates/membership_percentages.html:108 templates/streaming_hours.html:132
 #: templates/streaming_hours_avg.html:132
 #: templates/streaming_hours_diff.html:133
@@ -198,6 +200,7 @@ msgstr ""
 
 #: templates/chat_makeup.html:116 templates/engagement.html:109
 #: templates/membership_change.html:116 templates/membership_counts.html:125
+#: templates/membership_counts_pwa.html:457
 #: templates/membership_percentages.html:109 templates/streaming_hours.html:133
 #: templates/streaming_hours_avg.html:133
 #: templates/streaming_hours_diff.html:134
@@ -208,6 +211,7 @@ msgstr ""
 #: templates/chat_makeup.html:128 templates/engagement.html:121
 #: templates/funniest_timestamps.html:181 templates/membership_change.html:128
 #: templates/membership_counts.html:137
+#: templates/membership_counts_pwa.html:441
 #: templates/membership_percentages.html:121 templates/streaming_hours.html:145
 #: templates/streaming_hours_avg.html:145
 #: templates/streaming_hours_diff.html:146
@@ -218,6 +222,7 @@ msgstr ""
 #: templates/chat_makeup.html:131 templates/engagement.html:124
 #: templates/exclusive_chat.html:120 templates/jp_user_percents.html:121
 #: templates/membership_change.html:131 templates/membership_counts.html:140
+#: templates/membership_counts_pwa.html:444
 #: templates/membership_percentages.html:124 templates/message_types.html:130
 #: templates/monthly_streaming_hours.html:121
 #: templates/streaming_hours.html:148 templates/streaming_hours_avg.html:148
@@ -227,7 +232,7 @@ msgid "Download PNG"
 msgstr ""
 
 #: templates/common_members.html:8 templates/common_members.html:110
-#: templates/menu.html:59
+#: templates/menu.html:59 templates/menu_pwa.html:34
 msgid "Common Members by Channel / Month"
 msgstr ""
 
@@ -272,7 +277,7 @@ msgid "No common members found for the selected criteria."
 msgstr ""
 
 #: templates/common_users.html:6 templates/common_users.html:111
-#: templates/menu.html:58
+#: templates/menu.html:58 templates/menu_pwa.html:33
 msgid "Common Users by Channel / Month"
 msgstr ""
 
@@ -297,7 +302,7 @@ msgid "No common users found for the selected criteria."
 msgstr ""
 
 #: templates/engagement.html:8 templates/engagement.html:102
-#: templates/menu.html:65
+#: templates/menu.html:65 templates/menu_pwa.html:40
 msgid "Engagement Rates"
 msgstr ""
 
@@ -423,44 +428,52 @@ msgstr ""
 msgid "Show me Hololive merch currently on sale for [VTUBER_NAME]"
 msgstr ""
 
-#: templates/eri.html:234
+#: templates/eri.html:229
+msgid "How many subscribers does [VTUBER_NAME] have?"
+msgstr ""
+
+#: templates/eri.html:230
+msgid "What was [VTUBER_NAME]'s last stream?"
+msgstr ""
+
+#: templates/eri.html:236
 msgid ""
 "Eri may display inaccurate information, so double-check its responses. "
 "Your conversations are logged to help make Eri better. By using Eri, you "
 "agree to this."
 msgstr ""
 
-#: templates/eri.html:237
+#: templates/eri.html:239
 msgid "Conversations in English may be more accurate than in other languages."
 msgstr ""
 
-#: templates/eri.html:255 templates/eri_widget.html:510
+#: templates/eri.html:257 templates/eri_widget.html:510
 msgid "Let's see..."
 msgstr ""
 
-#: templates/eri.html:256 templates/eri_widget.html:511
+#: templates/eri.html:258 templates/eri_widget.html:511
 msgid "Deciphering your request..."
 msgstr ""
 
-#: templates/eri.html:257 templates/eri_widget.html:512
+#: templates/eri.html:259 templates/eri_widget.html:512
 msgid "Alright, plotting a course of action."
 msgstr ""
 
-#: templates/eri.html:258 templates/eri_widget.html:513
+#: templates/eri.html:260 templates/eri_widget.html:513
 msgid "Searching the HoloChatStats archives..."
 msgstr ""
 
-#: templates/eri.html:259 templates/eri_widget.html:514
+#: templates/eri.html:261 templates/eri_widget.html:514
 msgid "Compiling the data..."
 msgstr ""
 
-#: templates/eri.html:260 templates/eri_widget.html:515
+#: templates/eri.html:262 templates/eri_widget.html:515
 msgid ""
 "Looks like you've reached the daily query limit. Please try again "
 "tomorrow."
 msgstr ""
 
-#: templates/eri.html:325 templates/eri_widget.html:707
+#: templates/eri.html:327 templates/eri_widget.html:707
 msgid "Sorry — I couldn't reach the assistant (network error)."
 msgstr ""
 
@@ -489,7 +502,7 @@ msgid "Restore"
 msgstr ""
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:103
-#: templates/menu.html:64
+#: templates/menu.html:64 templates/menu_pwa.html:39
 msgid "Exclusive Chat Users"
 msgstr ""
 
@@ -547,6 +560,7 @@ msgid "No data available for export."
 msgstr ""
 
 #: templates/heatmap.html:6 templates/heatmap.html:124 templates/menu.html:60
+#: templates/menu_pwa.html:35
 msgid "Common User Heatmap"
 msgstr ""
 
@@ -610,11 +624,11 @@ msgstr ""
 msgid "No highlights available for this selection."
 msgstr ""
 
-#: templates/index.html:156
+#: templates/index.html:156 templates/index_pwa.html:188
 msgid "Welcome to HoloChatStats!"
 msgstr ""
 
-#: templates/index.html:157
+#: templates/index.html:157 templates/index_pwa.html:189
 msgid "Explore statistics and insights for Hololive and Indie VTuber chats."
 msgstr ""
 
@@ -639,7 +653,9 @@ msgid "Common User Channel Clusters"
 msgstr ""
 
 #: templates/index.html:187 templates/membership_counts.html:8
-#: templates/membership_counts.html:118 templates/menu.html:67
+#: templates/membership_counts.html:118 templates/membership_counts_pwa.html:16
+#: templates/membership_counts_pwa.html:395 templates/menu.html:67
+#: templates/menu_pwa.html:42
 msgid "Membership Counts"
 msgstr ""
 
@@ -647,7 +663,7 @@ msgstr ""
 msgid "User Message Counts"
 msgstr ""
 
-#: templates/index.html:203
+#: templates/index.html:203 templates/index_pwa.html:194
 msgid "Data Coverage"
 msgstr ""
 
@@ -663,27 +679,28 @@ msgstr ""
 msgid "Loading message count..."
 msgstr ""
 
-#: templates/index.html:218
+#: templates/index.html:218 templates/index_pwa.html:209
 msgid "Latest Updates"
 msgstr ""
 
 #: templates/index.html:220 templates/index.html:288
+#: templates/index_pwa.html:358
 msgid "No updates available."
 msgstr ""
 
-#: templates/index.html:247
+#: templates/index.html:247 templates/index_pwa.html:305
 msgid "Start:"
 msgstr ""
 
-#: templates/index.html:248
+#: templates/index.html:248 templates/index_pwa.html:306
 msgid "End:"
 msgstr ""
 
-#: templates/index.html:251
+#: templates/index.html:251 templates/index_pwa.html:309
 msgid "Unable to fetch date ranges."
 msgstr ""
 
-#: templates/index.html:254
+#: templates/index.html:254 templates/index_pwa.html:313
 msgid "Error fetching date ranges."
 msgstr ""
 
@@ -695,7 +712,7 @@ msgstr ""
 msgid "Unable to fetch chat log count."
 msgstr ""
 
-#: templates/index.html:265
+#: templates/index.html:265 templates/index_pwa.html:328
 msgid "Error fetching chat log count."
 msgstr ""
 
@@ -707,16 +724,32 @@ msgstr ""
 msgid "Unable to fetch message count."
 msgstr ""
 
-#: templates/index.html:276
+#: templates/index.html:276 templates/index_pwa.html:343
 msgid "Error fetching message count."
 msgstr ""
 
-#: templates/index.html:291
+#: templates/index.html:291 templates/index_pwa.html:362
 msgid "Error fetching updates."
 msgstr ""
 
+#: templates/index_pwa.html:176
+msgid "You are offline. Some features may be limited."
+msgstr ""
+
+#: templates/index_pwa.html:224
+msgid "Install App"
+msgstr ""
+
+#: templates/index_pwa.html:323
+msgid "Chat Logs:"
+msgstr ""
+
+#: templates/index_pwa.html:338
+msgid "Messages:"
+msgstr ""
+
 #: templates/jp_user_percents.html:8 templates/jp_user_percents.html:104
-#: templates/menu.html:82
+#: templates/menu.html:82 templates/menu_pwa.html:61
 msgid "JP User Percentages"
 msgstr ""
 
@@ -731,7 +764,7 @@ msgid "JP User Percentage"
 msgstr ""
 
 #: templates/membership_change.html:8 templates/membership_change.html:105
-#: templates/menu.html:69
+#: templates/menu.html:69 templates/menu_pwa.html:44
 msgid "Membership Gain / Loss"
 msgstr ""
 
@@ -750,13 +783,31 @@ msgid "Losses"
 msgstr ""
 
 #: templates/membership_counts.html:118
+#: templates/membership_counts_pwa.html:397
 msgid ""
 "Only counts members that participated in chat. Membership durations are "
 "based on available badges for each channel."
 msgstr ""
 
+#: templates/membership_counts_pwa.html:404
+msgid "Toggle Header"
+msgstr ""
+
+#: templates/membership_counts_pwa.html:409
+msgid "Rotate device for better chart visibility"
+msgstr ""
+
+#: templates/membership_counts_pwa.html:423
+msgid "Swipe to see more channels"
+msgstr ""
+
+#: templates/membership_counts_pwa.html:447
+msgid "Toggle Legend"
+msgstr ""
+
 #: templates/membership_percentages.html:8
 #: templates/membership_percentages.html:102 templates/menu.html:68
+#: templates/menu_pwa.html:43
 msgid "Membership Percentages"
 msgstr ""
 
@@ -768,91 +819,100 @@ msgstr ""
 msgid "Membership Percentage"
 msgstr ""
 
-#: templates/menu.html:49
+#: templates/menu.html:49 templates/menu_pwa.html:20
 msgid "Home"
 msgstr ""
 
-#: templates/menu.html:55
+#: templates/menu.html:55 templates/menu_pwa.html:28
 msgid "Users and Memberships"
 msgstr ""
 
-#: templates/menu.html:62
+#: templates/menu.html:62 templates/menu_pwa.html:37
 msgid "Active User Gain / Loss"
 msgstr ""
 
-#: templates/menu.html:66 templates/user_info.html:8
+#: templates/menu.html:66 templates/menu_pwa.html:41 templates/user_info.html:8
 #: templates/user_info.html:106
 msgid "Message Frequencies by User"
 msgstr ""
 
-#: templates/menu.html:70 templates/recommendation_engine.html:8
+#: templates/menu.html:70 templates/menu_pwa.html:45
+#: templates/recommendation_engine.html:8
 #: templates/recommendation_engine.html:103
 msgid "Recommendation Engine"
 msgstr ""
 
-#: templates/menu.html:77
+#: templates/menu.html:77 templates/menu_pwa.html:54
 msgid "Language Stats"
 msgstr ""
 
-#: templates/menu.html:81 templates/message_types.html:8
-#: templates/message_types.html:104
+#: templates/menu.html:81 templates/menu_pwa.html:60
+#: templates/message_types.html:8 templates/message_types.html:104
 msgid "Message Percentages and Rates by Language"
 msgstr ""
 
-#: templates/menu.html:89 templates/monthly_streaming_hours.html:164
+#: templates/menu.html:89 templates/menu_pwa.html:70
+#: templates/monthly_streaming_hours.html:164
 #: templates/monthly_streaming_hours.html:249
 msgid "Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:92 templates/streaming_hours.html:8
-#: templates/streaming_hours.html:124
+#: templates/menu.html:92 templates/menu_pwa.html:75
+#: templates/streaming_hours.html:8 templates/streaming_hours.html:124
 msgid "Total Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:93 templates/streaming_hours_avg.html:124
+#: templates/menu.html:93 templates/menu_pwa.html:76
+#: templates/streaming_hours_avg.html:124
 msgid "Average Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:94 templates/streaming_hours_max.html:8
-#: templates/streaming_hours_max.html:124
+#: templates/menu.html:94 templates/menu_pwa.html:77
+#: templates/streaming_hours_max.html:8 templates/streaming_hours_max.html:124
 msgid "Longest Stream Duration"
 msgstr ""
 
-#: templates/menu.html:95
+#: templates/menu.html:95 templates/menu_pwa.html:78
 msgid "Streaming Hour Change"
 msgstr ""
 
-#: templates/menu.html:96 templates/monthly_streaming_hours.html:8
+#: templates/menu.html:96 templates/menu_pwa.html:79
+#: templates/monthly_streaming_hours.html:8
 #: templates/monthly_streaming_hours.html:104
 msgid "Monthly Streaming Hours"
 msgstr ""
 
-#: templates/menu.html:102
+#: templates/menu.html:102 templates/menu_pwa.html:88
 msgid "Highlights"
 msgstr ""
 
-#: templates/menu.html:105
+#: templates/menu.html:105 templates/menu_pwa.html:93
 msgid "Funniest Moments"
 msgstr ""
 
-#: templates/menu.html:106
+#: templates/menu.html:106 templates/menu_pwa.html:94
 msgid "AI Summarized Highlights (BETA)"
 msgstr ""
 
-#: templates/menu.html:107
+#: templates/menu.html:107 templates/menu_pwa.html:95
 msgid "Search AI Highlights (BETA)"
 msgstr ""
 
-#: templates/menu.html:112
+#: templates/menu.html:112 templates/menu_pwa.html:102
 msgid "Ask Eri (NEW)"
 msgstr ""
 
-#: templates/menu.html:118 templates/site_metrics.html:8
+#: templates/menu.html:118 templates/menu_pwa.html:108
+#: templates/site_metrics.html:8
 msgid "Site Metrics"
 msgstr ""
 
-#: templates/menu.html:121
+#: templates/menu.html:121 templates/menu_pwa.html:114
 msgid "Blog"
+msgstr ""
+
+#: templates/menu_pwa.html:125
+msgid "Language"
 msgstr ""
 
 #: templates/message_types.html:106

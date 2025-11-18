@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Hololive and Indie membership counts by month.">
+    <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat statistics, membership counts, channel comparison">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/logo-192.png">
+    
+    <title>{{ _("Membership Counts") }}</title>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #121212;
+            color: white;
+            padding-top: 56px;
+            padding-bottom: 60px;
+            -webkit-font-smoothing: antialiased;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .page-header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            padding: 15px;
+            margin-bottom: 15px;
+            position: sticky;
+            top: 56px;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+
+        .page-header h2 {
+            font-size: 1.3rem;
+            margin: 0;
+            text-align: center;
+        }
+
+        .page-header .title-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .controls-container {
+            padding: 10px 15px;
+            background-color: #1a1a1a;
+            border-bottom: 1px solid #333;
+        }
+
+        .form-select, .form-control {
+            background-color: #222;
+            color: white;
+            border-color: #444;
+            font-size: 14px;
+            height: 38px;
+        }
+
+        .form-select option {
+            background-color: #222;
+            color: white;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            padding: 0 10px;
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            background-color: #1a1a1a;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        @media (orientation: portrait) {
+            .chart-container {
+                height: 50vh;
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .chart-inner {
+                min-width: 800px;
+                height: 100%;
+            }
+
+            .scroll-indicator {
+                display: block;
+                text-align: center;
+                color: #888;
+                font-size: 12px;
+                padding: 5px;
+                animation: pulse 2s infinite;
+            }
+        }
+
+        @media (orientation: landscape) {
+            .chart-container {
+                height: calc(100vh - 120px);
+                overflow: hidden;
+            }
+
+            .chart-inner {
+                width: 100%;
+                height: 100%;
+            }
+
+            .scroll-indicator {
+                display: none;
+            }
+
+            /* Auto-hide navbar and header in landscape */
+            .navbar.landscape-hidden {
+                transform: translateY(-100%);
+            }
+
+            .page-header.landscape-hidden {
+                transform: translateY(-100%);
+            }
+
+            body.landscape-mode {
+                padding-top: 0;
+            }
+
+            .chart-container.landscape-expanded {
+                height: calc(100vh - 60px);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .fab-container {
+            position: fixed;
+            bottom: 70px;
+            right: 15px;
+            z-index: 900;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .fab-button {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            font-size: 20px;
+        }
+
+        .fab-button:active {
+            transform: scale(0.9);
+        }
+
+        .fab-expanded {
+            position: fixed;
+            bottom: 120px;
+            right: 15px;
+            background: #2c3e50;
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            display: none;
+            z-index: 901;
+        }
+
+        .fab-expanded.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .fab-expanded button {
+            display: block;
+            width: 100%;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            background: transparent;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        .fab-expanded button:last-child {
+            margin-bottom: 0;
+        }
+
+        .fab-expanded button:active {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .legend-container {
+            padding: 10px 15px;
+            background-color: #1a1a1a;
+            border-top: 1px solid #333;
+            max-height: 150px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            background: #222;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .legend-item.hidden {
+            opacity: 0.4;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .chart-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 50vh;
+        }
+
+        @media (max-width: 768px) {
+            .eri-widget {
+                display: none !important;
+            }
+        }
+
+        .bottom-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1a1a1a;
+            border-top: 1px solid #333;
+            padding: 10px 15px;
+            z-index: 800;
+            display: flex;
+            gap: 10px;
+        }
+
+        .bottom-controls .form-select {
+            flex: 1;
+            height: 36px;
+            font-size: 13px;
+        }
+
+        .bottom-controls .input-group {
+            flex: 1;
+        }
+
+        .bottom-controls .input-group-text {
+            background-color: #333;
+            border-color: #444;
+            color: white;
+            font-size: 13px;
+        }
+
+        .rotate-suggestion {
+            display: none;
+            background: #2c3e50;
+            color: white;
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+            margin: 10px 15px;
+            border-radius: 8px;
+        }
+
+        @media (orientation: portrait) and (max-width: 768px) {
+            .rotate-suggestion {
+                display: block;
+            }
+        }
+
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            body {
+                padding-bottom: calc(60px + env(safe-area-inset-bottom));
+            }
+
+            .bottom-controls {
+                padding-bottom: calc(10px + env(safe-area-inset-bottom));
+            }
+        }
+
+        .tooltip {
+            font-size: 12px;
+        }
+
+        /* Native month picker styling */
+        input[type="month"] {
+            background-color: #222;
+            color: white;
+            border-color: #444;
+            font-size: 13px;
+            height: 36px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            padding: 0 10px;
+        }
+
+        input[type="month"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
+        /* Show/Hide toggle button for landscape */
+        .toggle-header-btn {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1001;
+            background: rgba(44, 62, 80, 0.9);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: none;
+        }
+
+        @media (orientation: landscape) {
+            .toggle-header-btn {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+
+{% include 'menu_pwa.html' %}
+
+<div class="page-header">
+    <h2>
+        <div class="title-wrapper">
+            {{ _("Membership Counts") }}
+            <i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="bottom" 
+               title="{{ _('Only counts members that participated in chat. Membership durations are based on available badges for each channel.') }}"></i>
+        </div>
+    </h2>
+</div>
+
+<!-- Toggle button for landscape mode -->
+<button class="toggle-header-btn" id="toggleHeaderBtn">
+    <i class="bi bi-arrows-expand me-1"></i>{{ _("Toggle Header") }}
+</button>
+
+<div class="rotate-suggestion">
+    <i class="bi bi-phone-landscape me-2"></i>
+    {{ _("Rotate device for better chart visibility") }}
+</div>
+
+<div class="chart-wrapper">
+    <div class="chart-container" id="chartContainer">
+        <div class="chart-loading d-none" id="chartLoading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+        <div class="chart-inner" id="chartInner">
+            <canvas id="membershipChart"></canvas>
+        </div>
+        <div class="scroll-indicator">
+            <i class="bi bi-arrow-left-right"></i> {{ _("Swipe to see more channels") }}
+        </div>
+    </div>
+</div>
+
+<div class="legend-container" id="legendContainer">
+    <div class="legend-items" id="legendItems"></div>
+</div>
+
+<!-- Floating Action Buttons -->
+<div class="fab-container">
+    <button class="fab-button" id="fabMenu">
+        <i class="bi bi-three-dots-vertical"></i>
+    </button>
+</div>
+
+<div class="fab-expanded" id="fabExpanded">
+    <button id="downloadCSV">
+        <i class="bi bi-file-earmark-spreadsheet me-2"></i>{{ _("Download CSV") }}
+    </button>
+    <button id="downloadPNG">
+        <i class="bi bi-image me-2"></i>{{ _("Download PNG") }}
+    </button>
+    <button id="toggleLegend">
+        <i class="bi bi-list me-2"></i>{{ _("Toggle Legend") }}
+    </button>
+</div>
+
+<!-- Bottom Controls -->
+<div class="bottom-controls">
+    <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-people-fill"></i></span>
+        <select id="groupSelect" class="form-select">
+            <option value="Hololive">{{ _("Hololive") }}</option>
+            <option value="Indie">{{ _("Indie") }}</option>
+        </select>
+    </div>
+    <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-calendar-month"></i></span>
+        <input type="month" id="monthSelect" class="form-control">
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Set default month (previous month)
+    const currentDate = new Date();
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    const defaultMonth = currentDate.toISOString().slice(0, 7);
+    $('#monthSelect').val(defaultMonth);
+
+    // Month picker change handler
+    $('#monthSelect').on('change', function() {
+        fetchData();
+    });
+
+    // Initialize Bootstrap Tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl, {
+            boundary: 'window'
+        });
+    });
+
+    // Landscape mode auto-hide
+    let headerHidden = false;
+    
+    function checkOrientation() {
+        const isLandscape = window.innerHeight < window.innerWidth;
+        
+        if (isLandscape) {
+            if (!headerHidden) {
+                // Auto-hide in landscape
+                setTimeout(() => {
+                    toggleHeaderVis(true);
+                }, 1000);
+            }
+        } else {
+            // Show in portrait
+            toggleHeaderVis(false);
+        }
+    }
+
+    function toggleHeaderVis(hide) {
+        headerHidden = hide;
+        if (hide) {
+            $('.navbar').addClass('landscape-hidden');
+            $('.page-header').addClass('landscape-hidden');
+            $('body').addClass('landscape-mode');
+            $('#chartContainer').addClass('landscape-expanded');
+        } else {
+            $('.navbar').removeClass('landscape-hidden');
+            $('.page-header').removeClass('landscape-hidden');
+            $('body').removeClass('landscape-mode');
+            $('#chartContainer').removeClass('landscape-expanded');
+        }
+        
+        // Trigger chart resize
+        setTimeout(() => {
+            chart.resize();
+        }, 350);
+    }
+
+    $('#toggleHeaderBtn').on('click', function() {
+        toggleHeaderVis(!headerHidden);
+    });
+
+    // Check orientation on load and change
+    checkOrientation();
+    window.addEventListener('orientationchange', function() {
+        setTimeout(checkOrientation, 100);
+    });
+
+    // FAB Menu Toggle
+    $('#fabMenu').on('click', function() {
+        $('#fabExpanded').toggleClass('show');
+    });
+
+    // Close FAB menu when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#fabMenu, #fabExpanded').length) {
+            $('#fabExpanded').removeClass('show');
+        }
+    });
+
+    Chart.defaults.color = 'white';
+    Chart.defaults.font.size = window.innerWidth < 768 ? 10 : 12;
+
+    function isPortrait() {
+        return window.innerHeight > window.innerWidth;
+    }
+
+    function getChartOptions() {
+        const isMobile = window.innerWidth < 768;
+        const portrait = isPortrait();
+        
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    ticks: {
+                        color: "white",
+                        autoSkip: false,
+                        maxRotation: portrait ? 60 : 45,
+                        minRotation: portrait ? 60 : 45,
+                        padding: 5,
+                        font: {
+                            size: isMobile ? 9 : 11
+                        }
+                    },
+                    grid: {
+                        display: false
+                    }
+                },
+                y: { 
+                    stacked: true, 
+                    ticks: { 
+                        color: "white",
+                        font: {
+                            size: isMobile ? 9 : 11
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    enabled: true,
+                    usePointStyle: true,
+                    padding: 8,
+                    bodyFont: {
+                        size: 11
+                    },
+                    callbacks: {
+                        label: function(tooltipItem) {
+                            if (tooltipItem.raw === 0) return null;
+                            return `${tooltipItem.dataset.label}: ${tooltipItem.formattedValue}`;
+                        },
+                        footer: function(tooltipItems) {
+                            const dataIndex = tooltipItems[0].dataIndex;
+                            let totalMembers = 0;
+                            let nonMembersValue = 0;
+                            
+                            const nonMembersDatasetIndex = chart.data.datasets.findIndex(d => d.label === 'Non-Members');
+                            const nonMembersVisible = nonMembersDatasetIndex !== -1 && 
+                                !chart.getDatasetMeta(nonMembersDatasetIndex).hidden;
+
+                            chart.data.datasets.forEach(function(dataset, index) {
+                                const value = dataset.data[dataIndex] || 0;
+                                if (dataset.label === 'Non-Members') {
+                                    nonMembersValue = value;
+                                } else {
+                                    totalMembers += value;
+                                }
+                            });
+                            
+                            if (nonMembersVisible) {
+                                const totalChatters = totalMembers + nonMembersValue;
+                                return [`Total Members: ${totalMembers}`, `Total Chatters: ${totalChatters}`];
+                            } else {
+                                return `Total Members: ${totalMembers}`;
+                            }
+                        }
+                    }
+                },
+                legend: { 
+                    display: false
+                }
+            }
+        };
+    }
+
+    let ctx = document.getElementById('membershipChart').getContext('2d');
+    let chart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: getChartOptions()
+    });
+
+    // Custom Legend Management - Fixed Non-Members state
+    function updateCustomLegend() {
+        const legendItems = $('#legendItems');
+        legendItems.empty();
+        
+        chart.data.datasets.forEach((dataset, index) => {
+            // Check both metadata and dataset hidden state
+            const meta = chart.getDatasetMeta(index);
+            const isHidden = meta.hidden || dataset.hidden === true;
+            
+            const item = $(`
+                <div class="legend-item ${isHidden ? 'hidden' : ''}" data-index="${index}">
+                    <div class="legend-color" style="background-color: ${dataset.backgroundColor}"></div>
+                    <span>${dataset.label}</span>
+                </div>
+            `);
+            
+            item.on('click', function() {
+                const meta = chart.getDatasetMeta(index);
+                
+                // Toggle visibility
+                if (meta.hidden === null || meta.hidden === undefined) {
+                    meta.hidden = !dataset.hidden;
+                } else {
+                    meta.hidden = !meta.hidden;
+                }
+                
+                $(this).toggleClass('hidden');
+                
+                if (dataset.label === 'Non-Members') {
+                    sortChartData(chart);
+                } else {
+                    chart.update();
+                }
+            });
+            
+            legendItems.append(item);
+        });
+    }
+
+    // Toggle Legend Visibility
+    $('#toggleLegend').on('click', function() {
+        $('#legendContainer').toggle();
+        $('#fabExpanded').removeClass('show');
+    });
+
+    function isDatasetHidden(chartInstance, datasetIndex) {
+        const dataset = chartInstance.data.datasets[datasetIndex];
+        const meta = chartInstance.getDatasetMeta(datasetIndex);
+        
+        if (meta && typeof meta.hidden !== 'undefined' && meta.hidden !== null) {
+            return meta.hidden;
+        }
+        return dataset.hidden === true;
+    }
+
+    function sortChartData(chartInstance) {
+        if (chartInstance._sorting) return;
+        chartInstance._sorting = true;
+
+        const nonMembersDatasetIndex = chartInstance.data.datasets.findIndex(d => d.label === 'Non-Members');
+        const includeNonMembers = nonMembersDatasetIndex !== -1 && 
+            !isDatasetHidden(chartInstance, nonMembersDatasetIndex);
+
+        const channelTotals = chartInstance.data.labels.map((label, index) => {
+            let total = 0;
+            chartInstance.data.datasets.forEach((dataset, datasetIndex) => {
+                if (dataset.label === 'Non-Members') {
+                    if (includeNonMembers) {
+                        total += dataset.data[index] || 0;
+                    }
+                } else {
+                    total += dataset.data[index] || 0;
+                }
+            });
+            return { label: label, total: total };
+        });
+
+        channelTotals.sort((a, b) => b.total - a.total);
+
+        const newLabels = channelTotals.map(item => item.label);
+        
+        chartInstance.data.datasets.forEach(dataset => {
+            const reorderedData = newLabels.map(label => {
+                const oldIndex = chartInstance.data.labels.indexOf(label);
+                return dataset.data[oldIndex];
+            });
+            dataset.data = reorderedData;
+        });
+
+        chartInstance.data.labels = newLabels;
+        chartInstance.update();
+        chartInstance._sorting = false;
+    }
+
+    function fetchData() {
+        let group = $('#groupSelect').val();
+        let month = $('#monthSelect').val() || defaultMonth;
+        let url = `/api/get_group_membership_data?month=${month}&channel_group=${encodeURIComponent(group)}`;
+
+        $('#chartLoading').removeClass('d-none');
+        $('#chartInner canvas').hide();
+
+        fetch(url)
+            .then(response => response.text())
+            .then(data => {
+                data = JSON.parse(data);
+                if (data.error) {
+                    console.error("API Error:", data.error);
+                    return;
+                }
+
+                let processedData = processMembershipData(data);
+                chart.data.labels = processedData.labels;
+                chart.data.datasets = processedData.datasets;
+
+                // Ensure Non-Members starts hidden and metadata is properly set
+                chart.data.datasets.forEach((dataset, index) => {
+                    const meta = chart.getDatasetMeta(index);
+                    if (dataset.label === 'Non-Members') {
+                        meta.hidden = true; // Set metadata hidden
+                    } else {
+                        meta.hidden = false;
+                    }
+                });
+
+                sortChartData(chart);
+                updateCustomLegend();
+                
+                $('#chartLoading').addClass('d-none');
+                $('#chartInner canvas').show();
+
+                if (isPortrait()) {
+                    $('.chart-container').scrollLeft(0);
+                }
+            })
+            .catch(error => {
+                console.error("Fetch Error:", error);
+                $('#chartLoading').addClass('d-none');
+                $('#chartInner canvas').show();
+            });
+    }
+
+    function processMembershipData(data) {
+        let groupedData = {};
+        const colorPalette = [
+            "#4a6b91",
+            "#8aa56f",
+            "#b26e5f",
+            "#9b7391",
+            "#d1af75",
+            "#6fa6b5",
+            "#a54d55",
+            "#6b8cad",
+            "#b2b2b2",
+            "#3c475a"
+        ];
+
+        data.forEach(d => {
+            let channel = d[0];
+            let membership_rank = d[1];
+            let count = d[2];
+
+            if (!(channel in groupedData)) {
+                groupedData[channel] = { total: 0, membership_counts: {}, special_counts: {} };
+            }
+
+            let label = formatMembershipLabel(membership_rank);
+
+            if (membership_rank === -1) {
+                groupedData[channel].special_counts[label] = count;
+            } else {
+                groupedData[channel].membership_counts[label] = count;
+                groupedData[channel].total += count;
+            }
+        });
+
+        let sortedChannels = Object.entries(groupedData)
+            .sort((a, b) => b[1].total - a[1].total)
+            .map(entry => entry[0]);
+
+        let labels = sortedChannels;
+        let rankLabels = Array.from(new Set(Object.values(groupedData).flatMap(c => Object.keys(c.membership_counts))))
+            .sort((a, b) => rankSortOrder(a) - rankSortOrder(b));
+
+        let datasets = rankLabels.map(rank => ({
+            label: rank,
+            data: labels.map(channel => groupedData[channel].membership_counts[rank] || 0),
+            backgroundColor: colorPalette[rankLabels.indexOf(rank) % colorPalette.length],
+            stack: 'Stack 0'
+        }));
+
+        let specialLabel = formatMembershipLabel(-1);
+        let specialDataset = {
+            label: specialLabel,
+            data: labels.map(channel => groupedData[channel].special_counts?.[specialLabel] || 0),
+            backgroundColor: '#666666', 
+            stack: 'Stack 0',
+            hidden: true // This sets the initial state
+        };
+        datasets.unshift(specialDataset);
+
+        return { labels, datasets };
+    }
+
+    function formatMembershipLabel(rank) {
+        if (rank === -1) return "Non-Members";
+        if (rank === 0) return "New Members";
+        if (rank < 12) return `${rank} Month${rank > 1 ? "s" : ""}`;
+        return `${Math.floor(rank / 12)} Year${rank >= 24 ? "s" : ""}`;
+    }
+
+    function rankSortOrder(label) {
+        if (label === "New Members") return 0;
+        if (label.includes("Month")) return parseInt(label.split(" ")[0]);
+        if (label.includes("Year")) return parseInt(label.split(" ")[0]) * 12;
+        return Infinity;
+    }
+
+    // Initial data fetch
+    fetchData();
+
+    $('#groupSelect').on("change", fetchData);
+
+    // Download CSV
+    $('#downloadCSV').on('click', function() {
+        $('#fabExpanded').removeClass('show');
+        
+        let data = chart.data;
+        let header = "Channel," + data.datasets.map(dataset => dataset.label).join(',');
+        let csvContent = "data:text/csv;charset=utf-8," + header + "\n";
+
+        for (let i = 0; i < data.labels.length; i++) {
+            let row = data.labels[i];
+            for (let j = 0; j < data.datasets.length; j++) {
+                row += `,${data.datasets[j].data[i]}`;
+            }
+            csvContent += row + "\n";
+        }
+
+        var encodedUri = encodeURI(csvContent);
+        var link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "membership_counts.csv");
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+
+    // Download PNG
+    $('#downloadPNG').on('click', function() {
+        $('#fabExpanded').removeClass('show');
+        
+        const chartTitle = "Membership Counts - " + $('#groupSelect').val() + " - " + 
+                          ($('#monthSelect').val() || defaultMonth) + 
+                          " - holochatstats.info";
+        const backgroundColor = '#1a1a1a';
+        
+        const originalCanvas = document.getElementById('membershipChart');
+        const newCanvas = document.createElement('canvas');
+        const titleHeight = 60;
+        
+        newCanvas.width = originalCanvas.width;
+        newCanvas.height = originalCanvas.height + titleHeight;
+        
+        const newCtx = newCanvas.getContext('2d');
+        
+        newCtx.fillStyle = backgroundColor;
+        newCtx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+        
+        newCtx.fillStyle = 'white';
+        newCtx.font = 'bold 24px Arial';
+        newCtx.textAlign = 'center';
+        newCtx.fillText(chartTitle, newCanvas.width / 2, titleHeight / 2 + 10);
+        
+        newCtx.drawImage(originalCanvas, 0, titleHeight);
+        
+        const link = document.createElement('a');
+        link.download = 'membership_counts.png';
+        link.href = newCanvas.toDataURL('image/png');
+        link.click();
+    });
+
+    // Handle orientation changes
+    window.addEventListener('orientationchange', function() {
+        setTimeout(() => {
+            chart.options = getChartOptions();
+            chart.update();
+        }, 100);
+    });
+
+    // Handle resize
+    let resizeTimeout;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            chart.options = getChartOptions();
+            chart.update();
+        }, 250);
+    });
+});
+
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/service-worker.js')
+            .then(registration => console.log('ServiceWorker registered'))
+            .catch(err => console.log('ServiceWorker registration failed:', err));
+    });
+}
+</script>
+
+</body>
+</html>

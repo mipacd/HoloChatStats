@@ -1,8 +1,9 @@
 import json
 import re
+import os
 import urllib.parse
 from datetime import datetime, timezone
-from flask import Blueprint, request, jsonify, g, Response
+from flask import Blueprint, request, jsonify, g, Response, current_app
 from flask_babel import _
 from dateutil.relativedelta import relativedelta
 import pandas as pd
@@ -14,14 +15,404 @@ import plotly.graph_objects as go
 import numpy as np
 from plotly.utils import PlotlyJSONEncoder
 import requests
+from googleapiclient.errors import HttpError
 
 from utils import (
-    get_db_connection, get_sqlite_connection, inc_cache_hit_count, inc_cache_miss_count,
-    streaming_hours_query, parse_search_query, EMBEDDER, validate_month_format,
-    format_month_for_sql
+    get_db_connection, inc_cache_hit_count, inc_cache_miss_count,
+    streaming_hours_query, parse_search_query, EMBEDDER, load_channel_mapping,
+    get_youtube_service, fetch_live_and_upcoming_streams, fetch_past_videos
 )
 
 api_bp = Blueprint('api', __name__)
+
+
+@api_bp.route('/api/get_channel_streams', methods=['GET', 'POST'])
+def get_channel_streams():
+    """
+    Get past, current, or upcoming streams/videos for one or more VTuber channels.
+    Includes live streams, premieres, and regular video uploads.
+    
+    Query Parameters / JSON Body:
+        channel (str): Channel name or comma-separated list of names (required)
+        stream_type (str): 'past', 'live', 'upcoming', or 'all' (default: 'all')
+        limit (int): Maximum items to return per channel (default: 5)
+    
+    Returns:
+        JSON response with stream/video data for each requested channel
+    """
+    # Get parameters from request
+    if request.method == 'POST':
+        data = request.get_json() or {}
+    else:
+        data = request.args.to_dict()
+    
+    channel_names = data.get('channel', '')
+    stream_type = data.get('stream_type', 'all').lower()
+    
+    try:
+        limit = int(data.get('limit', 5))
+        limit = max(1, min(limit, 50))  # Clamp between 1 and 50
+    except (ValueError, TypeError):
+        limit = 5
+    
+    # Validate required parameters
+    if not channel_names:
+        return jsonify({
+            'success': False,
+            'error': 'Channel name is required'
+        }), 400
+    
+    # Validate stream_type
+    valid_stream_types = ['past', 'live', 'upcoming', 'all']
+    if stream_type not in valid_stream_types:
+        return jsonify({
+            'success': False,
+            'error': f'Invalid stream_type. Must be one of: {", ".join(valid_stream_types)}'
+        }), 400
+    
+    # Load channel mapping
+    try:
+        channel_mapping = load_channel_mapping()
+    except FileNotFoundError:
+        return jsonify({
+            'success': False,
+            'error': 'Channel configuration file not found'
+        }), 500
+    except json.JSONDecodeError:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid channel configuration file'
+        }), 500
+    
+    # Initialize YouTube service
+    try:
+        youtube = get_youtube_service(current_app)
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+    
+    # Parse channel names (comma-separated)
+    channels = [c.strip() for c in channel_names.split(',') if c.strip()]
+    
+    results = []
+    
+    for channel_name in channels:
+        # Look up channel in mapping
+        channel_info = channel_mapping.get(channel_name.lower())
+        
+        if not channel_info:
+            # Try partial match
+            partial_matches = [
+                v for k, v in channel_mapping.items() 
+                if channel_name.lower() in k
+            ]
+            if partial_matches:
+                channel_info = partial_matches[0]
+            else:
+                results.append({
+                    'channel': channel_name,
+                    'error': f'Channel "{channel_name}" not found in database',
+                    'streams': []
+                })
+                continue
+        
+        channel_id = channel_info['id']
+        all_streams = []
+        
+        try:
+            # Fetch based on stream_type
+            if stream_type == 'live':
+                streams = fetch_live_and_upcoming_streams(
+                    youtube, channel_id, 'live', limit
+                )
+                all_streams.extend(streams)
+                
+            elif stream_type == 'upcoming':
+                streams = fetch_live_and_upcoming_streams(
+                    youtube, channel_id, 'upcoming', limit
+                )
+                all_streams.extend(streams)
+                
+            elif stream_type == 'past':
+                videos = fetch_past_videos(youtube, channel_id, limit)
+                all_streams.extend(videos)
+                
+            elif stream_type == 'all':
+                # Fetch all types
+                try:
+                    live_streams = fetch_live_and_upcoming_streams(
+                        youtube, channel_id, 'live', limit
+                    )
+                    all_streams.extend(live_streams)
+                except HttpError as e:
+                    print(f"Error fetching live streams for {channel_name}: {e}")
+                
+                try:
+                    upcoming_streams = fetch_live_and_upcoming_streams(
+                        youtube, channel_id, 'upcoming', limit
+                    )
+                    all_streams.extend(upcoming_streams)
+                except HttpError as e:
+                    print(f"Error fetching upcoming streams for {channel_name}: {e}")
+                
+                try:
+                    past_videos = fetch_past_videos(youtube, channel_id, limit)
+                    all_streams.extend(past_videos)
+                except HttpError as e:
+                    print(f"Error fetching past videos for {channel_name}: {e}")
+            
+            # Sort streams by most relevant criteria
+            def get_sort_key(stream):
+                # Prioritize by status, then by date
+                status_priority = {
+                    'live': 0,
+                    'upcoming': 1,
+                    'completed': 2
+                }
+                priority = status_priority.get(stream.get('status'), 3)
+                
+                # Get the most relevant timestamp
+                timestamp = (
+                    stream.get('scheduled_start') or 
+                    stream.get('started_at') or 
+                    stream.get('published_at') or 
+                    ''
+                )
+                return (priority, timestamp)
+            
+            all_streams.sort(key=get_sort_key, reverse=True)
+            
+            # Remove duplicates based on video_id
+            seen_ids = set()
+            unique_streams = []
+            for stream in all_streams:
+                if stream['video_id'] not in seen_ids:
+                    seen_ids.add(stream['video_id'])
+                    unique_streams.append(stream)
+            
+            # Limit total results
+            unique_streams = unique_streams[:limit]
+            
+            results.append({
+                'channel': channel_info['name'],
+                'organization': channel_info['organization'],
+                'channel_id': channel_id,
+                'streams': unique_streams
+            })
+            
+        except HttpError as e:
+            error_reason = e.resp.get('status', 'Unknown')
+            results.append({
+                'channel': channel_info['name'],
+                'error': f'YouTube API error: {error_reason}',
+                'streams': []
+            })
+        except Exception as e:
+            results.append({
+                'channel': channel_info['name'],
+                'error': f'Unexpected error: {str(e)}',
+                'streams': []
+            })
+    
+    return jsonify({
+        'success': True,
+        'data': results
+    })
+
+@api_bp.route('/api/get_channel_metrics', methods=['GET', 'POST'])
+def get_channel_metrics():
+    """
+    Get channel metrics including subscriber count, total views, and video count
+    for one or more VTuber channels.
+    
+    Query Parameters / JSON Body:
+        channel (str): Channel name or comma-separated list of names (required)
+    
+    Returns:
+        JSON response with channel metrics for each requested channel
+    """
+    # Get parameters from request
+    if request.method == 'POST':
+        data = request.get_json() or {}
+    else:
+        data = request.args.to_dict()
+    
+    channel_names = data.get('channel', '')
+    
+    # Validate required parameters
+    if not channel_names:
+        return jsonify({
+            'success': False,
+            'error': 'Channel name is required'
+        }), 400
+    
+    # Load channel mapping
+    try:
+        channel_mapping = load_channel_mapping()
+    except FileNotFoundError:
+        return jsonify({
+            'success': False,
+            'error': 'Channel configuration file not found'
+        }), 500
+    except json.JSONDecodeError:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid channel configuration file'
+        }), 500
+    
+    # Initialize YouTube service
+    try:
+        youtube = get_youtube_service(current_app)
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+    
+    # Parse channel names (comma-separated)
+    channels = [c.strip() for c in channel_names.split(',') if c.strip()]
+    
+    results = []
+    
+    # Collect all valid channel IDs for batch request
+    channel_lookup = {}  # Maps channel_id to channel_info
+    
+    for channel_name in channels:
+        # Look up channel in mapping
+        channel_info = channel_mapping.get(channel_name.lower())
+        
+        if not channel_info:
+            # Try partial match
+            partial_matches = [
+                v for k, v in channel_mapping.items() 
+                if channel_name.lower() in k
+            ]
+            if partial_matches:
+                channel_info = partial_matches[0]
+            else:
+                results.append({
+                    'channel': channel_name,
+                    'error': f'Channel "{channel_name}" not found in database'
+                })
+                continue
+        
+        channel_lookup[channel_info['id']] = channel_info
+    
+    if not channel_lookup:
+        return jsonify({
+            'success': True,
+            'data': results
+        })
+    
+    try:
+        # Batch request for all channels
+        channel_ids = list(channel_lookup.keys())
+        
+        # YouTube API allows up to 50 channel IDs per request
+        batch_size = 50
+        all_channel_data = []
+        
+        for i in range(0, len(channel_ids), batch_size):
+            batch_ids = channel_ids[i:i + batch_size]
+            
+            channel_response = youtube.channels().list(
+                part='snippet,statistics,brandingSettings',
+                id=','.join(batch_ids)
+            ).execute()
+            
+            all_channel_data.extend(channel_response.get('items', []))
+        
+        # Process each channel's data
+        for channel_data in all_channel_data:
+            channel_id = channel_data['id']
+            channel_info = channel_lookup.get(channel_id)
+            
+            if not channel_info:
+                continue
+            
+            snippet = channel_data.get('snippet', {})
+            statistics = channel_data.get('statistics', {})
+            
+            # Get subscriber count (may be hidden)
+            subscriber_count = None
+            subscriber_hidden = statistics.get('hiddenSubscriberCount', False)
+            
+            if not subscriber_hidden:
+                sub_count_str = statistics.get('subscriberCount')
+                if sub_count_str:
+                    subscriber_count = int(sub_count_str)
+            
+            # Get total view count
+            total_views = None
+            view_count_str = statistics.get('viewCount')
+            if view_count_str:
+                total_views = int(view_count_str)
+            
+            # Get video count
+            video_count = None
+            video_count_str = statistics.get('videoCount')
+            if video_count_str:
+                video_count = int(video_count_str)
+            
+            # Get channel thumbnail (prefer high quality)
+            thumbnails = snippet.get('thumbnails', {})
+            thumbnail_url = (
+                thumbnails.get('high', {}).get('url') or
+                thumbnails.get('medium', {}).get('url') or
+                thumbnails.get('default', {}).get('url') or
+                ''
+            )
+            
+            # Get description (truncate if too long)
+            description = snippet.get('description', '')
+            if len(description) > 500:
+                description = description[:497] + '...'
+            
+            result = {
+                'channel': channel_info['name'],
+                'organization': channel_info['organization'],
+                'channel_id': channel_id,
+                'custom_url': snippet.get('customUrl', ''),
+                'description': description,
+                'thumbnail': thumbnail_url,
+                'created_at': snippet.get('publishedAt', ''),
+                'subscriber_count': subscriber_count,
+                'subscriber_count_hidden': subscriber_hidden,
+                'total_view_count': total_views,
+                'video_count': video_count
+            }
+            
+            results.append(result)
+        
+        # Check for any channels that weren't found in the API response
+        found_ids = {item['channel_id'] for item in results if 'channel_id' in item}
+        for channel_id, channel_info in channel_lookup.items():
+            if channel_id not in found_ids:
+                results.append({
+                    'channel': channel_info['name'],
+                    'error': f'Channel data not found on YouTube'
+                })
+        
+    except HttpError as e:
+        error_reason = e.resp.get('status', 'Unknown')
+        error_content = e.content.decode('utf-8') if hasattr(e, 'content') else str(e)
+        return jsonify({
+            'success': False,
+            'error': f'YouTube API error: {error_reason}',
+            'details': error_content
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Unexpected error: {str(e)}'
+        }), 500
+    
+    return jsonify({
+        'success': True,
+        'data': results
+    })
 
 
 @api_bp.route('/api/channel_clustering', methods=['GET'])

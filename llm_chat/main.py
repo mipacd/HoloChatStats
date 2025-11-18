@@ -233,7 +233,7 @@ async def generate_response(state: AgentState) -> dict:
 
     # Start with the base persona and the full chat history
     messages = [
-        {"role": "system", "content": persona},
+        {"role": "system", "content": SYSTEM_PROMPT + " " + persona},
         *state["chat_history"],
     ]
     

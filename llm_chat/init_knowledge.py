@@ -71,9 +71,15 @@ CAPABILITIES = [
     },
     {
         "category": "capability",
-        "key": "no_live_stream_data",
-        "content": "I CANNOT access real-time stream data, current viewer counts, or live chat. I can only analyze historical data from completed streams that have been processed.",
-        "metadata": {"can_do": False}
+        "key": "stream_data",
+        "content": "I CAN access information about past, current, and upcoming streams for VTuber channels, including stream titles, scheduled times, and durations.",
+        "metadata": {"can_do": True, "related_tools": ["get_channel_streams"]}
+    },
+    {
+        "category": "capability",
+        "key": "channel_subscriber_metrics",
+        "content": "I CAN provide various metrics about VTuber channels, including total views, total subscribers, total videos, and average views per video.",
+        "metadata": {"can_do": True, "related_tools": ["get_channel_metrics"]}
     },
     {
         "category": "capability",
@@ -108,7 +114,7 @@ CAPABILITIES = [
     {
         "category": "capability",
         "key": "data_coverage",
-        "content": "My data coverage includes Hololive VTubers and some indie VTubers. The earliest data goes back to early 2024 for most channels. I can tell you the exact date range available using get_date_ranges().",
+        "content": "My data coverage includes Hololive VTubers and some indie VTubers. The earliest data goes back to September 2024 for most channels. I can tell you the exact date range available using get_date_ranges().",
         "metadata": {"can_do": True}
     },
 ]

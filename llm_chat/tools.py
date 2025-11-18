@@ -854,6 +854,113 @@ async def search_hololive_shop(vtuber_name: str, language: Literal["en", "jp"] =
         "language": language
     })
 
+@tool
+async def get_channel_streams(
+    channel: str,
+    stream_type: str = "all",
+    limit: int = 5
+) -> dict:
+    """
+    Returns past, current, or upcoming streams/videos for a given VTuber channel.
+    Use this to find out when a VTuber last streamed, is currently streaming, 
+    or will stream next. Includes live streams, premieres, and regular video uploads.
+
+    Args:
+        channel (str): The name of the VTuber whose streams should be retrieved.
+            Can be a single channel name or comma-separated list of channel names.
+        stream_type (str): Type of content to retrieve. Options are:
+            - "past" for completed streams, premieres, and video uploads
+            - "live" for currently active streams or premieres
+            - "upcoming" for scheduled future streams and premieres
+            - "all" for all content types (default)
+        limit (int): Maximum number of items to return per channel (default 5).
+            For "last stream" queries, use limit=1.
+            For "next stream" queries, use limit=1 with stream_type="upcoming".
+
+    Returns:
+        dict: {
+            "success": True,
+            "data": [
+                {
+                    "channel": str,           # Channel display name
+                    "organization": str,      # Organization (e.g., "Hololive", "Indie")
+                    "channel_id": str,        # YouTube channel ID
+                    "streams": [
+                        {
+                            "title": str,             # Video/stream title
+                            "video_id": str,          # YouTube video ID
+                            "url": str,               # Full YouTube URL
+                            "thumbnail": str,         # Thumbnail URL
+                            "status": str,            # "live", "upcoming", or "completed"
+                            "content_type": str,      # "stream", "premiere", or "video"
+                            "published_at": str,      # ISO timestamp
+                            "scheduled_start": str,   # ISO timestamp (for upcoming)
+                            "started_at": str,        # ISO timestamp (for live/completed)
+                            "ended_at": str,          # ISO timestamp (for completed)
+                            "view_count": int,        # Total views (for completed)
+                            "duration": str           # ISO 8601 duration (for completed)
+                        }
+                    ]
+                }
+            ]
+        }
+    
+    Examples:
+        - "What was Miko's last stream?" -> channel="Miko", stream_type="past", limit=1
+        - "When is Azki streaming next?" -> channel="Azki", stream_type="upcoming", limit=1
+        - "Is Roboco live right now?" -> channel="Roboco", stream_type="live"
+        - "Show me Dooby's recent streams" -> channel="Dooby", stream_type="past", limit=5
+        - "What videos has Nimi uploaded recently?" -> channel="Nimi", stream_type="past", limit=5
+    """
+    params = {
+        "channel": channel,
+        "stream_type": stream_type,
+        "limit": limit
+    }
+    return await call_hcs_api("/api/get_channel_streams", params)
+
+@tool
+async def get_channel_metrics(channel: str) -> dict:
+    """
+    Returns channel metrics such as subscriber count, total views, and video count
+    for a given VTuber channel. Use this to answer questions about channel statistics.
+
+    Args:
+        channel (str): The name of the VTuber whose channel metrics should be retrieved.
+            Can be a single channel name or comma-separated list of channel names.
+
+    Returns:
+        dict: {
+            "success": True,
+            "data": [
+                {
+                    "channel": str,                    # Channel display name
+                    "organization": str,               # Organization (e.g., "Hololive", "Indie")
+                    "channel_id": str,                 # YouTube channel ID
+                    "custom_url": str,                 # YouTube custom URL (e.g., "@ChannelName")
+                    "description": str,                # Channel description (truncated)
+                    "thumbnail": str,                  # Channel profile picture URL
+                    "created_at": str,                 # Channel creation date (ISO timestamp)
+                    "subscriber_count": int,           # Number of subscribers
+                    "subscriber_count_hidden": bool,   # Whether sub count is hidden
+                    "total_view_count": int,           # Total views across all videos
+                    "video_count": int                 # Total number of uploaded videos
+                }
+            ]
+        }
+    
+    Examples:
+        - "How many subscribers does Miko have?" -> channel="Miko"
+        - "What are Azki's channel stats?" -> channel="Azki"
+        - "Compare Dooby and Nimi's subscriber counts" -> channel="Dooby,Nimi"
+        - "How many videos has Roboco uploaded?" -> channel="Roboco"
+        - "How many total views does Miko have?" -> channel="Miko"
+    """
+    params = {
+        "channel": channel
+    }
+    return await call_hcs_api("/api/get_channel_metrics", params)
+
 def get_api_tools():
     """
     Returns a list of all defined API tools for the agent to use.
@@ -886,5 +993,7 @@ def get_api_tools():
         get_chat_engagement,
         get_video_highlights,
         search_highlights,
-        search_hololive_shop
+        search_hololive_shop,
+        get_channel_streams,
+        get_channel_metrics
     ]
