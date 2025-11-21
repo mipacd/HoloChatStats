@@ -304,7 +304,7 @@ async def get_group_membership_summary(
         group (str): The VTuber group name (e.g., "Hololive", "Indie").
         month (str): The target month in 'YYYY-MM' format.
         membership_rank (str): Specific membership tier to fetch.
-            -1 for non-members, 0 for new members, 1 for 1-month members, 2 for 2-month members, 3 for 6 months, 4 for 1 year, etc. or "total" for the sum of all members.
+            -2 for members of unknown rank, -1 for non-members, 0 for new members, 1 for 1-month members, 2 for 2-month members, 3 for 6 months, 4 for 1 year, etc. or "total" for the sum of all members.
 
     Returns:
         list[list] | dict:

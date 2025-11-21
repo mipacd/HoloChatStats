@@ -455,6 +455,7 @@
         <select id="groupSelect" class="form-select">
             <option value="Hololive">{{ _("Hololive") }}</option>
             <option value="Indie">{{ _("Indie") }}</option>
+            <option value="PNGTubers">{{ _("PNGTubers") }}</option>
         </select>
     </div>
     <div class="input-group">
@@ -492,13 +493,11 @@ $(document).ready(function() {
         
         if (isLandscape) {
             if (!headerHidden) {
-                // Auto-hide in landscape
                 setTimeout(() => {
                     toggleHeaderVis(true);
                 }, 1000);
             }
         } else {
-            // Show in portrait
             toggleHeaderVis(false);
         }
     }
@@ -517,7 +516,6 @@ $(document).ready(function() {
             $('#chartContainer').removeClass('landscape-expanded');
         }
         
-        // Trigger chart resize
         setTimeout(() => {
             chart.resize();
         }, 350);
@@ -527,7 +525,6 @@ $(document).ready(function() {
         toggleHeaderVis(!headerHidden);
     });
 
-    // Check orientation on load and change
     checkOrientation();
     window.addEventListener('orientationchange', function() {
         setTimeout(checkOrientation, 100);
@@ -620,6 +617,7 @@ $(document).ready(function() {
                                 if (dataset.label === 'Non-Members') {
                                     nonMembersValue = value;
                                 } else {
+                                    // All other datasets (including Unknown) count as members
                                     totalMembers += value;
                                 }
                             });
@@ -647,13 +645,12 @@ $(document).ready(function() {
         options: getChartOptions()
     });
 
-    // Custom Legend Management - Fixed Non-Members state
+    // Custom Legend Management
     function updateCustomLegend() {
         const legendItems = $('#legendItems');
         legendItems.empty();
         
         chart.data.datasets.forEach((dataset, index) => {
-            // Check both metadata and dataset hidden state
             const meta = chart.getDatasetMeta(index);
             const isHidden = meta.hidden || dataset.hidden === true;
             
@@ -667,7 +664,6 @@ $(document).ready(function() {
             item.on('click', function() {
                 const meta = chart.getDatasetMeta(index);
                 
-                // Toggle visibility
                 if (meta.hidden === null || meta.hidden === undefined) {
                     meta.hidden = !dataset.hidden;
                 } else {
@@ -719,6 +715,7 @@ $(document).ready(function() {
                         total += dataset.data[index] || 0;
                     }
                 } else {
+                    // Always include member datasets (including Unknown) in the total
                     total += dataset.data[index] || 0;
                 }
             });
@@ -763,11 +760,11 @@ $(document).ready(function() {
                 chart.data.labels = processedData.labels;
                 chart.data.datasets = processedData.datasets;
 
-                // Ensure Non-Members starts hidden and metadata is properly set
+                // Ensure proper initial visibility states
                 chart.data.datasets.forEach((dataset, index) => {
                     const meta = chart.getDatasetMeta(index);
                     if (dataset.label === 'Non-Members') {
-                        meta.hidden = true; // Set metadata hidden
+                        meta.hidden = true;
                     } else {
                         meta.hidden = false;
                     }
@@ -792,18 +789,24 @@ $(document).ready(function() {
 
     function processMembershipData(data) {
         let groupedData = {};
+        
+        // Color palette for known membership tiers
         const colorPalette = [
-            "#4a6b91",
-            "#8aa56f",
-            "#b26e5f",
-            "#9b7391",
-            "#d1af75",
-            "#6fa6b5",
-            "#a54d55",
+            "#4a6b91",  // New Members
+            "#8aa56f",  // 1 Month
+            "#b26e5f",  // 2 Months
+            "#9b7391",  // 3 Months
+            "#d1af75",  // 6 Months
+            "#6fa6b5",  // 1 Year
+            "#a54d55",  // 2 Years
             "#6b8cad",
             "#b2b2b2",
             "#3c475a"
         ];
+        
+        // Special colors for Non-Members and Unknown
+        const nonMembersColor = '#666666';
+        const unknownColor = '#9370DB';  // Medium purple - distinct for unknown tier
 
         data.forEach(d => {
             let channel = d[0];
@@ -811,48 +814,81 @@ $(document).ready(function() {
             let count = d[2];
 
             if (!(channel in groupedData)) {
-                groupedData[channel] = { total: 0, membership_counts: {}, special_counts: {} };
+                groupedData[channel] = { 
+                    total: 0, 
+                    membership_counts: {}, 
+                    non_members_count: 0,
+                    unknown_count: 0
+                };
             }
 
-            let label = formatMembershipLabel(membership_rank);
-
             if (membership_rank === -1) {
-                groupedData[channel].special_counts[label] = count;
+                // Non-Members - doesn't count toward member total
+                groupedData[channel].non_members_count = count;
+            } else if (membership_rank === -2) {
+                // Unknown (gift memberships) - counts toward total
+                groupedData[channel].unknown_count = count;
+                groupedData[channel].total += count;
             } else {
+                // Known membership tiers
+                let label = formatMembershipLabel(membership_rank);
                 groupedData[channel].membership_counts[label] = count;
                 groupedData[channel].total += count;
             }
         });
 
+        // Sort channels by total members (descending)
         let sortedChannels = Object.entries(groupedData)
             .sort((a, b) => b[1].total - a[1].total)
             .map(entry => entry[0]);
 
         let labels = sortedChannels;
-        let rankLabels = Array.from(new Set(Object.values(groupedData).flatMap(c => Object.keys(c.membership_counts))))
-            .sort((a, b) => rankSortOrder(a) - rankSortOrder(b));
+        
+        // Get unique rank labels and sort them
+        let rankLabels = Array.from(new Set(
+            Object.values(groupedData).flatMap(c => Object.keys(c.membership_counts))
+        )).sort((a, b) => rankSortOrder(a) - rankSortOrder(b));
 
-        let datasets = rankLabels.map(rank => ({
+        // Create datasets for known membership tiers
+        let datasets = rankLabels.map((rank, idx) => ({
             label: rank,
             data: labels.map(channel => groupedData[channel].membership_counts[rank] || 0),
-            backgroundColor: colorPalette[rankLabels.indexOf(rank) % colorPalette.length],
+            backgroundColor: colorPalette[idx % colorPalette.length],
             stack: 'Stack 0'
         }));
 
-        let specialLabel = formatMembershipLabel(-1);
-        let specialDataset = {
-            label: specialLabel,
-            data: labels.map(channel => groupedData[channel].special_counts?.[specialLabel] || 0),
-            backgroundColor: '#666666', 
+        // Check if there's any Unknown data
+        const hasUnknownData = Object.values(groupedData).some(c => c.unknown_count > 0);
+        
+        if (hasUnknownData) {
+            // Unknown - visible by default, counts as members
+            let unknownDataset = {
+                label: 'Unknown',
+                data: labels.map(channel => groupedData[channel].unknown_count || 0),
+                backgroundColor: unknownColor,
+                stack: 'Stack 0',
+                hidden: false
+            };
+            // Add Unknown at the beginning of member tiers (bottom of visible stack)
+            datasets.unshift(unknownDataset);
+        }
+
+        // Non-Members - hidden by default
+        let nonMembersDataset = {
+            label: 'Non-Members',
+            data: labels.map(channel => groupedData[channel].non_members_count || 0),
+            backgroundColor: nonMembersColor, 
             stack: 'Stack 0',
-            hidden: true // This sets the initial state
+            hidden: true
         };
-        datasets.unshift(specialDataset);
+        // Add Non-Members at the very beginning (bottom of stack when visible)
+        datasets.unshift(nonMembersDataset);
 
         return { labels, datasets };
     }
 
     function formatMembershipLabel(rank) {
+        if (rank === -2) return "Unknown";
         if (rank === -1) return "Non-Members";
         if (rank === 0) return "New Members";
         if (rank < 12) return `${rank} Month${rank > 1 ? "s" : ""}`;
@@ -860,6 +896,7 @@ $(document).ready(function() {
     }
 
     function rankSortOrder(label) {
+        if (label === "Unknown") return -0.5;  // Between Non-Members and New Members
         if (label === "New Members") return 0;
         if (label.includes("Month")) return parseInt(label.split(" ")[0]);
         if (label.includes("Year")) return parseInt(label.split(" ")[0]) * 12;
@@ -871,7 +908,7 @@ $(document).ready(function() {
 
     $('#groupSelect').on("change", fetchData);
 
-    // Download CSV
+    // Download CSV - includes all datasets (visible and hidden)
     $('#downloadCSV').on('click', function() {
         $('#fabExpanded').removeClass('show');
         

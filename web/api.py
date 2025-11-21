@@ -453,6 +453,7 @@ Returns:
             FROM user_data ud
             JOIN channels ch ON ud.channel_id = ch.channel_id
             WHERE DATE_TRUNC('month', ud.last_message_at) = %s::DATE
+            AND ud.total_message_count > 0  -- Exclude gift-only entries
             GROUP BY ud.user_id, ch.channel_name;
         """, (filter_month + "-01",))
         rows = cursor.fetchall()
@@ -708,6 +709,7 @@ Returns:
                 FROM user_data ud
                 JOIN channels ch ON ud.channel_id = ch.channel_id
                 WHERE DATE_TRUNC('month', ud.last_message_at) = %s::DATE
+                AND ud.total_message_count > 0  -- Exclude gift-only entries
                 GROUP BY ud.user_id, ch.channel_name;
             """, (month_to_query,))
             rows = cursor.fetchall()
@@ -1297,7 +1299,6 @@ def get_group_membership_counts():
         return jsonify({"error": _("Missing required parameters")}), 400
 
     query = """SELECT channel_name, membership_rank, membership_count, percentage_total FROM mv_membership_data WHERE channel_group = %s AND observed_month = %s::DATE;"""
-
     cursor.execute(query, (channel_group, f"{month}-01"))
     results = cursor.fetchall()
     cursor.close()
@@ -1329,6 +1330,14 @@ def get_group_membership_summary():
     Returns:
         Success (200): JSON array with membership counts per channel
         Failure (400): Missing required parameters
+    
+    Notes:
+        membership_rank values:
+        - "total": All members (excludes non-members, includes unknown)
+        - "-2": Unknown rank (gift membership only)
+        - "-1": Non-members
+        - "0": New members
+        - "1"+: Existing member tiers
     """
     channel_group = request.args.get("channel_group")
     month = request.args.get("month")
@@ -1353,12 +1362,14 @@ def get_group_membership_summary():
     cursor = g.db_conn.cursor()
 
     if total:
+        # Count all members: exclude only non-members (-1)
+        # This includes unknown (-2), new members (0), and all tiers (1+)
         query = """
             SELECT channel_name, SUM(membership_count) AS total_members
             FROM mv_membership_data
             WHERE channel_group = %s 
               AND observed_month = %s::DATE
-              AND membership_rank >= 0
+              AND membership_rank != -1
             GROUP BY channel_name
             ORDER BY total_members DESC
         """
@@ -1403,6 +1414,11 @@ def get_group_membership_changes():
         Success (200): JSON array with gains_count, losses_count, and differential per channel
         Error (400): Missing required parameters
         Error (500): Database query failed
+    
+    Notes:
+        - Gains: User transitions from non-member (-1) to any member status (including unknown -2)
+        - Losses: User transitions from any member status to non-member (-1)
+        - Unknown (-2) gift memberships are counted as valid memberships for gains/losses
     """
     cursor = g.db_conn.cursor()
 
@@ -1436,39 +1452,44 @@ def get_group_membership_changes():
               AND DATE_TRUNC('month', m.last_message_at) = %s::DATE
         ),
         gains AS (
+            -- User was non-member (-1) and is now any type of member (including unknown -2)
             SELECT
                 mc.user_id,
                 mc.channel_id,
                 mc.observed_month
             FROM membership_changes mc
             WHERE mc.previous_membership_rank = -1
-              AND mc.membership_rank > -1
+              AND mc.membership_rank IS DISTINCT FROM -1
+              AND mc.membership_rank IS NOT NULL
         ),
         expirations AS (
+            -- User was any type of member and is now non-member (-1)
             SELECT
                 mc.user_id,
                 mc.channel_id,
                 mc.observed_month
             FROM membership_changes mc
-            WHERE mc.previous_membership_rank > -1
+            WHERE mc.previous_membership_rank IS DISTINCT FROM -1
+              AND mc.previous_membership_rank IS NOT NULL
               AND mc.membership_rank = -1
         )
         SELECT
             c.channel_name,
-            g.observed_month,
+            COALESCE(g.observed_month, e.observed_month) AS observed_month,
             COUNT(DISTINCT g.user_id) AS gains_count,
             COUNT(DISTINCT e.user_id) AS losses_count,
             (COUNT(DISTINCT g.user_id) - COUNT(DISTINCT e.user_id)) AS differential
         FROM channels c
         LEFT JOIN gains g ON g.channel_id = c.channel_id
         LEFT JOIN expirations e ON e.channel_id = c.channel_id
-        WHERE g.observed_month = %s::DATE OR e.observed_month = %s::DATE
-        GROUP BY c.channel_name, g.observed_month
+        WHERE c.channel_group = %s
+          AND (g.observed_month = %s::DATE OR e.observed_month = %s::DATE)
+        GROUP BY c.channel_name, COALESCE(g.observed_month, e.observed_month)
         ORDER BY differential DESC;
     """
     
     try:
-        cursor.execute(query, (channel_group, f"{month}-01", f"{month}-01", f"{month}-01"))
+        cursor.execute(query, (channel_group, f"{month}-01", channel_group, f"{month}-01", f"{month}-01"))
         results = cursor.fetchall()
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1728,6 +1749,9 @@ def get_user_changes():
 def get_exclusive_chat_users():
     """
     Calculate percentage of users who only chat in a specific channel within its group.
+    
+    Note: Only considers users with actual chat activity (total_message_count > 0),
+    excluding gift-only membership events.
 
     Args:
         channel (str, required): Channel name (query parameter)
@@ -1766,22 +1790,20 @@ def get_exclusive_chat_users():
                 channel_id
             FROM mv_user_activity
             WHERE channel_id = %s
+              AND total_message_count > 0  -- Only users with actual chat activity
         ),
         exclusive_users AS (
             SELECT
                 csu.activity_month,
                 COUNT(DISTINCT csu.user_id) AS exclusive_users_count
             FROM channel_specific_users csu
-            LEFT JOIN mv_user_activity gu
-                ON csu.user_id = gu.user_id
-                AND gu.channel_id <> csu.channel_id
-                AND gu.channel_group = %s
             WHERE NOT EXISTS (
                 SELECT 1
                 FROM mv_user_activity gu
                 WHERE gu.user_id = csu.user_id
-                AND gu.channel_group = %s
-                AND gu.channel_id <> csu.channel_id
+                  AND gu.channel_group = %s
+                  AND gu.channel_id <> csu.channel_id
+                  AND gu.total_message_count > 0  -- Only count actual chat activity in other channels
             )
             GROUP BY csu.activity_month
         ),
@@ -1801,7 +1823,7 @@ def get_exclusive_chat_users():
         ORDER BY tu.activity_month;
     """
 
-    cursor.execute(query, (channel_id, channel_group, channel_group))
+    cursor.execute(query, (channel_id, channel_group))
     results = cursor.fetchall()
     cursor.close()
 
@@ -2015,6 +2037,9 @@ def get_attrition_rates():
 def get_jp_user_percent():
     """
     Returns percentage of users with >50% Japanese messages per month.
+    
+    Note: Excludes gift-only membership events (is_gift=TRUE with no actual messages)
+    as they don't contain chat content for language analysis.
 
     Args:
         channel (str, required): Channel name (query param)
@@ -2045,6 +2070,7 @@ def get_jp_user_percent():
             FROM user_data ud
             JOIN channels c ON ud.channel_id = c.channel_id
             WHERE c.channel_name = %s
+              AND ud.total_message_count > 0  -- Exclude gift-only entries with no messages
             GROUP BY ud.user_id, month
         ),
         jp_users AS (
@@ -2052,7 +2078,8 @@ def get_jp_user_percent():
                 month,
                 COUNT(*) AS jp_user_count
             FROM user_language_usage
-            WHERE total_jp_messages > total_non_emoji_messages * 0.5
+            WHERE total_non_emoji_messages > 0  -- Avoid division issues
+              AND total_jp_messages > total_non_emoji_messages * 0.5
             GROUP BY month
         ),
         total_users AS (
@@ -2062,6 +2089,7 @@ def get_jp_user_percent():
             FROM user_data ud
             JOIN channels c ON ud.channel_id = c.channel_id
             WHERE c.channel_name = %s
+              AND ud.total_message_count > 0  -- Exclude gift-only entries
             GROUP BY month
         )
         SELECT 
@@ -2077,7 +2105,7 @@ def get_jp_user_percent():
     results = cursor.fetchall()
     cursor.close()
 
-    response = [{"month": row[0], "jp_user_percent": float(row[1])} for row in results]
+    response = [{"month": row[0], "jp_user_percent": float(row[1]) if row[1] else 0.0} for row in results]
 
     g.redis_conn.set(redis_key, json.dumps(response))
 
@@ -2296,6 +2324,9 @@ def get_funniest_timestamps():
 def get_user_info():
     """
     Fetch user's chat activity across channels with message counts and percentile rankings.
+    
+    Note: Only includes records with actual chat activity (total_message_count > 0),
+    excluding gift-only membership events.
 
     Args:
         identifier (str, required): User ID or @username handle (query parameter)
@@ -2344,6 +2375,7 @@ def get_user_info():
         WHERE ud.user_id = %s
           AND ud.last_message_at >= %s::DATE
           AND ud.last_message_at < %s::DATE
+          AND ud.total_message_count > 0  -- Exclude gift-only entries
         GROUP BY ud.channel_id, c.channel_name
     """, (user_id, month_start, next_month_start))
     
@@ -2365,6 +2397,7 @@ def get_user_info():
                 WHERE channel_id = %s
                   AND last_message_at >= %s::DATE
                   AND last_message_at < %s::DATE
+                  AND total_message_count > 0  -- Exclude gift-only entries
                 GROUP BY user_id
             )
             SELECT 
@@ -2425,6 +2458,7 @@ def get_chat_engagement():
             WHERE 
                 DATE_TRUNC('month', ud.last_message_at) = %s
                 AND (%s IS NULL OR c.channel_group = %s)
+                AND ud.total_message_count > 0  -- Exclude gift-only entries
             GROUP BY ud.channel_id
         )
         SELECT 
