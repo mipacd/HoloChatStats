@@ -1,6 +1,5 @@
 import json
 import re
-import os
 import urllib.parse
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, g, Response, current_app
@@ -759,17 +758,26 @@ Returns:
 @api_bp.route('/api/get_monthly_streaming_hours', methods=['GET'])
 def get_monthly_streaming_hours():
     """
-    Fetches total streaming hours per month for a specific channel.
+    Fetches total streaming hours per month for a specific channel,
+    including 3-month forecasts with P25/P75 confidence intervals.
 
     Args:
         channel (str, required): Channel name (query param)
+        include_forecast (bool, optional): Include predictions (default: true)
 
     Returns:
-        Success (200): JSON array of objects with "month" and "total_streaming_hours"
+        Success (200): JSON array of objects with:
+            - month: YYYY-MM format
+            - total_streaming_hours: actual hours (historical) or predicted (forecast)
+            - is_forecast: boolean indicating if this is a prediction
+            - confidence_low: P25 prediction (forecast only)
+            - confidence_high: P75 prediction (forecast only)
         Failure (400): Missing channel parameter
     """
     channel_name = request.args.get('channel')
-    redis_key = f"monthly_streaming_hours_{channel_name}"
+    include_forecast = request.args.get('include_forecast', 'true').lower() == 'true'
+    
+    redis_key = f"monthly_streaming_hours_{channel_name}_forecast_{include_forecast}"
     
     cached_data = g.redis_conn.get(redis_key)
     if cached_data:
@@ -780,7 +788,10 @@ def get_monthly_streaming_hours():
     if not channel_name:
         return jsonify({"error": _("Missing required parameters")}), 400
 
-    query = """
+    cursor = g.db_conn.cursor()
+    
+    # Get historical data
+    historical_query = """
         SELECT 
             DATE_TRUNC('month', v.end_time)::DATE AS month, 
             ROUND(CAST(SUM(EXTRACT(EPOCH FROM v.duration)) / 3600 AS NUMERIC), 2) AS total_streaming_hours
@@ -790,15 +801,60 @@ def get_monthly_streaming_hours():
         GROUP BY month
         ORDER BY month;
     """
-
-    cursor = g.db_conn.cursor()
-    cursor.execute(query, (channel_name,))
-    results = cursor.fetchall()
+    
+    cursor.execute(historical_query, (channel_name,))
+    historical_results = cursor.fetchall()
+    
+    # Format historical data
+    output_data = [
+        {
+            "month": row[0].strftime('%Y-%m'), 
+            "total_streaming_hours": float(row[1]),
+            "is_forecast": False
+        } 
+        for row in historical_results
+    ]
+    
+    # Add forecast data if requested
+    if include_forecast and historical_results:
+        forecast_query = """
+            SELECT 
+                f.forecast_month,
+                f.forecasted_hours,
+                f.confidence_p25,
+                f.confidence_p75
+            FROM streaming_forecasts f
+            JOIN channels c ON f.channel_id = c.channel_id
+            WHERE c.channel_name = %s
+                AND f.created_at = (
+                    SELECT MAX(created_at) 
+                    FROM streaming_forecasts sf
+                    WHERE sf.channel_id = c.channel_id
+                )
+            ORDER BY f.forecast_month;
+        """
+        
+        cursor.execute(forecast_query, (channel_name,))
+        forecast_results = cursor.fetchall()
+        
+        for row in forecast_results:
+            forecast_month, predicted_hours, p25, p75 = row
+            
+            output_data.append({
+                "month": forecast_month.strftime('%Y-%m'),
+                "total_streaming_hours": float(predicted_hours),
+                "is_forecast": True,
+                "confidence_low": float(p25) if p25 else float(predicted_hours) * 0.8,
+                "confidence_high": float(p75) if p75 else float(predicted_hours) * 1.2
+            })
+    
     cursor.close()
-
-    output = jsonify([{"month": row[0].strftime('%Y-%m'), "total_streaming_hours": row[1]} for row in results])
-    g.redis_conn.set(redis_key, output.get_data(as_text=True))
-    return output
+    
+    # Cache the result
+    response_json = json.dumps(output_data)
+    g.redis_conn.set(redis_key, response_json)
+    
+    return jsonify(output_data)
 
 
 @api_bp.route('/api/get_group_total_streaming_hours', methods=['GET'])

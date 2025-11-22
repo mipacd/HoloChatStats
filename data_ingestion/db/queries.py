@@ -57,6 +57,34 @@ def create_database_and_tables():
             PRIMARY KEY (user_id, channel_id, last_message_at, video_id)
         );
     """)
+    cursor.execute("""
+              CREATE TABLE IF NOT EXISTS streaming_forecasts (
+                forecast_id SERIAL PRIMARY KEY,
+                channel_id TEXT NOT NULL,
+                forecast_month DATE NOT NULL,
+                forecasted_hours NUMERIC(10, 2) NOT NULL,
+                confidence_lower NUMERIC(10, 2),
+                confidence_upper NUMERIC(10, 2),
+                confidence_p25 NUMERIC(10, 2),
+                confidence_p75 NUMERIC(10, 2),
+                model_version VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (channel_id) REFERENCES channels(channel_id),
+                UNIQUE(channel_id, forecast_month, created_at)
+            );     
+    """)
+    cursor.execute("""
+                   CREATE TABLE IF NOT EXISTS forecast_model_metrics (
+                        metric_id SERIAL PRIMARY KEY,
+                        channel_id TEXT,
+                        mae NUMERIC(10, 4),
+                        rmse NUMERIC(10, 4),
+                        mape NUMERIC(10, 4),
+                        model_version VARCHAR(50),
+                        training_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
+                    );
+    """)
     conn.commit()
     release_db_connection(conn)
     logger.info("Database and tables are configured.")

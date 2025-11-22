@@ -5,7 +5,7 @@ import argparse
 from datetime import datetime, timedelta
 from multiprocessing import get_context
 
-from db.connection import init_db_pool
+from db.connection import init_db_pool, get_db_connection
 from db.queries import create_database_and_tables, create_indexes_and_views, refresh_materialized_views
 from config.settings import get_config
 from utils.logging_utils import get_logger
@@ -16,6 +16,7 @@ from workers.db_worker import db_worker
 from workers.metadata_fetcher import get_metadata_for_date_range
 
 from utils.ai_summarizer import populate_video_highlights
+from utils.forecaster import StreamingHoursForecaster
 
 def parse_args():
     """Parses command-line arguments for the year and month to process."""
@@ -91,6 +92,13 @@ def main():
         db_worker_process.join()
 
     refresh_materialized_views()
+
+    # Streaming Hours Forecasting
+    logger.info("Starting streaming hours forecasting...")
+    forecaster = StreamingHoursForecaster(get_db_connection())
+    result = forecaster.run_forecasting_pipeline()
+    logger.info(f"Streaming hours forecasting results: {result}")
+
     logger.info("Chat log download and DB processing complete.")
 
     if not DISABLE_AI_SUMMARIZATION:
