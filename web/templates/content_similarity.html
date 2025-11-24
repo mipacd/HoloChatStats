@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Hololive and Indie VTuber chat cluster graphs based on common users.">
     <meta name="keywords" content="HoloChatStats, Hololive, VTuber, Indie, chat clustering, common users">
-    <title>{{ _("User Similarity Graph") }}</title>
+    <title>{{ _("Content Similarity Graph") }}</title>
     
     <!-- Plotly, jQuery & Bootstrap -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
@@ -116,9 +116,9 @@
 {% include 'menu.html' %}
 
 <div class="container-fluid mt-3">
-    <h2 class="text-center mb-4">{{ _("Channel Clustering") }}
+    <h2 class="text-center mb-4">{{ _("Content Similarity Graph") }}
         <sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
-            title="{{ _("Determined by common chat users using cosine similarity and Leiden community detection. Channels must meet a similarity threshold with at least one other channel to appear. Click and drag to zoom. Double click to reset.") }}"></i></sup>
+            title="{{ _("Determined by stream title similarity. Click and drag to zoom. Double click to reset.") }}"></i></sup>
     </h2>
 
     <div class="text-center mb-3 d-flex flex-wrap align-items-center justify-content-center gap-2">
@@ -185,7 +185,7 @@
 
             // Get 3D view state and include in request
             const view3d = $('#view3dSwitch').is(':checked') ? '3d' : '2d';
-            $.getJSON(`/api/channel_clustering?month=${selectedMonth}&percentile=${threshold}&type=${view3d}`)
+            $.getJSON(`/api/content_clustering?month=${selectedMonth}&percentile=${threshold}&type=${view3d}`)
                 .done(function(response) {
                     $('#clusteringSpinner').hide();
                     $('#clusteringContainer').show(); // Show the graph container after loading

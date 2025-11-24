@@ -46,14 +46,14 @@ def create_database_and_tables():
             channel_id TEXT,
             last_message_at TIMESTAMP WITH TIME ZONE NOT NULL,
             video_id TEXT,
-            membership_rank INT,  -- Now nullable for unknown ranks
+            membership_rank INT,
             jp_count INT DEFAULT 0,
             kr_count INT DEFAULT 0,
             ru_count INT DEFAULT 0,
             emoji_count INT DEFAULT 0,
             es_en_id_count INT DEFAULT 0,
             total_message_count INT DEFAULT 0,
-            is_gift BOOLEAN DEFAULT FALSE,  -- NEW: Indicates rank is from gift (unknown)
+            is_gift BOOLEAN DEFAULT FALSE,
             PRIMARY KEY (user_id, channel_id, last_message_at, video_id)
         );
     """)
@@ -311,7 +311,7 @@ def insert_batches(cursor, user_data_batch, user_batch, chat_stats_batch):
             es_en_id_count = user_data.es_en_id_count + EXCLUDED.es_en_id_count,
             total_message_count = user_data.total_message_count + EXCLUDED.total_message_count,
             is_gift = EXCLUDED.is_gift;
-        """, user_data_batch)
+        """, user_data_batch, template="(%s, %s, %s::timestamptz, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
     
     execute_values(cursor, """
         INSERT INTO users (user_id, username)

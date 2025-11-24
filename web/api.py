@@ -15,6 +15,7 @@ import numpy as np
 from plotly.utils import PlotlyJSONEncoder
 import requests
 from googleapiclient.errors import HttpError
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from utils import (
     get_db_connection, inc_cache_hit_count, inc_cache_miss_count,
@@ -452,7 +453,7 @@ Returns:
             FROM user_data ud
             JOIN channels ch ON ud.channel_id = ch.channel_id
             WHERE DATE_TRUNC('month', ud.last_message_at) = %s::DATE
-            AND ud.total_message_count > 0  -- Exclude gift-only entries
+            AND ud.total_message_count > 0
             GROUP BY ud.user_id, ch.channel_name;
         """, (filter_month + "-01",))
         rows = cursor.fetchall()
@@ -637,6 +638,261 @@ Returns:
             formatted_month = datetime.strptime(filter_month, "%Y-%m").strftime("%B %Y")
             fig.update_layout(
                 title=f"Channel User Similarity Graph for {formatted_month}",
+                title_x=0.5,
+                showlegend=False,
+                margin=dict(l=10, r=10, t=50, b=10),
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False),
+                plot_bgcolor='white'
+            )
+
+        graph_json = json.dumps(fig, cls=PlotlyJSONEncoder)
+        output = {"graph_json": graph_json}
+        g.redis_conn.set(redis_key, json.dumps(output))
+
+        return jsonify(output)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@api_bp.route('/api/content_clustering', methods=['GET'])
+def content_clustering():
+    """
+    Generates a channel clustering graph based on content similarity for a given month.
+    Uses TF-IDF vectorization of stream titles to compute cosine similarity.
+
+    Args:
+        month (str, required): Month filter in YYYY-MM format (query param)
+        percentile (str, optional): Similarity threshold percentile, default "95" (query param)
+        type (str, optional): Graph type "2d" or "3d", default "2d" (query param)
+
+    Returns:
+        Success (200): JSON with "graph_json" containing Plotly figure data
+        Failure (400): Missing month parameter
+        Failure (404): No data found for specified month
+        Failure (500): Internal server error
+    """
+    try:
+        filter_month = request.args.get("month")
+        percentile = request.args.get("percentile", "95")
+        graph_type = request.args.get("type", "2d")
+        
+        if not filter_month:
+            return jsonify({"error": "Month filter (e.g., '2025-03') is required"}), 400
+        
+        redis_key = f"content_clustering_{filter_month}_{percentile}_{graph_type}"
+        cursor = g.db_conn.cursor()
+
+        cached_data = g.redis_conn.get(redis_key)
+        if cached_data:
+            inc_cache_hit_count()
+            return jsonify(json.loads(cached_data))
+        inc_cache_miss_count()
+
+        # Fetch all videos and their channel names for the specified month
+        cursor.execute("""
+            SELECT v.video_id, ch.channel_name, v.title
+            FROM videos v
+            JOIN channels ch ON v.channel_id = ch.channel_id
+            WHERE DATE_TRUNC('month', v.end_time) = %s::DATE
+            AND v.title IS NOT NULL
+            AND v.title != ''
+            GROUP BY v.video_id, ch.channel_name, v.title;
+        """, (filter_month + "-01",))
+        rows = cursor.fetchall()
+        cursor.close()
+
+        if not rows:
+            return jsonify({"error": "No data found for the specified month"}), 404
+
+        data = pd.DataFrame(rows, columns=['video_id', 'channel_name', 'title'])
+        
+        # Group titles by channel
+        channel_titles = data.groupby('channel_name')['title'].apply(lambda x: ' '.join(x)).to_dict()
+        
+        # Filter out channels with insufficient content
+        channel_titles = {k: v for k, v in channel_titles.items() if len(v.strip()) > 0}
+        
+        if len(channel_titles) < 2:
+            return jsonify({"error": "Insufficient channels with content for clustering"}), 404
+        
+        channel_names = list(channel_titles.keys())
+        title_corpus = [channel_titles[channel] for channel in channel_names]
+        
+        # Compute TF-IDF vectors
+        vectorizer = TfidfVectorizer(
+            max_features=500,
+            stop_words='english',
+            ngram_range=(1, 2),
+            min_df=1
+        )
+        
+        tfidf_matrix = vectorizer.fit_transform(title_corpus)
+        similarity_matrix = cosine_similarity(tfidf_matrix)
+        
+        # Build graph
+        G = nx.Graph()
+        threshold = np.percentile(similarity_matrix, float(percentile))
+
+        for i, channel_a in enumerate(channel_names):
+            for j, channel_b in enumerate(channel_names):
+                if i < j and similarity_matrix[i, j] > threshold:
+                    G.add_edge(channel_a, channel_b, weight=similarity_matrix[i, j])
+
+        if G.number_of_nodes() == 0:
+            return jsonify({"error": "No connections found with current percentile threshold"}), 404
+
+        # Community detection
+        g_igraph = ig.Graph.from_networkx(G)
+        partition = la.find_partition(
+            g_igraph, 
+            la.RBConfigurationVertexPartition,
+            weights='weight',
+            resolution_parameter=1.0
+        )
+        
+        partition_dict = {g_igraph.vs[node]['_nx_name']: partition.membership[node] 
+                         for node in range(g_igraph.vcount())}
+        community_colors = [partition_dict[node] for node in G.nodes]
+
+        fig = go.Figure()
+        
+        if graph_type == "3d":
+            pos = nx.forceatlas2_layout(G, dim=3, strong_gravity=True)
+            node_x, node_y, node_z = zip(*[pos[node] for node in G.nodes()])
+            
+            edge_weights = [G[u][v]['weight'] for u, v in G.edges()]
+            min_weight, max_weight = min(edge_weights), max(edge_weights)
+            normalized_weights = [(w - min_weight) / (max_weight - min_weight) for w in edge_weights]
+            
+            edge_x, edge_y, edge_z = [], [], []
+            num_hover_points = 10
+
+            for u, v in G.edges():
+                x0, y0, z0 = pos[u]
+                x1, y1, z1 = pos[v]
+                edge_x.extend([x0, x1, None])
+                edge_y.extend([y0, y1, None])
+                edge_z.extend([z0, z1, None])
+
+            for (u, v), norm_weight in zip(G.edges(), normalized_weights):
+                x0, y0, z0 = pos[u]
+                x1, y1, z1 = pos[v]
+                adjusted_opacity = 0.1 + (norm_weight ** 1.1) * 0.9
+
+                fig.add_trace(go.Scatter3d(
+                    x=edge_x,
+                    y=edge_y,
+                    z=edge_z,
+                    mode='lines',
+                    line=dict(width=1.5, color=f'rgba(0,0,0,{adjusted_opacity})'),
+                    hoverinfo='none'
+                ))
+
+                line_x = np.linspace(x0, x1, num_hover_points)
+                line_y = np.linspace(y0, y1, num_hover_points)
+                line_z = np.linspace(z0, z1, num_hover_points)
+
+                fig.add_trace(go.Scatter3d(
+                    x=line_x.tolist(),
+                    y=line_y.tolist(),
+                    z=line_z.tolist(),
+                    mode='markers',
+                    marker=dict(size=6, color='rgba(255,255,255,0)'),
+                    hoverinfo='text',
+                    hovertext=[f"{u} ↔ {v}<br>Similarity: {G[u][v]['weight'] * 100:.2f}%"] * num_hover_points
+                ))
+
+            fig.add_trace(go.Scatter3d(
+                x=node_x,
+                y=node_y,
+                z=node_z,
+                mode='markers+text',
+                text=list(G.nodes),
+                textposition="top center",
+                hoverinfo='text',
+                hovertext=[f"{node}<br>Connected to: {', '.join(G.neighbors(node))}" for node in G.nodes],
+                marker=dict(
+                    size=12,
+                    color=community_colors,
+                    colorscale='Viridis',
+                    line=dict(color='black', width=1)
+                )
+            ))
+            
+            formatted_month = datetime.strptime(filter_month, "%Y-%m").strftime("%B %Y")
+            fig.update_layout(
+                title=f"Channel Content Similarity Graph (3D) for {formatted_month}",
+                title_x=0.5,
+                showlegend=False,
+                margin=dict(l=10, r=10, t=50, b=10),
+                scene=dict(
+                    xaxis=dict(visible=False),
+                    yaxis=dict(visible=False),
+                    zaxis=dict(visible=False)
+                )
+            )
+        else:
+            pos = nx.forceatlas2_layout(G, strong_gravity=True)
+            node_x, node_y = zip(*pos.values())
+
+            edge_x, edge_y = [], []
+            for edge in G.edges():
+                x0, y0 = pos[edge[0]]
+                x1, y1 = pos[edge[1]]
+                edge_x.extend([x0, x1, None])
+                edge_y.extend([y0, y1, None])
+
+            edge_weights = [G[u][v]['weight'] for u, v in G.edges()]
+            min_weight, max_weight = min(edge_weights), max(edge_weights)
+            normalized_weights = [(w - min_weight) / (max_weight - min_weight) for w in edge_weights]
+            
+            num_hover_points = 10
+
+            for (u, v), norm_weight in zip(G.edges(), normalized_weights):
+                x0, y0 = pos[u]
+                x1, y1 = pos[v]
+                adjusted_opacity = 0.1 + (norm_weight ** 1.1) * 0.9
+
+                fig.add_trace(go.Scatter(
+                    x=[x0, x1, None],
+                    y=[y0, y1, None],
+                    mode='lines',
+                    line=dict(width=1.5, color=f'rgba(0,0,0,{adjusted_opacity})'),
+                    hoverinfo='none'
+                ))
+
+                line_x = np.linspace(x0, x1, num_hover_points)
+                line_y = np.linspace(y0, y1, num_hover_points)
+
+                fig.add_trace(go.Scatter(
+                    x=line_x.tolist(),
+                    y=line_y.tolist(),
+                    mode='markers',
+                    marker=dict(size=6, color='rgba(255,255,255,0)'),
+                    hoverinfo='text',
+                    hovertext=[f"{u} ↔ {v}<br>Similarity: {G[u][v]['weight'] * 100:.2f}%"] * num_hover_points
+                ))
+
+            fig.add_trace(go.Scatter(
+                x=node_x,
+                y=node_y,
+                mode='markers+text',
+                text=list(G.nodes),
+                textposition="top center",
+                hoverinfo='text',
+                hovertext=[f"{node}<br>Connected to: {', '.join(G.neighbors(node))}" for node in G.nodes],
+                marker=dict(
+                    size=12,
+                    color=community_colors,
+                    colorscale='Viridis',
+                    line=dict(color='black', width=1)
+                )
+            ))
+
+            formatted_month = datetime.strptime(filter_month, "%Y-%m").strftime("%B %Y")
+            fig.update_layout(
+                title=f"Channel Content Similarity Graph for {formatted_month}",
                 title_x=0.5,
                 showlegend=False,
                 margin=dict(l=10, r=10, t=50, b=10),

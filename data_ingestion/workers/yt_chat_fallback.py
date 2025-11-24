@@ -145,8 +145,24 @@ def _parse_messages(actions, video_start_ts):
         if "replayChatItemAction" not in a:
             continue
 
-        item = a["replayChatItemAction"].get("actions", [{}])[0]
+        replay_action = a["replayChatItemAction"]
+        item = replay_action.get("actions", [{}])[0]
         chat = item.get("addChatItemAction", {}).get("item", {})
+        
+        # Extract video offset from the replay action itself
+        video_offset_time_msec = replay_action.get("videoOffsetTimeMsec")
+        if video_offset_time_msec is None:
+            # Try alternative location
+            video_offset_time_msec = item.get("addChatItemAction", {}).get("videoOffsetTimeMsec")
+        
+        # Skip if we still don't have a valid offset
+        if video_offset_time_msec is None:
+            continue
+            
+        offset_ms = int(float(video_offset_time_msec))
+        # Skip messages with negative offsets as they are invalid
+        if offset_ms < 0:
+            continue
 
         # Check for regular text messages, paid messages, memberships, and gift memberships
         for t in ("liveChatTextMessageRenderer", 
@@ -222,11 +238,6 @@ def _parse_messages(actions, video_start_ts):
             
             # Skip if it's a regular/paid message with no content
             if t in ("liveChatTextMessageRenderer", "liveChatPaidMessageRenderer") and not msg:
-                continue
-
-            offset_ms = int(float(r.get("videoOffsetTimeMsec", 0)))
-            # Skip messages with negative offsets as they are invalid
-            if offset_ms < 0:
                 continue
 
             timestamp = video_start_ts + (offset_ms / 1000.0)

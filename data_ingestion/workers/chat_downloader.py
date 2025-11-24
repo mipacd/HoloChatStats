@@ -160,6 +160,7 @@ def download_chat_log(channel_id, video_id, queue, year, month):
                 # Get membership rank: use known rank if available, else None for gift-only users
                 final_membership_rank = membership_rank_map.get(user_id)  # Returns None if not present
                 
+
                 queue.put((
                     user_id,
                     username_map[user_id],

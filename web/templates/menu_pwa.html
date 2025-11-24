@@ -33,7 +33,7 @@
                                 <li><a class="nav-link text-white-50" href="/common_users">{{ _("Common Users by Channel / Month") }}</a></li>
                                 <li><a class="nav-link text-white-50" href="/common_members">{{ _("Common Members by Channel / Month") }}</a></li>
                                 <li><a class="nav-link text-white-50" href="/heatmap">{{ _("Common User Heatmap") }}</a></li>
-                                <li><a class="nav-link text-white-50" href="/channel_clustering">{{ _("Channel Clusters by Common Users") }}</a></li>
+                                <li><a class="nav-link text-white-50" href="/channel_clustering">{{ _("User Similarity Graph") }}</a></li>
                                 <li><a class="nav-link text-white-50" href="/user_change">{{ _("Active User Gain / Loss") }}</a></li>
                                 <li><a class="nav-link text-white-50" href="/chat_leaderboards">{{ _("Chat Leaderboards") }}</a></li>
                                 <li><a class="nav-link text-white-50" href="/exclusive_chat">{{ _("Exclusive Chat Users") }}</a></li>
@@ -85,11 +85,12 @@
                     <li class="nav-item">
                         <a class="nav-link text-white d-flex justify-content-between align-items-center" 
                            data-bs-toggle="collapse" href="#highlightsSubmenu">
-                            <span><i class="bi bi-star me-2"></i>{{ _("Highlights") }}</span>
+                            <span><i class="bi bi-star me-2"></i>{{ _("Content") }}</span>
                             <i class="bi bi-chevron-down"></i>
                         </a>
                         <div class="collapse" id="highlightsSubmenu">
                             <ul class="list-unstyled ps-4">
+                                <li><a class="nav-link text-white-50" href="/content_similarity">{{ _("Content Similarity Graph") }}</a></li>
                                 <li><a class="nav-link text-white-50" href="/funniest_timestamps">{{ _("Funniest Moments") }}</a></li>
                                 <li><a class="nav-link text-white-50" href="/highlights">{{ _("AI Summarized Highlights (BETA)") }}</a></li>
                                 <li><a class="nav-link text-white-50" href="/highlight_search">{{ _("Search AI Highlights (BETA)") }}</a></li>

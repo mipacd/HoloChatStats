@@ -14,3 +14,4 @@ venv/
 resume_state.json
 .env
 configmap.yaml
+.vscode/

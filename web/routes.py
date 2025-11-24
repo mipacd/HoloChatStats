@@ -122,6 +122,9 @@ def common_members_view():
 def channel_clustering_view():
     return render_template('channel_clustering.html', _=_, get_locale=get_locale)
 
+@routes_bp.route('/content_similarity')
+def content_similarity_view():
+    return render_template('content_similarity.html', _=_, get_locale=get_locale)
 
 @routes_bp.route('/jp_user_percents')
 def jp_user_percents_view():

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-18 15:52-0500\n"
+"POT-Creation-Date: 2025-11-24 14:59-0500\n"
 "PO-Revision-Date: 2025-03-20 14:31-0400\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -18,22 +18,22 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: api.py:779 api.py:1030 api.py:1210 api.py:1297 api.py:1420 api.py:1602
-#: api.py:1665 api.py:1742 api.py:1835
+#: api.py:1045 api.py:1344 api.py:1524 api.py:1611 api.py:1748 api.py:1935
+#: api.py:1998 api.py:2078 api.py:2169
 msgid "Missing required parameters"
 msgstr ""
 
-#: api.py:1633
+#: api.py:1966
 msgid "No data found"
 msgstr ""
 
-#: api.py:1838
+#: api.py:2172
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
-#: templates/channel_clustering.html:8 templates/menu.html:61
-#: templates/menu_pwa.html:36
-msgid "Channel Clusters by Common Users"
+#: templates/channel_clustering.html:8 templates/index.html:181
+#: templates/menu.html:61 templates/menu_pwa.html:36
+msgid "User Similarity Graph"
 msgstr ""
 
 #: templates/channel_clustering.html:119
@@ -48,54 +48,55 @@ msgid ""
 "to reset."
 msgstr ""
 
-#: templates/channel_clustering.html:126
+#: templates/channel_clustering.html:126 templates/content_similarity.html:126
 msgid "Select Month:"
 msgstr ""
 
-#: templates/channel_clustering.html:127
+#: templates/channel_clustering.html:127 templates/content_similarity.html:127
 msgid "YYYY-MM"
 msgstr ""
 
-#: templates/channel_clustering.html:130
+#: templates/channel_clustering.html:130 templates/content_similarity.html:130
 msgid "Threshold:"
 msgstr ""
 
-#: templates/channel_clustering.html:132
+#: templates/channel_clustering.html:132 templates/content_similarity.html:132
 msgid "High (Top 5%)"
 msgstr ""
 
-#: templates/channel_clustering.html:133
+#: templates/channel_clustering.html:133 templates/content_similarity.html:133
 msgid "Medium (Top 10%)"
 msgstr ""
 
-#: templates/channel_clustering.html:134
+#: templates/channel_clustering.html:134 templates/content_similarity.html:134
 msgid "Low (Top 20%)"
 msgstr ""
 
-#: templates/channel_clustering.html:138
+#: templates/channel_clustering.html:138 templates/content_similarity.html:138
 msgid "3D View:"
 msgstr ""
 
-#: templates/channel_clustering.html:139
+#: templates/channel_clustering.html:139 templates/content_similarity.html:139
 msgid "Click and drag to rotate. Mouse wheel to zoom."
 msgstr ""
 
-#: templates/channel_clustering.html:144
+#: templates/channel_clustering.html:144 templates/content_similarity.html:144
 msgid "Load Clustering Graph"
 msgstr ""
 
 #: templates/channel_clustering.html:149 templates/channel_clustering.html:155
 #: templates/chat_leaderboards.html:123 templates/common_members.html:141
-#: templates/common_users.html:143 templates/index_pwa.html:182
+#: templates/common_users.html:143 templates/content_similarity.html:149
+#: templates/content_similarity.html:155 templates/index_pwa.html:182
 #: templates/recommendation_engine.html:125 templates/user_info.html:131
 msgid "Loading..."
 msgstr ""
 
-#: templates/channel_clustering.html:179
+#: templates/channel_clustering.html:179 templates/content_similarity.html:179
 msgid "Please select a month."
 msgstr ""
 
-#: templates/channel_clustering.html:200
+#: templates/channel_clustering.html:200 templates/content_similarity.html:200
 msgid "Failed to load clustering graph."
 msgstr ""
 
@@ -107,18 +108,18 @@ msgstr ""
 #: templates/chat_leaderboards.html:109 templates/exclusive_chat.html:110
 #: templates/funniest_timestamps.html:169 templates/highlights.html:161
 #: templates/jp_user_percents.html:111 templates/message_types.html:111
-#: templates/monthly_streaming_hours.html:111
+#: templates/monthly_streaming_hours.html:112
 msgid "Channel:"
 msgstr ""
 
-#: templates/chat_leaderboards.html:113 templates/chat_makeup.html:120
-#: templates/engagement.html:113 templates/funniest_timestamps.html:175
+#: templates/chat_leaderboards.html:113 templates/chat_makeup.html:121
+#: templates/engagement.html:114 templates/funniest_timestamps.html:175
 #: templates/heatmap.html:132 templates/highlights.html:165
-#: templates/membership_change.html:120 templates/membership_counts.html:129
-#: templates/membership_percentages.html:113 templates/streaming_hours.html:137
-#: templates/streaming_hours_avg.html:137
-#: templates/streaming_hours_diff.html:138
-#: templates/streaming_hours_max.html:137 templates/user_change.html:127
+#: templates/membership_change.html:121 templates/membership_counts.html:130
+#: templates/membership_percentages.html:114 templates/streaming_hours.html:138
+#: templates/streaming_hours_avg.html:138
+#: templates/streaming_hours_diff.html:139
+#: templates/streaming_hours_max.html:138 templates/user_change.html:128
 #: templates/user_info.html:121
 msgid "Month:"
 msgstr ""
@@ -140,7 +141,7 @@ msgstr ""
 #: templates/funniest_timestamps.html:171
 #: templates/funniest_timestamps.html:204 templates/highlights.html:212
 #: templates/jp_user_percents.html:113 templates/message_types.html:113
-#: templates/monthly_streaming_hours.html:113
+#: templates/monthly_streaming_hours.html:114
 msgid "Select Channel"
 msgstr ""
 
@@ -209,26 +210,36 @@ msgstr ""
 msgid "Indie"
 msgstr ""
 
-#: templates/chat_makeup.html:128 templates/engagement.html:121
-#: templates/funniest_timestamps.html:181 templates/membership_change.html:128
-#: templates/membership_counts.html:137
+#: templates/chat_makeup.html:117 templates/engagement.html:110
+#: templates/membership_change.html:117 templates/membership_counts.html:126
+#: templates/membership_counts_pwa.html:458
+#: templates/membership_percentages.html:110 templates/streaming_hours.html:134
+#: templates/streaming_hours_avg.html:134
+#: templates/streaming_hours_diff.html:135
+#: templates/streaming_hours_max.html:134 templates/user_change.html:124
+msgid "PNGTubers"
+msgstr ""
+
+#: templates/chat_makeup.html:129 templates/engagement.html:122
+#: templates/funniest_timestamps.html:181 templates/membership_change.html:129
+#: templates/membership_counts.html:138
 #: templates/membership_counts_pwa.html:441
-#: templates/membership_percentages.html:121 templates/streaming_hours.html:145
-#: templates/streaming_hours_avg.html:145
-#: templates/streaming_hours_diff.html:146
-#: templates/streaming_hours_max.html:145 templates/user_change.html:135
+#: templates/membership_percentages.html:122 templates/streaming_hours.html:146
+#: templates/streaming_hours_avg.html:146
+#: templates/streaming_hours_diff.html:147
+#: templates/streaming_hours_max.html:146 templates/user_change.html:136
 msgid "Download CSV"
 msgstr ""
 
-#: templates/chat_makeup.html:131 templates/engagement.html:124
+#: templates/chat_makeup.html:132 templates/engagement.html:125
 #: templates/exclusive_chat.html:120 templates/jp_user_percents.html:121
-#: templates/membership_change.html:131 templates/membership_counts.html:140
+#: templates/membership_change.html:132 templates/membership_counts.html:141
 #: templates/membership_counts_pwa.html:444
-#: templates/membership_percentages.html:124 templates/message_types.html:130
-#: templates/monthly_streaming_hours.html:121
-#: templates/streaming_hours.html:148 templates/streaming_hours_avg.html:148
-#: templates/streaming_hours_diff.html:149
-#: templates/streaming_hours_max.html:148 templates/user_change.html:138
+#: templates/membership_percentages.html:125 templates/message_types.html:130
+#: templates/monthly_streaming_hours.html:122
+#: templates/streaming_hours.html:149 templates/streaming_hours_avg.html:149
+#: templates/streaming_hours_diff.html:150
+#: templates/streaming_hours_max.html:149 templates/user_change.html:139
 msgid "Download PNG"
 msgstr ""
 
@@ -300,6 +311,17 @@ msgstr ""
 
 #: templates/common_users.html:212
 msgid "No common users found for the selected criteria."
+msgstr ""
+
+#: templates/content_similarity.html:8 templates/content_similarity.html:119
+#: templates/menu.html:105 templates/menu_pwa.html:93
+msgid "Content Similarity Graph"
+msgstr ""
+
+#: templates/content_similarity.html:121
+msgid ""
+"Determined by stream title similarity. Click and drag to zoom. Double "
+"click to reset."
 msgstr ""
 
 #: templates/engagement.html:8 templates/engagement.html:102
@@ -514,7 +536,7 @@ msgid ""
 msgstr ""
 
 #: templates/exclusive_chat.html:160 templates/jp_user_percents.html:155
-#: templates/message_types.html:171 templates/monthly_streaming_hours.html:160
+#: templates/message_types.html:171 templates/monthly_streaming_hours.html:237
 msgid "Month"
 msgstr ""
 
@@ -523,7 +545,7 @@ msgid "Exclusive Users (%)"
 msgstr ""
 
 #: templates/exclusive_chat.html:194 templates/jp_user_percents.html:186
-#: templates/monthly_streaming_hours.html:195
+#: templates/monthly_streaming_hours.html:288
 msgid "Please select a channel."
 msgstr ""
 
@@ -649,10 +671,6 @@ msgstr ""
 msgid "Featured"
 msgstr ""
 
-#: templates/index.html:181
-msgid "Common User Channel Clusters"
-msgstr ""
-
 #: templates/index.html:187 templates/membership_counts.html:8
 #: templates/membership_counts.html:118 templates/membership_counts_pwa.html:16
 #: templates/membership_counts_pwa.html:395 templates/menu.html:67
@@ -775,11 +793,11 @@ msgid ""
 "specified month and the previous month."
 msgstr ""
 
-#: templates/membership_change.html:223
+#: templates/membership_change.html:224
 msgid "Gains"
 msgstr ""
 
-#: templates/membership_change.html:230
+#: templates/membership_change.html:231
 msgid "Losses"
 msgstr ""
 
@@ -816,7 +834,7 @@ msgstr ""
 msgid "Only counts members that participated in chat."
 msgstr ""
 
-#: templates/membership_percentages.html:209
+#: templates/membership_percentages.html:210
 msgid "Membership Percentage"
 msgstr ""
 
@@ -853,8 +871,12 @@ msgid "Message Percentages and Rates by Language"
 msgstr ""
 
 #: templates/menu.html:89 templates/menu_pwa.html:70
-#: templates/monthly_streaming_hours.html:164
-#: templates/monthly_streaming_hours.html:249
+#: templates/monthly_streaming_hours.html:162
+#: templates/monthly_streaming_hours.html:189
+#: templates/monthly_streaming_hours.html:190
+#: templates/monthly_streaming_hours.html:210
+#: templates/monthly_streaming_hours.html:241
+#: templates/monthly_streaming_hours.html:417
 msgid "Streaming Hours"
 msgstr ""
 
@@ -879,40 +901,40 @@ msgstr ""
 
 #: templates/menu.html:96 templates/menu_pwa.html:79
 #: templates/monthly_streaming_hours.html:8
-#: templates/monthly_streaming_hours.html:104
+#: templates/monthly_streaming_hours.html:105
 msgid "Monthly Streaming Hours"
 msgstr ""
 
 #: templates/menu.html:102 templates/menu_pwa.html:88
-msgid "Highlights"
-msgstr ""
-
-#: templates/menu.html:105 templates/menu_pwa.html:93
-msgid "Funniest Moments"
+msgid "Content"
 msgstr ""
 
 #: templates/menu.html:106 templates/menu_pwa.html:94
-msgid "AI Summarized Highlights (BETA)"
+msgid "Funniest Moments"
 msgstr ""
 
 #: templates/menu.html:107 templates/menu_pwa.html:95
+msgid "AI Summarized Highlights (BETA)"
+msgstr ""
+
+#: templates/menu.html:108 templates/menu_pwa.html:96
 msgid "Search AI Highlights (BETA)"
 msgstr ""
 
-#: templates/menu.html:112 templates/menu_pwa.html:102
+#: templates/menu.html:113 templates/menu_pwa.html:103
 msgid "Ask Eri (NEW)"
 msgstr ""
 
-#: templates/menu.html:118 templates/menu_pwa.html:108
+#: templates/menu.html:119 templates/menu_pwa.html:109
 #: templates/site_metrics.html:8
 msgid "Site Metrics"
 msgstr ""
 
-#: templates/menu.html:121 templates/menu_pwa.html:114
+#: templates/menu.html:122 templates/menu_pwa.html:115
 msgid "Blog"
 msgstr ""
 
-#: templates/menu_pwa.html:125
+#: templates/menu_pwa.html:126
 msgid "Language"
 msgstr ""
 
@@ -954,8 +976,27 @@ msgstr ""
 msgid "Please select both a channel and a language."
 msgstr ""
 
-#: templates/monthly_streaming_hours.html:106
+#: templates/monthly_streaming_hours.html:107
 msgid "Only counts public archived streams from YouTube."
+msgstr ""
+
+#: templates/monthly_streaming_hours.html:153
+#: templates/monthly_streaming_hours.html:172
+#: templates/monthly_streaming_hours.html:202
+#: templates/monthly_streaming_hours.html:227
+#: templates/monthly_streaming_hours.html:433
+msgid "Confidence Band"
+msgstr ""
+
+#: templates/monthly_streaming_hours.html:159
+#: templates/monthly_streaming_hours.html:175
+#: templates/monthly_streaming_hours.html:208
+#: templates/monthly_streaming_hours.html:461
+msgid "Forecast"
+msgstr ""
+
+#: templates/monthly_streaming_hours.html:181
+msgid "P25-P75 Range"
 msgstr ""
 
 #: templates/recommendation_engine.html:104
@@ -1004,8 +1045,8 @@ msgstr ""
 msgid "Archived, non-member streams from YouTube only."
 msgstr ""
 
-#: templates/streaming_hours.html:234 templates/streaming_hours_avg.html:241
-#: templates/streaming_hours_max.html:238
+#: templates/streaming_hours.html:235 templates/streaming_hours_avg.html:242
+#: templates/streaming_hours_max.html:239
 msgid "No data available to export."
 msgstr ""
 
@@ -1028,11 +1069,11 @@ msgid ""
 " the other. Channels that didn't stream in either month are not included."
 msgstr ""
 
-#: templates/user_change.html:224
+#: templates/user_change.html:225
 msgid "Users Gained"
 msgstr ""
 
-#: templates/user_change.html:231
+#: templates/user_change.html:232
 msgid "Users Lost"
 msgstr ""
 
@@ -1310,5 +1351,14 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid "💬 Got a question for me?"
+#~ msgstr ""
+
+#~ msgid "Common User Channel Clusters"
+#~ msgstr ""
+
+#~ msgid "Channel Clusters by Common Users"
+#~ msgstr ""
+
+#~ msgid "Highlights"
 #~ msgstr ""
 

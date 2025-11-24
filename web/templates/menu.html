@@ -58,7 +58,7 @@
                         <li><a class="dropdown-item" href="/common_users">{{ _("Common Users by Channel / Month") }}</a></li>
                         <li><a class="dropdown-item" href="/common_members">{{ _("Common Members by Channel / Month") }}</a></li>
                         <li><a class="dropdown-item" href="/heatmap">{{ _("Common User Heatmap") }}</a></li>
-                        <li><a class="dropdown-item" href="/channel_clustering">{{ _("Channel Clusters by Common Users") }}</a></li>
+                        <li><a class="dropdown-item" href="/channel_clustering">{{ _("User Similarity Graph") }}</a></li>
                         <li><a class="dropdown-item" href="/user_change">{{ _("Active User Gain / Loss") }}</a></li>
                         <li><a class="dropdown-item" href="/chat_leaderboards">{{ _("Chat Leaderboards") }}</a></li>
                         <li><a class="dropdown-item" href="/exclusive_chat">{{ _("Exclusive Chat Users") }}</a></li>
@@ -99,9 +99,10 @@
 
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="streamingDropdown" role="button" data-bs-toggle="dropdown">
-                        {{ _("Highlights") }}
+                        {{ _("Content") }}
                     </a>
                     <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/content_similarity">{{ _("Content Similarity Graph") }}</a></li>
                         <li><a class="dropdown-item" href="/funniest_timestamps">{{ _("Funniest Moments") }}</a></li>
                         <li><a class="dropdown-item" href="/highlights">{{ _("AI Summarized Highlights (BETA)") }}</a></li>
                         <li><a class="dropdown-item" href="/highlight_search">{{ _("Search AI Highlights (BETA)") }}</a></li>
