@@ -69,7 +69,7 @@ def download_chat_log(channel_id, video_id, queue, year, month):
                     
                     if message_type == "gift_member" and not badges:
                         # Gift membership with no badge info - rank is unknown
-                        membership_rank = None
+                        membership_rank = -2
                         gift_only_users.add(user_id)
                     else:
                         # new_member or gift_member with badges - we have rank info
@@ -156,9 +156,9 @@ def download_chat_log(channel_id, video_id, queue, year, month):
                 
                 # Determine if this user only has gift membership data (no known rank)
                 is_gift = user_id in gift_only_users and user_id not in users_with_known_rank
-                
-                # Get membership rank: use known rank if available, else None for gift-only users
-                final_membership_rank = membership_rank_map.get(user_id)  # Returns None if not present
+
+                # Get membership rank: use known rank if available, else -2 for gift-only users
+                final_membership_rank = membership_rank_map.get(user_id, -2)  # Returns -2 if not present
                 
 
                 queue.put((

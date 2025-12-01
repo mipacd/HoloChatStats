@@ -85,6 +85,20 @@ def create_database_and_tables():
                         FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
                     );
     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS membership_data_summary (
+            channel_group TEXT,
+            channel_name TEXT,
+            observed_month DATE,
+            membership_rank INT,
+            membership_count BIGINT,
+            percentage_total DECIMAL(5, 2),
+            updated_at TIMESTAMP DEFAULT NOW(),
+            PRIMARY KEY (channel_name, observed_month, membership_rank)
+        );
+    """)
+
     conn.commit()
     release_db_connection(conn)
     logger.info("Database and tables are configured.")
@@ -100,10 +114,18 @@ def create_indexes_and_views():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_channel_id ON user_data (channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_id ON channels (channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_name ON channels (channel_name);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_membership_summary_group_month ON membership_data_summary (channel_group, observed_month);")
 
-    # Create membership data view
-    cursor.execute("""
-        CREATE MATERIALIZED VIEW IF NOT EXISTS mv_membership_data AS
+    cursor.execute("""CREATE OR REPLACE PROCEDURE refresh_membership_data_for_month(target_month DATE)
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        -- 1. Remove old data for this specific month
+        DELETE FROM membership_data_summary 
+        WHERE observed_month = target_month;
+
+        -- 2. Insert fresh calculation for ONLY this month
+        INSERT INTO membership_data_summary
         WITH ranked_memberships AS (
             SELECT 
                 m.user_id,
@@ -112,26 +134,27 @@ def create_indexes_and_views():
                 m.membership_rank,
                 m.is_gift,
                 m.last_message_at,
-                -- Prioritize non-gift records, then by most recent timestamp
                 ROW_NUMBER() OVER (
-                    PARTITION BY m.user_id, m.channel_id, DATE_TRUNC('month', m.last_message_at) 
+                    PARTITION BY m.user_id, m.channel_id 
                     ORDER BY 
-                        CASE WHEN m.is_gift = FALSE AND m.membership_rank IS NOT NULL THEN 0 ELSE 1 END,
+                        CASE 
+                            WHEN m.membership_rank >= 0 THEN 0 
+                            WHEN m.membership_rank = -2 THEN 1 
+                            ELSE 2 
+                        END ASC,
                         m.last_message_at DESC
                 ) AS row_num
             FROM user_data m
+            -- PERFORMANCE OPTIMIZATION: Only scan data for the target month
+            WHERE m.last_message_at >= target_month 
+            AND m.last_message_at < target_month + INTERVAL '1 month'
         ),
         latest_memberships AS (
             SELECT 
                 user_id,
                 channel_id,
                 observed_month,
-                -- If the best record is a gift-only record with NULL rank, use -2 for "Unknown"
-                CASE 
-                    WHEN is_gift = TRUE AND membership_rank IS NULL THEN -2
-                    ELSE membership_rank
-                END AS membership_rank,
-                last_message_at
+                membership_rank
             FROM ranked_memberships
             WHERE row_num = 1
         )
@@ -143,13 +166,14 @@ def create_indexes_and_views():
             COUNT(lm.user_id) AS membership_count,
             ROUND(
                 COUNT(lm.user_id)::DECIMAL / NULLIF(SUM(COUNT(*)) OVER (PARTITION BY c.channel_name, lm.observed_month), 0) * 100, 2
-            ) AS percentage_total
+            ) AS percentage_total,
+            NOW()
         FROM latest_memberships lm
         JOIN channels c ON lm.channel_id = c.channel_id
-        GROUP BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank
-        ORDER BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank;
-    """)
-
+        GROUP BY c.channel_group, c.channel_name, lm.observed_month, lm.membership_rank;
+        
+    END;
+    $$;""")
     cursor.execute("""
         CREATE MATERIALIZED VIEW IF NOT EXISTS mv_user_monthly_activity AS
         SELECT
@@ -227,18 +251,33 @@ def create_indexes_and_views():
     logger.info("Indexes and views are configured.")
 
 # Refresh materialized views
-def refresh_materialized_views():
+def refresh_materialized_views(year, month):
     logger = get_logger()
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("REFRESH MATERIALIZED VIEW mv_user_monthly_activity;")
-    cursor.execute("REFRESH MATERIALIZED VIEW mv_membership_data;")
+    refresh_membership_summary(year, month)
     cursor.execute("REFRESH MATERIALIZED VIEW mv_user_activity;")
     cursor.execute("REFRESH MATERIALIZED VIEW chat_language_stats_mv;")
     cursor.execute("REFRESH MATERIALIZED VIEW mv_user_language_per_month;")
     conn.commit()
     release_db_connection(conn)
     logger.info("Materialized views refreshed.")
+
+def refresh_membership_summary(year, month):
+    logger = get_logger()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Format date as YYYY-MM-01
+    target_date = f"{year}-{month:02d}-01"
+    
+    logger.info(f"Incrementally refreshing membership data for {target_date}...")
+    cursor.execute("CALL refresh_membership_data_for_month(%s::DATE);", (target_date,))
+    
+    conn.commit()
+    release_db_connection(conn)
+    logger.info("Membership summary refreshed.")
 
 # Insert video metadata into database
 def insert_video_metadata(channel_id, video_id, title, end_time, duration, has_chat_log=False):

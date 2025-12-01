@@ -42,6 +42,14 @@ def insert_chat_log_from_cache(channel_id, video_id):
         username = message["username"]
         message_time = message["timestamp"]
         membership_rank = message["membership_rank"]
+
+        if membership_rank != -2:
+             # Store valid ranks
+             membership_rank_map[user_id] = membership_rank
+        elif user_id not in membership_rank_map:
+             # Default to -2 only if we haven't seen a valid rank yet
+             membership_rank_map[user_id] = -2
+
         message_category = message["message_category"]
 
         user_ids.add(user_id)

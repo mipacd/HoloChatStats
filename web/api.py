@@ -1610,7 +1610,7 @@ def get_group_membership_counts():
     if not channel_group or not month:
         return jsonify({"error": _("Missing required parameters")}), 400
 
-    query = """SELECT channel_name, membership_rank, membership_count, percentage_total FROM mv_membership_data WHERE channel_group = %s AND observed_month = %s::DATE;"""
+    query = """SELECT channel_name, membership_rank, membership_count, percentage_total FROM membership_data_summary WHERE channel_group = %s AND observed_month = %s::DATE;"""
     cursor.execute(query, (channel_group, f"{month}-01"))
     results = cursor.fetchall()
     cursor.close()
@@ -1678,7 +1678,7 @@ def get_group_membership_summary():
         # This includes unknown (-2), new members (0), and all tiers (1+)
         query = """
             SELECT channel_name, SUM(membership_count) AS total_members
-            FROM mv_membership_data
+            FROM membership_data_summary
             WHERE channel_group = %s 
               AND observed_month = %s::DATE
               AND membership_rank != -1
@@ -1694,7 +1694,7 @@ def get_group_membership_summary():
     else:
         query = """
             SELECT channel_name, membership_rank, membership_count, percentage_total
-            FROM mv_membership_data
+            FROM membership_data_summary
             WHERE channel_group = %s 
               AND observed_month = %s::DATE 
               AND membership_rank = %s

@@ -117,6 +117,12 @@ CAPABILITIES = [
         "content": "My data coverage includes Hololive VTubers and some indie VTubers. The earliest data goes back to September 2024 for most channels. I can tell you the exact date range available using get_date_ranges().",
         "metadata": {"can_do": True}
     },
+    {
+        "category": "capability",
+        "key": "multiple_month_data",
+        "content": "I CANNOT provide data that uses more than 3 API calls per prompt. For example, if a request requires data from more than 3 different months or for an entire year, I will not be able to fulfill it due to API limits.",
+        "metadata": {"can_do": False}
+    }
 ]
 
 async def create_vtuber_aliases():

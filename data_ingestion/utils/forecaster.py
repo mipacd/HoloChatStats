@@ -111,40 +111,36 @@ class StreamingHoursForecaster:
     def fetch_historical_data(self, channel_id: str = None) -> pd.DataFrame:
         """Fetch historical streaming data"""
         conn = self.connect_db()
-        try:
-            if channel_id:
-                query = """
-                    SELECT 
-                        c.channel_id,
-                        c.channel_name,
-                        DATE_TRUNC('month', v.end_time)::DATE AS month, 
-                        ROUND(CAST(SUM(EXTRACT(EPOCH FROM v.duration)) / 3600 AS NUMERIC), 2) AS total_streaming_hours
-                    FROM videos v
-                    JOIN channels c ON v.channel_id = c.channel_id
-                    WHERE c.channel_id = %s
-                    GROUP BY c.channel_id, c.channel_name, month
-                    ORDER BY month;
-                """
-                df = pd.read_sql_query(query, conn, params=[channel_id])
-            else:
-                query = """
-                    SELECT 
-                        c.channel_id,
-                        c.channel_name,
-                        DATE_TRUNC('month', v.end_time)::DATE AS month, 
-                        ROUND(CAST(SUM(EXTRACT(EPOCH FROM v.duration)) / 3600 AS NUMERIC), 2) AS total_streaming_hours
-                    FROM videos v
-                    JOIN channels c ON v.channel_id = c.channel_id
-                    GROUP BY c.channel_id, c.channel_name, month
-                    ORDER BY c.channel_id, month;
-                """
-                df = pd.read_sql_query(query, conn)
-            
-            df['month'] = pd.to_datetime(df['month'])
-            return df
-            
-        finally:
-            conn.close()
+        if channel_id:
+            query = """
+                SELECT 
+                    c.channel_id,
+                    c.channel_name,
+                    DATE_TRUNC('month', v.end_time)::DATE AS month, 
+                    ROUND(CAST(SUM(EXTRACT(EPOCH FROM v.duration)) / 3600 AS NUMERIC), 2) AS total_streaming_hours
+                FROM videos v
+                JOIN channels c ON v.channel_id = c.channel_id
+                WHERE c.channel_id = %s
+                GROUP BY c.channel_id, c.channel_name, month
+                ORDER BY month;
+            """
+            df = pd.read_sql_query(query, conn, params=[channel_id])
+        else:
+            query = """
+                SELECT 
+                    c.channel_id,
+                    c.channel_name,
+                    DATE_TRUNC('month', v.end_time)::DATE AS month, 
+                    ROUND(CAST(SUM(EXTRACT(EPOCH FROM v.duration)) / 3600 AS NUMERIC), 2) AS total_streaming_hours
+                FROM videos v
+                JOIN channels c ON v.channel_id = c.channel_id
+                GROUP BY c.channel_id, c.channel_name, month
+                ORDER BY c.channel_id, month;
+            """
+            df = pd.read_sql_query(query, conn)
+        
+        df['month'] = pd.to_datetime(df['month'])
+        return df
     
     def get_channel_data_stats(self, df: pd.DataFrame) -> pd.DataFrame:
         """Get statistics about data availability per channel"""
@@ -440,9 +436,6 @@ class StreamingHoursForecaster:
             conn.rollback()
             logger.error(f"Error saving forecasts: {e}")
             raise
-        finally:
-            cursor.close()
-            conn.close()
     
     def save_model_metrics(self, metrics_data: List[Dict]):
         """Save model performance metrics"""

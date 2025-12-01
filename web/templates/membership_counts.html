@@ -115,7 +115,7 @@
 {% include 'menu.html' %}
 
 <div id="content" class="mt-3">
-    <h2 class="text-center mb-4">{{ _("Membership Counts") }}<sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ _("Only counts members that participated in chat. Membership durations are based on available badges for each channel.") }}"></i></sup></h2>
+    <h2 class="text-center mb-4">{{ _("Membership Counts") }}<sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ _("Based on chat log contents. Membership renewals/gifts are included from Nov. 2025. Membership durations are based on available badges for each channel.") }}"></i></sup></h2>
     
     <div class="row mb-3">
         <div class="col-md-4">
@@ -408,9 +408,9 @@ $(document).ready(function() {
         const hasUnknownData = Object.values(groupedData).some(c => c.unknown_count > 0);
         
         if (hasUnknownData) {
-            // Unknown - visible by default, counts as members
+            // Gift Only / Unknown - visible by default, counts as members
             let unknownDataset = {
-                label: 'Unknown',
+                label: 'Gift Only',
                 data: labels.map(channel => groupedData[channel].unknown_count || 0),
                 backgroundColor: unknownColor,
                 stack: 'Stack 0',

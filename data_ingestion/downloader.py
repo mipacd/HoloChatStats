@@ -91,7 +91,7 @@ def main():
         queue.put(None)
         db_worker_process.join()
 
-    refresh_materialized_views()
+    refresh_materialized_views(YEAR, MONTH)
 
     # Streaming Hours Forecasting
     logger.info("Starting streaming hours forecasting...")
