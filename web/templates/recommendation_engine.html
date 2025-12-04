@@ -101,7 +101,7 @@
 
 <div id="content" class="mt-3 recommend-container">
     <h2 class="text-center mb-4">{{ _("Recommendation Engine") }}<sup><i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top" 
-        title="{{ _("Calculated using chat data from the previous month. Only shows channels where the user has no recorded interactions.") }}"></i></sup></h2>
+        title="{{ _("Calculated using chat data from the previous 6 months. Only shows channels where the user has chatted 3 times or less. Takes ~30 seconds to generate.") }}"></i></sup></h2>
     
     <div class="alert alert-info small" role="alert">
         <i class="bi bi-info-circle-fill me-2"></i>
@@ -157,8 +157,7 @@ $(document).ready(function() {
         $('#spinnerContainer').show();
         $('#recommendTable').hide();
 
-        // --- CHANGE: Use the 'identifier' parameter for the API call ---
-        $.get('/api/recommend', { identifier: identifier }, function(response) {
+        $.get('/api/recommend', { identifier: identifier, months: 6 }, function(response) {
             $('#spinnerContainer').hide();
 
             if (response.error) {

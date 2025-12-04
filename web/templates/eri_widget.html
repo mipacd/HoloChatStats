@@ -1,4 +1,3 @@
-<!-- Chat Widget Template - chat_widget.html -->
 <style>
     /* Chat Widget Styles */
     .eri-chat-widget {
@@ -11,10 +10,9 @@
     }
 
     .eri-chat-widget.minimized-to-side {
-        right: -70px; /* Adjusted so 40-45px of the tab remains visible */
+        right: -70px;
     }
 
-    /* Minimized state - just the icon */
     .eri-widget-trigger {
         position: relative;
         display: block;
@@ -43,7 +41,6 @@
         filter: drop-shadow(0 6px 16px rgba(30,144,255,0.6));
     }
 
-    /* Side minimize arrow */
     .eri-side-arrow {
         position: absolute;
         top: 50%;
@@ -69,7 +66,6 @@
         display: flex;
     }
 
-    /* Show arrow on trigger hover */
     .eri-widget-trigger:hover .eri-side-arrow,
     .eri-side-arrow:hover,
     .eri-side-arrow.show {
@@ -82,7 +78,6 @@
         width: 40px;
     }
 
-    /* When minimized to side, always show the restore arrow */
     .eri-chat-widget.minimized-to-side .eri-side-arrow {
         opacity: 1 !important;
         visibility: visible !important;
@@ -96,7 +91,6 @@
         background: rgba(30, 144, 255, 1);
     }
 
-    /* Bubble positioned to the left of the icon */
     .eri-bubble-widget {
         position: absolute;
         top: 50%;
@@ -114,7 +108,6 @@
         pointer-events: none;
     }
 
-    /* Arrow pointing to the right (toward the icon) */
     .eri-bubble-widget::after {
         content: '';
         position: absolute;
@@ -133,18 +126,18 @@
         50% { transform: translateY(-50%) translateY(-5px); }
     }
 
-    /* Hide bubble when minimized to side */
     .eri-chat-widget.minimized-to-side .eri-bubble-widget {
         display: none;
     }
 
-    /* Chat window */
     .eri-chat-window {
         position: fixed;
         bottom: 20px;
         right: 20px;
         width: 380px;
         height: 500px;
+        min-width: 300px;
+        min-height: 400px;
         background-color: rgba(10,10,10,0.95);
         border-radius: 12px;
         box-shadow: 0 8px 32px rgba(0,0,0,0.4);
@@ -158,7 +151,11 @@
         display: flex;
     }
 
-    /* Chat header */
+    .eri-chat-window.dragging,
+    .eri-chat-window.resizing {
+        transition: none !important;
+    }
+
     .eri-chat-header {
         background: linear-gradient(135deg, #1e90ff 0%, #0066cc 100%);
         color: white;
@@ -167,6 +164,8 @@
         justify-content: space-between;
         align-items: center;
         border-radius: 12px 12px 0 0;
+        cursor: move;
+        user-select: none;
     }
 
     .eri-chat-header-title {
@@ -184,11 +183,18 @@
         object-fit: contain;
     }
 
-    .eri-minimize-btn {
+    .eri-header-buttons {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .eri-minimize-btn,
+    .eri-tts-btn {
         background: none;
         border: none;
         color: white;
-        font-size: 20px;
+        font-size: 18px;
         cursor: pointer;
         padding: 0;
         width: 28px;
@@ -200,11 +206,26 @@
         transition: background 0.2s;
     }
 
-    .eri-minimize-btn:hover {
+    .eri-minimize-btn:hover,
+    .eri-tts-btn:hover {
         background: rgba(255,255,255,0.2);
     }
 
-    /* Chat messages area */
+    .eri-tts-btn.speaking {
+        background: rgba(34, 197, 94, 0.4);
+        color: #90ee90;
+        animation: tts-pulse 1s ease-in-out infinite;
+    }
+
+    .eri-tts-btn.hidden {
+        display: none;
+    }
+
+    @keyframes tts-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+
     .eri-widget-messages {
         flex-grow: 1;
         overflow-y: auto;
@@ -215,7 +236,6 @@
         background: rgba(20,20,20,0.95);
     }
 
-    /* Message styling */
     .eri-widget-message-row {
         display: flex;
         width: 100%;
@@ -265,23 +285,71 @@
         white-space: pre-wrap;
     }
 
-    /* Markdown styles */
+    .eri-widget-bubble .msg h1,
+    .eri-widget-bubble .msg h2,
+    .eri-widget-bubble .msg h3 {
+        margin: 12px 0 8px 0;
+        line-height: 1.3;
+    }
+
+    .eri-widget-bubble .msg h1 { font-size: 18px; }
+    .eri-widget-bubble .msg h2 { font-size: 16px; }
+    .eri-widget-bubble .msg h3 { font-size: 15px; }
+
+    .eri-widget-bubble .msg p {
+        margin: 0 0 8px 0;
+    }
+
+    .eri-widget-bubble .msg p:last-child {
+        margin-bottom: 0;
+    }
+
     .eri-widget-bubble .msg pre {
         background: rgba(0,0,0,0.6);
-        padding: 6px;
+        padding: 8px;
         border-radius: 4px;
         overflow: auto;
-        font-family: monospace;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
         font-size: 12px;
-        margin: 4px 0;
+        margin: 8px 0;
+        max-width: 100%;
     }
 
     .eri-widget-bubble .msg code {
         background: rgba(0,0,0,0.4);
-        padding: 1px 4px;
+        padding: 2px 4px;
         border-radius: 3px;
-        font-family: monospace;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
         font-size: 12px;
+    }
+
+    .eri-widget-bubble .msg pre code {
+        background: none;
+        padding: 0;
+    }
+
+    .eri-widget-bubble .msg ul,
+    .eri-widget-bubble .msg ol {
+        margin: 8px 0;
+        padding-left: 24px;
+    }
+
+    .eri-widget-bubble .msg li {
+        margin: 4px 0;
+    }
+
+    .eri-widget-bubble .msg blockquote {
+        border-left: 3px solid rgba(255,255,255,0.3);
+        padding-left: 12px;
+        margin: 8px 0;
+        color: rgba(255,255,255,0.8);
+        font-style: italic;
+    }
+
+    .eri-widget-bubble .msg hr {
+        border: none;
+        border-top: 1px solid rgba(255,255,255,0.2);
+        margin: 12px 0;
     }
 
     .eri-widget-bubble .msg a {
@@ -293,7 +361,37 @@
         color: #80bfff;
     }
 
-    /* Input area */
+    .eri-widget-bubble .msg table {
+        border-collapse: collapse;
+        margin: 8px 0;
+        font-size: 13px;
+    }
+
+    .eri-widget-bubble .msg th,
+    .eri-widget-bubble .msg td {
+        border: 1px solid rgba(255,255,255,0.2);
+        padding: 4px 8px;
+    }
+
+    .eri-widget-bubble .msg th {
+        background: rgba(255,255,255,0.1);
+        font-weight: 600;
+    }
+
+    .eri-widget-bubble .msg img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 4px;
+        margin: 8px 0;
+        cursor: pointer;
+        transition: opacity 0.2s;
+        display: block;
+    }
+
+    .eri-widget-bubble .msg img:hover {
+        opacity: 0.8;
+    }
+
     .eri-widget-input-area {
         padding: 12px;
         background: rgba(30,30,30,0.95);
@@ -306,12 +404,19 @@
         align-items: flex-end;
     }
 
-    .eri-widget-input {
+    .eri-widget-textarea-container {
         flex-grow: 1;
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .eri-widget-input {
+        width: 100%;
         background: rgba(255,255,255,0.1);
         border: 1px solid rgba(255,255,255,0.2);
         border-radius: 20px;
-        padding: 8px 14px;
+        padding: 8px 80px 8px 14px;
         color: white;
         font-size: 14px;
         outline: none;
@@ -332,6 +437,16 @@
         color: rgba(255,255,255,0.5);
     }
 
+    .eri-widget-input:disabled {
+        background: rgba(255,255,255,0.05);
+        color: rgba(255,255,255,0.4);
+        cursor: not-allowed;
+    }
+
+    .eri-widget-input:disabled::placeholder {
+        color: rgba(255,255,255,0.3);
+    }
+
     .eri-widget-input::-webkit-scrollbar {
         width: 4px;
     }
@@ -346,6 +461,65 @@
         border-radius: 2px;
     }
 
+    .eri-widget-inline-buttons {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        gap: 4px;
+        align-items: center;
+    }
+
+    .eri-widget-inline-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        background-color: rgba(128, 128, 128, 0.5);
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s, transform 0.1s;
+        font-size: 12px;
+    }
+
+    .eri-widget-inline-btn:hover {
+        background-color: rgba(128, 128, 128, 0.7);
+    }
+
+    .eri-widget-inline-btn:disabled {
+        background-color: rgba(80, 80, 80, 0.3);
+        color: #666;
+        cursor: not-allowed;
+    }
+
+    .eri-widget-inline-btn.recording {
+        background-color: #ef4444;
+        animation: pulse-recording 1.5s ease-in-out infinite;
+    }
+
+    .eri-widget-inline-btn.recording:hover {
+        background-color: #dc2626;
+    }
+
+    .eri-widget-inline-btn.hidden {
+        display: none;
+    }
+
+    @keyframes pulse-recording {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+        }
+    }
+
     .eri-widget-send-btn {
         background: #1e90ff;
         border: none;
@@ -357,7 +531,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: background 0.2s;
+        transition: background 0.2s, transform 0.1s;
         flex-shrink: 0;
     }
 
@@ -374,8 +548,25 @@
         color: #a0a0a0;
         font-style: italic;
         font-size: 13px;
-        padding: 4px 12px;
+        padding: 8px 12px;
         text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .eri-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(255,255,255,0.1);
+        border-top-color: #1e90ff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
     }
 
     .eri-admin-badge {
@@ -384,13 +575,71 @@
         margin-right: 4px;
     }
 
-    /* Mobile responsiveness */
+    .eri-prompts-remaining {
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.25);
+        margin-left: auto;
+        margin-right: 8px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: color 0.3s ease, background-color 0.3s ease;
+    }
+
+    .eri-prompts-remaining.level-good {
+        color: #a8ffca;
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .eri-prompts-remaining.level-warning {
+        color: #fff3b0;
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .eri-prompts-remaining.level-danger {
+        color: #ffb8b8;
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .eri-prompts-remaining.level-exhausted {
+        color: #ff8a8a;
+        background: rgba(0, 0, 0, 0.35);
+        font-weight: 600;
+    }
+
+    .eri-prompts-remaining i {
+        font-size: 10px;
+    }
+
+    .eri-resize-handle {
+        position: absolute;
+        background: transparent;
+        z-index: 10;
+    }
+
+    .eri-resize-handle:hover {
+        background: rgba(30, 144, 255, 0.3);
+    }
+
+    .eri-resize-n { top: 0; left: 10px; right: 10px; height: 5px; cursor: ns-resize; }
+    .eri-resize-e { top: 10px; right: 0; bottom: 10px; width: 5px; cursor: ew-resize; }
+    .eri-resize-s { bottom: 0; left: 10px; right: 10px; height: 5px; cursor: ns-resize; }
+    .eri-resize-w { top: 10px; left: 0; bottom: 10px; width: 5px; cursor: ew-resize; }
+    .eri-resize-ne { top: 0; right: 0; width: 10px; height: 10px; cursor: nesw-resize; }
+    .eri-resize-se { bottom: 0; right: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+    .eri-resize-sw { bottom: 0; left: 0; width: 10px; height: 10px; cursor: nesw-resize; }
+    .eri-resize-nw { top: 0; left: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+
     @media (max-width: 480px) {
         .eri-chat-window {
-            width: 100%;
-            height: 100%;
-            bottom: 0;
-            right: 0;
+            width: 100% !important;
+            height: 100% !important;
+            bottom: 0 !important;
+            right: 0 !important;
+            left: 0 !important;
+            top: 0 !important;
             border-radius: 0;
             max-width: 100vw;
             max-height: 100vh;
@@ -398,6 +647,11 @@
 
         .eri-chat-header {
             border-radius: 0;
+            cursor: default;
+        }
+
+        .eri-resize-handle {
+            display: none;
         }
 
         .eri-chat-widget {
@@ -418,7 +672,6 @@
         }
     }
 
-    /* Scrollbar styling */
     .eri-widget-messages::-webkit-scrollbar {
         width: 6px;
     }
@@ -438,8 +691,21 @@
     }
 </style>
 
+<!-- Load marked.js and DOMPurify if not already loaded -->
+<script>
+if (typeof marked === 'undefined') {
+    const markedScript = document.createElement('script');
+    markedScript.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
+    document.head.appendChild(markedScript);
+}
+if (typeof DOMPurify === 'undefined') {
+    const purifyScript = document.createElement('script');
+    purifyScript.src = 'https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js';
+    document.head.appendChild(purifyScript);
+}
+</script>
+
 <div class="eri-chat-widget" id="eriChatWidget">
-    <!-- Minimized trigger -->
     <div class="eri-widget-trigger" id="eriWidgetTrigger">
         <button class="eri-side-arrow" id="eriSideArrow" title="{{ _("Minimize to side") }}">
             <i class="bi bi-chevron-right"></i>
@@ -448,17 +714,34 @@
         <img src="/static/eri_chibi.png" alt="Eri" class="eri-chibi-widget">
     </div>
 
-    <!-- Chat window -->
     <div class="eri-chat-window" id="eriChatWindow">
+        <div class="eri-resize-handle eri-resize-n"></div>
+        <div class="eri-resize-handle eri-resize-e"></div>
+        <div class="eri-resize-handle eri-resize-s"></div>
+        <div class="eri-resize-handle eri-resize-w"></div>
+        <div class="eri-resize-handle eri-resize-ne"></div>
+        <div class="eri-resize-handle eri-resize-se"></div>
+        <div class="eri-resize-handle eri-resize-sw"></div>
+        <div class="eri-resize-handle eri-resize-nw"></div>
+
         <div class="eri-chat-header">
             <div class="eri-chat-header-title">
                 <img src="/static/eri_chibi.png" alt="Eri">
                 <span>{{ _("Chat with Eri") }}</span>
                 <span class="eri-admin-badge" id="eriWidgetAdminBadge" style="display:none;" title="Admin mode active">🛡️</span>
             </div>
-            <button class="eri-minimize-btn" id="eriMinimizeBtn" title="{{ _("Minimize") }}">
-                <i class="bi bi-dash-lg"></i>
-            </button>
+            <span class="eri-prompts-remaining" id="eriWidgetPromptsRemaining" style="display:none;" title="{{ _("Prompts remaining today") }}">
+                <i class="bi bi-chat-dots"></i>
+                <span id="eriWidgetPromptCount">--</span>
+            </span>
+            <div class="eri-header-buttons">
+                <button class="eri-tts-btn" id="eriWidgetTtsBtn" title="{{ _("Read aloud") }}">
+                    <i class="bi bi-volume-up-fill"></i>
+                </button>
+                <button class="eri-minimize-btn" id="eriMinimizeBtn" title="{{ _("Minimize") }}">
+                    <i class="bi bi-dash-lg"></i>
+                </button>
+            </div>
         </div>
 
         <div class="eri-widget-messages" id="eriWidgetMessages">
@@ -472,13 +755,20 @@
 
         <div class="eri-widget-input-area">
             <div class="eri-widget-input-wrapper">
-                <textarea 
-                    class="eri-widget-input" 
-                    id="eriWidgetInput" 
-                    placeholder="{{ _("Ask Eri a question...") }}"
-                    autocomplete="off"
-                    rows="1"
-                ></textarea>
+                <div class="eri-widget-textarea-container">
+                    <textarea 
+                        class="eri-widget-input" 
+                        id="eriWidgetInput" 
+                        placeholder="{{ _("Ask Eri a question...") }}"
+                        autocomplete="off"
+                        rows="1"
+                    ></textarea>
+                    <div class="eri-widget-inline-buttons">
+                        <button class="eri-widget-inline-btn" id="eriWidgetMicBtn" title="{{ _("Voice input") }}">
+                            <i class="bi bi-mic-fill"></i>
+                        </button>
+                    </div>
+                </div>
                 <button class="eri-widget-send-btn" id="eriWidgetSendBtn" title="{{ _("Send") }}">
                     <i class="bi bi-send-fill"></i>
                 </button>
@@ -488,34 +778,517 @@
 </div>
 
 <script>
-// Global object for Eri widget context
 window.EriWidgetContext = window.EriWidgetContext || {};
 
 (function() {
-    // Widget-specific variables
     let widgetChatHistory = [];
     let widgetAdminKey = null;
     let isMinimizedToSide = false;
+    let widgetDailyLimit = 10;
+    let widgetIsAdmin = false;
     
-    // Check for admin key
+    // Speech recognition variables
+    let widgetRecognition = null;
+    let widgetIsRecording = false;
+    
+    // Text-to-speech variables
+    let widgetSynth = window.speechSynthesis;
+    let widgetIsSpeaking = false;
+    let widgetTtsEnabled = false;
+    let widgetLastEriMessage = {{ _("Hey, I'm Eri - HoloChatStats' virtual assistant. How can I help you today?") | tojson }};
+    let widgetCurrentUtterance = null;
+    
+    // Dragging and resizing variables
+    let isDragging = false;
+    let isResizing = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    let startWidth = 0;
+    let startHeight = 0;
+    let currentResizeHandle = null;
+    let originalPosition = { bottom: 20, right: 20 };
+    let hasBeenDragged = false;
+    
     const urlParams = new URLSearchParams(window.location.search);
     widgetAdminKey = urlParams.get("admin_key");
     
     if (widgetAdminKey) {
         document.getElementById('eriWidgetAdminBadge').style.display = 'inline';
+        widgetIsAdmin = true;
     }
 
-    // Status messages
+    const widgetBaseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8080' : 'https://llm.holochatstats.info';
+
     const widgetStatusMessages = {
         'status_connecting': {{ _("Let's see...") | tojson }},
         'status_translating': {{ _("Deciphering your request...") | tojson }},
         'status_planner': {{ _("Alright, plotting a course of action.") | tojson }},
         'status_tools': {{ _("Searching the HoloChatStats archives...") | tojson }},
         'status_responder': {{ _("Compiling the data...") | tojson }},
-        'rate_limit_exceeded': {{ _("Looks like you've reached the daily query limit. Please try again tomorrow.") | tojson }}
+        'rate_limit_exceede': {{ _("Looks like you've reached the daily query limit. Please try again tomorrow.") | tojson }}
     };
 
-    // Auto-resize textarea as user types
+    const widgetLimitReachedPlaceholder = {{ _("Daily prompt limit reached. Please try again tomorrow.") | tojson }};
+    const widgetDefaultPlaceholder = {{ _("Ask Eri a question...") | tojson }};
+
+    const chatWindow = document.getElementById('eriChatWindow');
+    const chatHeader = document.querySelector('.eri-chat-header');
+    const widgetTrigger = document.getElementById('eriWidgetTrigger');
+    const micBtn = document.getElementById('eriWidgetMicBtn');
+    const ttsBtn = document.getElementById('eriWidgetTtsBtn');
+
+    // ==================== TEXT-TO-SPEECH ====================
+    
+    function initTTS() {
+        if (!widgetSynth) {
+            ttsBtn.classList.add('hidden');
+            console.log('Text-to-speech not supported in this browser');
+            return false;
+        }
+        return true;
+    }
+    
+    function stripMarkdown(text) {
+        return text
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/\*([^*]+)\*/g, '$1')
+            .replace(/__([^_]+)__/g, '$1')
+            .replace(/_([^_]+)_/g, '$1')
+            .replace(/`{3}[\s\S]*?`{3}/g, '')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            .replace(/^#{1,6}\s+/gm, '')
+            .replace(/^\s*[-*+]\s+/gm, '')
+            .replace(/^\s*\d+\.\s+/gm, '')
+            .replace(/^\s*>\s+/gm, '')
+            .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
+            .replace(/\n{2,}/g, '\n')
+            .trim();
+    }
+    
+    function getPreferredVoice() {
+        const voices = widgetSynth.getVoices();
+        const lang = navigator.language || 'en-US';
+        const femaleKeywords = ['female', 'woman', 'girl', 'zira', 'samantha', 'victoria', 'karen', 'moira', 'tessa', 'fiona'];
+        
+        for (const voice of voices) {
+            if (voice.lang.startsWith(lang.split('-')[0])) {
+                const nameLower = voice.name.toLowerCase();
+                if (femaleKeywords.some(kw => nameLower.includes(kw))) return voice;
+            }
+        }
+        for (const voice of voices) {
+            if (voice.lang.startsWith(lang.split('-')[0])) return voice;
+        }
+        for (const voice of voices) {
+            if (voice.lang.startsWith('en')) {
+                const nameLower = voice.name.toLowerCase();
+                if (femaleKeywords.some(kw => nameLower.includes(kw))) return voice;
+            }
+        }
+        for (const voice of voices) {
+            if (voice.lang.startsWith('en')) return voice;
+        }
+        return voices[0] || null;
+    }
+    
+    function speakText(text) {
+        if (!widgetSynth || !widgetTtsEnabled) return;
+        
+        widgetSynth.cancel();
+        
+        const cleanText = stripMarkdown(text);
+        if (!cleanText) return;
+        
+        widgetCurrentUtterance = new SpeechSynthesisUtterance(cleanText);
+        
+        const voice = getPreferredVoice();
+        if (voice) {
+            widgetCurrentUtterance.voice = voice;
+            widgetCurrentUtterance.lang = voice.lang;
+        }
+        
+        widgetCurrentUtterance.rate = 1.0;
+        widgetCurrentUtterance.pitch = 1.1;
+        widgetCurrentUtterance.volume = 1.0;
+        
+        widgetCurrentUtterance.onstart = function() { widgetIsSpeaking = true; };
+        widgetCurrentUtterance.onend = function() { widgetIsSpeaking = false; };
+        widgetCurrentUtterance.onerror = function(event) {
+            console.error('TTS error:', event.error);
+            widgetIsSpeaking = false;
+        };
+        
+        widgetSynth.speak(widgetCurrentUtterance);
+    }
+    
+    function stopSpeaking() {
+        if (widgetSynth) widgetSynth.cancel();
+        widgetIsSpeaking = false;
+    }
+    
+    function enableTTS() {
+        widgetTtsEnabled = true;
+        ttsBtn.classList.add('speaking');
+        ttsBtn.title = {{ _("Stop reading") | tojson }};
+        speakText(widgetLastEriMessage);
+    }
+    
+    function disableTTS() {
+        widgetTtsEnabled = false;
+        stopSpeaking();
+        ttsBtn.classList.remove('speaking');
+        ttsBtn.title = {{ _("Read aloud") | tojson }};
+    }
+    
+    function toggleTTS() {
+        if (widgetTtsEnabled) {
+            disableTTS();
+        } else {
+            enableTTS();
+        }
+    }
+    
+    initTTS();
+    if (widgetSynth) {
+        widgetSynth.onvoiceschanged = function() {};
+        widgetSynth.getVoices();
+    }
+    ttsBtn.addEventListener('click', toggleTTS);
+
+    // ==================== SPEECH RECOGNITION ====================
+    
+    function initSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+            if (isFirefox) {
+                console.log('Speech recognition is not supported in Firefox. Please use Chrome, Edge, or Safari.');
+            }
+            micBtn.classList.add('hidden');
+            return;
+        }
+        
+        try {
+            widgetRecognition = new SpeechRecognition();
+            widgetRecognition.continuous = true;
+            widgetRecognition.interimResults = true;
+            widgetRecognition.lang = navigator.language || 'en-US';
+            
+            let finalTranscript = '';
+            
+            widgetRecognition.onstart = function() {
+                widgetIsRecording = true;
+                micBtn.classList.add('recording');
+                micBtn.title = {{ _("Stop recording") | tojson }};
+                finalTranscript = textarea.value;
+            };
+            
+            widgetRecognition.onresult = function(event) {
+                let interimTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                
+                textarea.value = finalTranscript + interimTranscript;
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            };
+            
+            widgetRecognition.onerror = function(event) {
+                console.error('Speech recognition error:', event.error);
+                
+                if (event.error === 'not-allowed') {
+                    alert({{ _("Microphone access was denied. Please allow microphone access to use voice input.") | tojson }});
+                } else if (event.error === 'service-not-allowed' || event.error === 'not-allowed') {
+                    micBtn.classList.add('hidden');
+                }
+                
+                stopRecording();
+            };
+            
+            widgetRecognition.onend = function() {
+                if (widgetIsRecording) {
+                    try { widgetRecognition.start(); } catch (e) { stopRecording(); }
+                }
+            };
+        } catch (e) {
+            console.error('Failed to initialize speech recognition:', e);
+            micBtn.classList.add('hidden');
+        }
+    }
+    
+    function startRecording() {
+        disableTTS();
+        
+        if (!widgetRecognition) {
+            initSpeechRecognition();
+            if (!widgetRecognition) return;
+        }
+        
+        try {
+            widgetRecognition.start();
+        } catch (e) {
+            console.error('Failed to start speech recognition:', e);
+            try {
+                widgetRecognition.stop();
+                setTimeout(() => {
+                    try { widgetRecognition.start(); } catch (e2) {}
+                }, 100);
+            } catch (e2) {}
+        }
+    }
+    
+    function stopRecording() {
+        widgetIsRecording = false;
+        micBtn.classList.remove('recording');
+        micBtn.title = {{ _("Voice input") | tojson }};
+        
+        if (widgetRecognition) {
+            try { widgetRecognition.stop(); } catch (e) {}
+        }
+    }
+    
+    function toggleRecording() {
+        if (widgetIsRecording) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    }
+    
+    initSpeechRecognition();
+    micBtn.addEventListener('click', toggleRecording);
+
+    // ==================== LIBRARY LOADING ====================
+    
+    function waitForLibraries(callback) {
+        const checkInterval = setInterval(() => {
+            if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                clearInterval(checkInterval);
+                callback();
+            }
+        }, 100);
+    }
+
+    function renderMarkdownWithImages(markdown) {
+        const rawHtml = marked.parse(markdown || '');
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = DOMPurify.sanitize(rawHtml, { 
+            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
+                          'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img', 'hr', 
+                          'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+            ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'title', 'width', 'height']
+        });
+        
+        tempDiv.querySelectorAll('a').forEach(link => {
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+        });
+        
+        tempDiv.querySelectorAll('img').forEach(img => {
+            const src = img.getAttribute('src');
+            if (src) {
+                const link = document.createElement('a');
+                link.href = src;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                const imgClone = img.cloneNode(true);
+                img.parentNode.replaceChild(link, img);
+                link.appendChild(imgClone);
+            }
+        });
+        
+        return tempDiv.innerHTML;
+    }
+
+    // ==================== DRAGGING ====================
+    
+    function startDragging(e) {
+        if (e.target.closest('.eri-minimize-btn') || e.target.closest('.eri-prompts-remaining') || e.target.closest('.eri-tts-btn')) return;
+        
+        isDragging = true;
+        hasBeenDragged = true;
+        chatWindow.classList.add('dragging');
+        
+        startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+        startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+        
+        const rect = chatWindow.getBoundingClientRect();
+        startLeft = rect.left;
+        startTop = rect.top;
+        
+        chatWindow.style.bottom = 'auto';
+        chatWindow.style.right = 'auto';
+        chatWindow.style.left = startLeft + 'px';
+        chatWindow.style.top = startTop + 'px';
+        
+        e.preventDefault();
+    }
+
+    function doDragging(e) {
+        if (!isDragging) return;
+        
+        const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+        const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+        
+        let newLeft = startLeft + (clientX - startX);
+        let newTop = startTop + (clientY - startY);
+        
+        const margin = 20;
+        newLeft = Math.max(margin, Math.min(window.innerWidth - chatWindow.offsetWidth - margin, newLeft));
+        newTop = Math.max(margin, Math.min(window.innerHeight - chatWindow.offsetHeight - margin, newTop));
+        
+        chatWindow.style.left = newLeft + 'px';
+        chatWindow.style.top = newTop + 'px';
+    }
+
+    function stopDragging() {
+        if (isDragging) {
+            isDragging = false;
+            chatWindow.classList.remove('dragging');
+        }
+    }
+
+    // ==================== RESIZING ====================
+    
+    function startResizing(e, handle) {
+        isResizing = true;
+        currentResizeHandle = handle;
+        chatWindow.classList.add('resizing');
+        
+        startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+        startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+        
+        const rect = chatWindow.getBoundingClientRect();
+        startWidth = rect.width;
+        startHeight = rect.height;
+        startLeft = rect.left;
+        startTop = rect.top;
+        
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function doResizing(e) {
+        if (!isResizing) return;
+        
+        const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+        const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+        
+        const deltaX = clientX - startX;
+        const deltaY = clientY - startY;
+        
+        let newWidth = startWidth;
+        let newHeight = startHeight;
+        let newLeft = startLeft;
+        let newTop = startTop;
+        
+        if (currentResizeHandle.includes('e')) newWidth = startWidth + deltaX;
+        if (currentResizeHandle.includes('w')) { newWidth = startWidth - deltaX; newLeft = startLeft + deltaX; }
+        if (currentResizeHandle.includes('s')) newHeight = startHeight + deltaY;
+        if (currentResizeHandle.includes('n')) { newHeight = startHeight - deltaY; newTop = startTop + deltaY; }
+        
+        if (newWidth >= 300) {
+            chatWindow.style.width = newWidth + 'px';
+            if (currentResizeHandle.includes('w')) chatWindow.style.left = newLeft + 'px';
+        }
+        if (newHeight >= 400) {
+            chatWindow.style.height = newHeight + 'px';
+            if (currentResizeHandle.includes('n')) chatWindow.style.top = newTop + 'px';
+        }
+    }
+
+    function stopResizing() {
+        if (isResizing) {
+            isResizing = false;
+            currentResizeHandle = null;
+            chatWindow.classList.remove('resizing');
+        }
+    }
+
+    chatHeader.addEventListener('mousedown', startDragging);
+    chatHeader.addEventListener('touchstart', startDragging);
+    
+    document.querySelectorAll('.eri-resize-handle').forEach(handle => {
+        handle.addEventListener('mousedown', (e) => {
+            const direction = handle.className.split(' ')[1].replace('eri-resize-', '');
+            startResizing(e, direction);
+        });
+        handle.addEventListener('touchstart', (e) => {
+            const direction = handle.className.split(' ')[1].replace('eri-resize-', '');
+            startResizing(e, direction);
+        });
+    });
+    
+    document.addEventListener('mousemove', (e) => { doDragging(e); doResizing(e); });
+    document.addEventListener('touchmove', (e) => { doDragging(e); doResizing(e); });
+    document.addEventListener('mouseup', () => { stopDragging(); stopResizing(); });
+    document.addEventListener('touchend', () => { stopDragging(); stopResizing(); });
+
+    // ==================== PROMPTS REMAINING ====================
+    
+    function updateWidgetPromptsDisplay(remaining) {
+        const counter = document.getElementById('eriWidgetPromptsRemaining');
+        const countSpan = document.getElementById('eriWidgetPromptCount');
+        
+        countSpan.textContent = remaining;
+        counter.classList.remove('level-good', 'level-warning', 'level-danger', 'level-exhausted');
+        
+        const warningThreshold = Math.ceil(widgetDailyLimit * 0.5);
+        const dangerThreshold = Math.ceil(widgetDailyLimit * 0.2);
+        
+        if (remaining <= 0) {
+            counter.classList.add('level-exhausted');
+            disableWidgetChat();
+        } else if (remaining <= dangerThreshold) {
+            counter.classList.add('level-danger');
+        } else if (remaining <= warningThreshold) {
+            counter.classList.add('level-warning');
+        } else {
+            counter.classList.add('level-good');
+        }
+    }
+
+    function disableWidgetChat() {
+        textarea.disabled = true;
+        textarea.value = '';
+        textarea.placeholder = widgetLimitReachedPlaceholder;
+        document.getElementById('eriWidgetSendBtn').disabled = true;
+        micBtn.disabled = true;
+        stopRecording();
+        disableTTS();
+    }
+
+    async function fetchWidgetPromptsRemaining() {
+        if (widgetIsAdmin) return;
+        
+        try {
+            const response = await fetch(`${widgetBaseUrl}/prompts-remaining`);
+            if (response.ok) {
+                const data = await response.json();
+                widgetDailyLimit = data.daily_limit;
+                document.getElementById('eriWidgetPromptsRemaining').style.display = 'flex';
+                updateWidgetPromptsDisplay(data.prompts_remaining);
+            }
+        } catch (err) {
+            console.error('Failed to fetch prompts remaining:', err);
+            document.getElementById('eriWidgetPromptsRemaining').style.display = 'flex';
+            document.getElementById('eriWidgetPromptCount').textContent = '--';
+        }
+    }
+
+    // ==================== UI INTERACTIONS ====================
+    
     const textarea = document.getElementById('eriWidgetInput');
     
     textarea.addEventListener('input', function() {
@@ -523,45 +1296,24 @@ window.EriWidgetContext = window.EriWidgetContext || {};
         this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
 
-    // Arrow and minimize functionality
     const sideArrow = document.getElementById('eriSideArrow');
-    const widgetTrigger = document.getElementById('eriWidgetTrigger');
     const chatWidget = document.getElementById('eriChatWidget');
     const arrowIcon = sideArrow.querySelector('i');
     
-    // Prevent arrow from interfering with hover detection
     let hoverTimeout = null;
 
-    // Keep arrow visible when hovering near it
-    sideArrow.addEventListener('mouseenter', function() {
-        clearTimeout(hoverTimeout);
-        this.classList.add('show');
-    });
-
+    sideArrow.addEventListener('mouseenter', function() { clearTimeout(hoverTimeout); this.classList.add('show'); });
     sideArrow.addEventListener('mouseleave', function() {
         const arrow = this;
-        if (!isMinimizedToSide) {
-            hoverTimeout = setTimeout(() => {
-                arrow.classList.remove('show');
-            }, 200);
-        }
+        if (!isMinimizedToSide) hoverTimeout = setTimeout(() => arrow.classList.remove('show'), 200);
     });
-
-    widgetTrigger.addEventListener('mouseenter', function() {
-        clearTimeout(hoverTimeout);
-    });
-
+    widgetTrigger.addEventListener('mouseenter', function() { clearTimeout(hoverTimeout); });
     widgetTrigger.addEventListener('mouseleave', function() {
-        if (!isMinimizedToSide) {
-            hoverTimeout = setTimeout(() => {
-                sideArrow.classList.remove('show');
-            }, 200);
-        }
+        if (!isMinimizedToSide) hoverTimeout = setTimeout(() => sideArrow.classList.remove('show'), 200);
     });
 
     sideArrow.addEventListener('click', function(e) {
         e.stopPropagation();
-        
         if (isMinimizedToSide) {
             chatWidget.classList.remove('minimized-to-side');
             arrowIcon.className = 'bi bi-chevron-right';
@@ -575,31 +1327,33 @@ window.EriWidgetContext = window.EriWidgetContext || {};
         }
     });
 
-    // Toggle chat window
     widgetTrigger.addEventListener('click', function(e) {
-        if (e.target.closest('.eri-side-arrow')) {
-            return;
-        }
-        
-        document.getElementById('eriChatWindow').classList.add('active');
+        if (e.target.closest('.eri-side-arrow')) return;
+        chatWindow.classList.add('active');
         this.classList.add('hidden');
+        if (!hasBeenDragged) {
+            chatWindow.style.bottom = originalPosition.bottom + 'px';
+            chatWindow.style.right = originalPosition.right + 'px';
+            chatWindow.style.left = 'auto';
+            chatWindow.style.top = 'auto';
+        }
         textarea.focus();
     });
 
     document.getElementById('eriMinimizeBtn').addEventListener('click', function() {
-        document.getElementById('eriChatWindow').classList.remove('active');
+        chatWindow.classList.remove('active');
         widgetTrigger.classList.remove('hidden');
+        stopRecording();
+        disableTTS();
     });
 
-    // Get page context for the message
     function getPageContext() {
-        if (window.EriWidgetContext && window.EriWidgetContext.getContext) {
-            return window.EriWidgetContext.getContext();
-        }
+        if (window.EriWidgetContext && window.EriWidgetContext.getContext) return window.EriWidgetContext.getContext();
         return null;
     }
 
-    // Append message function
+    // ==================== MESSAGES ====================
+    
     function appendWidgetMessage(sender, text, isAssistantMarkdown = false) {
         const messagesContainer = document.getElementById('eriWidgetMessages');
         const row = document.createElement('div');
@@ -618,17 +1372,22 @@ window.EriWidgetContext = window.EriWidgetContext || {};
             msgSpan.className = 'msg';
             
             if (isAssistantMarkdown) {
-                try {
-                    const rawHtml = marked.parse(text || '');
-                    const cleanHtml = DOMPurify.sanitize(rawHtml, { ALLOWED_ATTR: ['href', 'target', 'rel'] });
-                    msgSpan.innerHTML = cleanHtml;
-                } catch {
+                if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
                     msgSpan.textContent = text;
+                    waitForLibraries(() => {
+                        try { msgSpan.innerHTML = renderMarkdownWithImages(text); } catch (err) { console.error('Markdown rendering error:', err); }
+                    });
+                } else {
+                    try { msgSpan.innerHTML = renderMarkdownWithImages(text); } catch (err) { console.error('Markdown rendering error:', err); msgSpan.textContent = text; }
                 }
             } else {
                 msgSpan.textContent = text;
             }
             bubble.appendChild(msgSpan);
+            
+            // Store and speak if TTS enabled
+            widgetLastEriMessage = text;
+            if (widgetTtsEnabled) speakText(text);
         } else {
             const msgSpan = document.createElement('span');
             msgSpan.className = 'msg';
@@ -641,46 +1400,48 @@ window.EriWidgetContext = window.EriWidgetContext || {};
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    // Send message function
+    // ==================== SEND MESSAGE ====================
+    
     async function sendWidgetMessage() {
         const sendBtn = document.getElementById('eriWidgetSendBtn');
         const message = textarea.value.trim();
         if (!message) return;
+        
+        stopRecording();
+        stopSpeaking();
         
         appendWidgetMessage('user', message);
         textarea.value = '';
         textarea.style.height = 'auto';
         textarea.disabled = true;
         sendBtn.disabled = true;
+        micBtn.disabled = true;
         
-        // Get page context
         const pageContext = getPageContext();
         let enrichedMessage = message;
-        
-        if (pageContext) {
-            // Add context to the message
-            enrichedMessage = `[Page Context: ${JSON.stringify(pageContext)}]\n${message}`;
-        }
+        if (pageContext) enrichedMessage = `[Page Context: ${JSON.stringify(pageContext)}]\n${message}`;
         
         widgetChatHistory.push({"role": "user", "content": enrichedMessage});
 
         const loadingMsg = document.createElement('div');
         loadingMsg.className = 'eri-widget-loading';
-        loadingMsg.textContent = widgetStatusMessages['status_connecting'];
+        
+        const spinner = document.createElement('div');
+        spinner.className = 'eri-spinner';
+        loadingMsg.appendChild(spinner);
+        
+        const statusText = document.createElement('span');
+        statusText.textContent = widgetStatusMessages['status_connecting'];
+        loadingMsg.appendChild(statusText);
+        
         document.getElementById('eriWidgetMessages').appendChild(loadingMsg);
         document.getElementById('eriWidgetMessages').scrollTop = document.getElementById('eriWidgetMessages').scrollHeight;
 
         try {
-            const payload = { 
-                message: enrichedMessage, 
-                chat_history: widgetChatHistory,
-                page_context: pageContext 
-            };
-            if (widgetAdminKey) { payload.admin_key = widgetAdminKey; }
+            const payload = { message: enrichedMessage, chat_history: widgetChatHistory, page_context: pageContext };
+            if (widgetAdminKey) payload.admin_key = widgetAdminKey;
 
-            const baseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8080' : 'https://llm.holochatstats.info';
-
-            const response = await fetch(`${baseUrl}/chat`, {
+            const response = await fetch(`${widgetBaseUrl}/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -692,22 +1453,25 @@ window.EriWidgetContext = window.EriWidgetContext || {};
                         const errorData = await response.json();
                         const errorKey = errorData.detail?.key;
                         const errorMessage = widgetStatusMessages[errorKey] || errorData.detail?.message || widgetStatusMessages['rate_limit_exceeded'];
-                        
                         loadingMsg.remove();
                         appendWidgetMessage('eri', errorMessage);
+                        if (!widgetIsAdmin) updateWidgetPromptsDisplay(0);
                     } catch (parseError) {
-                        console.error("Failed to parse 429 error:", parseError);
                         loadingMsg.remove();
                         appendWidgetMessage('eri', widgetStatusMessages['rate_limit_exceeded']);
+                        if (!widgetIsAdmin) updateWidgetPromptsDisplay(0);
                     }
                 } else {
-                    const text = await response.text();
-                    console.error("LLM fetch failed:", response.status, text);
                     loadingMsg.remove();
                     appendWidgetMessage('eri', {{ _("Sorry — I couldn't reach the assistant (network error).") | tojson }});
                 }
-                textarea.disabled = false;
-                sendBtn.disabled = false;
+                
+                const counter = document.getElementById('eriWidgetPromptsRemaining');
+                if (!counter.classList.contains('level-exhausted')) {
+                    textarea.disabled = false;
+                    sendBtn.disabled = false;
+                    micBtn.disabled = false;
+                }
                 return;
             }
 
@@ -731,13 +1495,14 @@ window.EriWidgetContext = window.EriWidgetContext || {};
                     try {
                         const update = JSON.parse(jsonStr);
                         if (update.type === "status") {
-                            loadingMsg.textContent = widgetStatusMessages[update.key] || "Working...";
+                            statusText.textContent = widgetStatusMessages[update.key] || "Working...";
                         } else if (update.type === "answer") {
                             loadingMsg.remove();
                             appendWidgetMessage("eri", update.message, true);
                             widgetChatHistory.push({ role: "assistant", content: update.message });
+                            if (!widgetIsAdmin) fetchWidgetPromptsRemaining();
                         } else if (update.type === "error") {
-                            loadingMsg.textContent = update.message;
+                            statusText.textContent = update.message;
                         }
                     } catch (e) {
                         console.error("Invalid SSE data:", jsonStr, e);
@@ -753,27 +1518,26 @@ window.EriWidgetContext = window.EriWidgetContext || {};
                         loadingMsg.remove();
                         appendWidgetMessage("eri", update.message, true);
                         widgetChatHistory.push({ role: "assistant", content: update.message });
+                        if (!widgetIsAdmin) fetchWidgetPromptsRemaining();
                     }
-                } catch (e) {
-                    console.error("Failed to parse final SSE event:", jsonStr, e);
-                }
+                } catch (e) {}
             }
 
         } catch (err) {
             loadingMsg.remove();
-            console.error(err);
             appendWidgetMessage('eri', "Sorry, something went wrong while contacting the assistant.");
         } finally {
-            textarea.disabled = false;
-            sendBtn.disabled = false;
-            textarea.focus();
+            const counter = document.getElementById('eriWidgetPromptsRemaining');
+            if (!counter.classList.contains('level-exhausted')) {
+                textarea.disabled = false;
+                sendBtn.disabled = false;
+                micBtn.disabled = false;
+                textarea.focus();
+            }
         }
     }
 
-    // Event listeners
     document.getElementById('eriWidgetSendBtn').addEventListener('click', sendWidgetMessage);
-    
-    // Handle Enter and Shift+Enter
     textarea.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey && !this.disabled) {
             e.preventDefault();
@@ -781,7 +1545,6 @@ window.EriWidgetContext = window.EriWidgetContext || {};
         }
     });
 
-    // Hide bubble after a few seconds
     setTimeout(function() {
         const bubble = document.getElementById('eriBubbleWidget');
         if (bubble) {
@@ -790,5 +1553,7 @@ window.EriWidgetContext = window.EriWidgetContext || {};
             setTimeout(() => bubble.style.display = 'none', 500);
         }
     }, 8000);
+
+    fetchWidgetPromptsRemaining();
 })();
 </script>

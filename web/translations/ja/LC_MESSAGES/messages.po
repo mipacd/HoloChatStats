@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-24 14:59-0500\n"
+"POT-Creation-Date: 2025-12-03 20:26-0500\n"
 "PO-Revision-Date: 2025-10-24 14:00-0400\n"
 "Last-Translator: Gemini Assistant\n"
 "Language: ja\n"
@@ -18,23 +18,23 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: api.py:1045 api.py:1344 api.py:1524 api.py:1611 api.py:1748 api.py:1935
-#: api.py:1998 api.py:2078 api.py:2169
+#: api.py:1153 api.py:1452 api.py:1632 api.py:1719 api.py:1856 api.py:2043
+#: api.py:2106 api.py:2186 api.py:2277
 msgid "Missing required parameters"
 msgstr "必要なパラメータが不足しています"
 
-#: api.py:1966
+#: api.py:2074
 msgid "No data found"
 msgstr "データが見つかりません"
 
-#: api.py:2172
+#: api.py:2280
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr "無効な言語パラメーターです。EN、JP、KR、RUのいずれかである必要があります。"
 
 #: templates/channel_clustering.html:8 templates/index.html:181
 #: templates/menu.html:61 templates/menu_pwa.html:36
 msgid "User Similarity Graph"
-msgstr ""
+msgstr "ユーザー類似性グラフ"
 
 #: templates/channel_clustering.html:119
 msgid "Channel Clustering"
@@ -157,7 +157,7 @@ msgstr "選択した条件に該当するデータがありません。"
 #: templates/chat_leaderboards.html:194 templates/common_members.html:230
 #: templates/common_users.html:232 templates/funniest_timestamps.html:245
 #: templates/funniest_timestamps.html:290 templates/highlight_search.html:233
-#: templates/highlights.html:275 templates/recommendation_engine.html:185
+#: templates/highlights.html:275 templates/recommendation_engine.html:184
 #: templates/user_info.html:192
 msgid "Error fetching data. Please try again later."
 msgstr "データの取得に失敗しました。後でもう一度お試しください。"
@@ -218,7 +218,7 @@ msgstr "インディー"
 #: templates/streaming_hours_diff.html:135
 #: templates/streaming_hours_max.html:134 templates/user_change.html:124
 msgid "PNGTubers"
-msgstr ""
+msgstr "PNGTuber"
 
 #: templates/chat_makeup.html:129 templates/engagement.html:122
 #: templates/funniest_timestamps.html:181 templates/membership_change.html:129
@@ -240,7 +240,6 @@ msgstr "CSV をダウンロード"
 #: templates/streaming_hours.html:149 templates/streaming_hours_avg.html:149
 #: templates/streaming_hours_diff.html:150
 #: templates/streaming_hours_max.html:149 templates/user_change.html:139
-#, fuzzy
 msgid "Download PNG"
 msgstr "PNG をダウンロード"
 
@@ -338,196 +337,345 @@ msgstr "ユーザーごとの平均チャットメッセージ数。"
 msgid "Eri Chat"
 msgstr "えりチャット"
 
-#: templates/eri.html:191 templates/eri_widget.html:467
+#: templates/eri.html:659 templates/eri_widget.html:750
 msgid "Eri"
 msgstr "えり"
 
-#: templates/eri.html:192 templates/eri_widget.html:468
+#: templates/eri.html:660 templates/eri.html:738 templates/eri_widget.html:751
+#: templates/eri_widget.html:798
 msgid "Hey, I'm Eri - HoloChatStats' virtual assistant. How can I help you today?"
 msgstr "こんにちは、HoloChatStatsのバーチャルアシスタント「えり」です。今日はどういったご用件でしょうか？"
 
-#: templates/eri.html:198 templates/eri_widget.html:478
+#: templates/eri.html:667 templates/eri.html:761 templates/eri_widget.html:762
+#: templates/eri_widget.html:834
 msgid "Ask Eri a question..."
 msgstr "えりに質問する..."
 
-#: templates/eri.html:204
+#: templates/eri.html:669 templates/eri.html:1112 templates/eri_widget.html:767
+#: templates/eri_widget.html:1054
+msgid "Voice input"
+msgstr "音声入力"
+
+#: templates/eri.html:672 templates/eri.html:1249 templates/eri_widget.html:738
+#: templates/eri_widget.html:943
+msgid "Read aloud"
+msgstr "読み上げ"
+
+#: templates/eri.html:678 templates/eri_widget.html:733
+msgid "Prompts remaining today"
+msgstr "本日の残りプロンプト数"
+
+#: templates/eri.html:685
 msgid "💡 Try one of these prompts..."
 msgstr "💡 こんな質問はいかがですか..."
 
-#: templates/eri.html:206
+#: templates/eri.html:687
 msgid "Who streamed the most in Hololive last month?"
 msgstr "先月、ホロライブで最も配信時間が長かったのは誰ですか？"
 
-#: templates/eri.html:207
+#: templates/eri.html:688
 msgid "Which Hololive member had the highest average stream duration last month?"
 msgstr "先月、ホロライブで平均配信時間が最も長かったメンバーは誰ですか？"
 
-#: templates/eri.html:208
+#: templates/eri.html:689
 msgid "Which Hololive member had the longest stream last month?"
 msgstr "先月、ホロライブで最も長い配信を行ったメンバーは誰ですか？"
 
-#: templates/eri.html:209
+#: templates/eri.html:690
 msgid ""
 "Which Hololive member had the highest average Korean chat messages per "
 "minute last month?"
 msgstr "先月、ホロライブで1分あたりの平均韓国語チャットメッセージが最も多かったメンバーは誰ですか？"
 
-#: templates/eri.html:210
+#: templates/eri.html:691
 msgid "Which Hololive member had the most members last month?"
 msgstr "先月、ホロライブで最もメンバーが多かったのは誰ですか？"
 
-#: templates/eri.html:211
+#: templates/eri.html:692
 msgid ""
 "What are the top 3 Hololive members that gained the most memberships last"
 " month?"
 msgstr "先月、メンバーシップが最も増えたホロライブメンバーTOP3は誰ですか？"
 
-#: templates/eri.html:212
+#: templates/eri.html:693
 msgid ""
 "Which Hololive member had the greatest increase in streaming hours last "
 "month?"
 msgstr "先月、配信時間が最も増加したホロライブメンバーは誰ですか？"
 
-#: templates/eri.html:213
+#: templates/eri.html:694
 msgid "How can I support HoloChatStats?"
 msgstr "HoloChatStatsを支援するにはどうすればよいですか？"
 
-#: templates/eri.html:214
+#: templates/eri.html:695
 msgid "Hi Eri! How are you today? Who is your oshi?"
 msgstr "やあ、えり！元気？推しは誰？"
 
-#: templates/eri.html:218
+#: templates/eri.html:699
 msgid "Recommend some VTubers for me. My channel ID is: [YOUR_CHANNEL_ID_HERE]"
 msgstr "おすすめのVTuberを教えて。私のチャンネルIDは：[あなたのチャンネルID]"
 
-#: templates/eri.html:219
+#: templates/eri.html:700
 msgid "How many hours did [VTUBER_NAME] stream last month?"
 msgstr "[VTUBERの名前]は先月何時間配信しましたか？"
 
-#: templates/eri.html:220
+#: templates/eri.html:701
 msgid ""
 "How many chat users were common to [VTUBER_NAME] and [VTUBER_NAME] last "
 "month?"
 msgstr "先月、[VTUBERの名前]と[VTUBERの名前]に共通するチャットユーザーは何人いましたか？"
 
-#: templates/eri.html:221
+#: templates/eri.html:702
 msgid ""
 "How many membered chat users were common to [VTUBER_NAME] and "
 "[VTUBER_NAME] last month?"
 msgstr "先月、[VTUBERの名前]と[VTUBERの名前]に共通するメンバーのチャットユーザーは何人いましたか？"
 
-#: templates/eri.html:222
+#: templates/eri.html:703
 msgid "Who are the most active chatters for [VTUBER_NAME] last month?"
 msgstr "先月、[VTUBERの名前]のチャットで最もアクティブだったのは誰ですか？"
 
-#: templates/eri.html:223
+#: templates/eri.html:704
 msgid ""
 "What percentage of chat users chatted exclusively in [VTUBER_NAME]'s chat"
 " last month?"
 msgstr "先月、[VTUBERの名前]のチャットだけでチャットしたユーザーの割合は？"
 
-#: templates/eri.html:224
+#: templates/eri.html:705
 msgid "What percentage of [VTUBER_NAME]'s chat was in Japanese last month?"
 msgstr "先月、[VTUBERの名前]のチャットのうち日本語の割合は？"
 
-#: templates/eri.html:225
+#: templates/eri.html:706
 msgid ""
 "What percentage of [GRADUATED_FANBASE_NAME] still participate in Hololive"
 " chats?"
 msgstr "[卒業したVTUBERのファンネーム]のうち、今でもホロライブのチャットに参加している割合は？"
 
-#: templates/eri.html:226
+#: templates/eri.html:707
 msgid ""
 "Give me some YouTube links to funny moments from [VTUBER_NAME]'s streams "
 "last month."
 msgstr "先月の[VTUBERの名前]の配信の面白い瞬間のYouTubeリンクを教えて。"
 
-#: templates/eri.html:227
+#: templates/eri.html:708
 msgid ""
 "Can you tell me which channels I chatted on last month? My channel ID is:"
 " [YOUR_CHANNEL_ID_HERE]"
 msgstr "先月私がチャットしたチャンネルを教えて。私のチャンネルIDは：[あなたのチャンネルID]"
 
-#: templates/eri.html:228
+#: templates/eri.html:709
 msgid "Show me Hololive merch currently on sale for [VTUBER_NAME]"
 msgstr "[VTUBER_NAME]の現在販売中のホロライブグッズを見せて"
 
-#: templates/eri.html:229
-#, fuzzy
+#: templates/eri.html:710
 msgid "How many subscribers does [VTUBER_NAME] have?"
 msgstr "[VTUBER_NAME] の登録者数は何人ですか？"
 
-#: templates/eri.html:230
+#: templates/eri.html:711
 msgid "What was [VTUBER_NAME]'s last stream?"
-msgstr "[VTUBER_NAME] の最後のストリームは何でしたか?"
+msgstr "[VTUBER_NAME] の最後の配信は何でしたか？"
 
-#: templates/eri.html:236
+#: templates/eri.html:717
 msgid ""
 "Eri may display inaccurate information, so double-check its responses. "
 "Your conversations are logged to help make Eri better. By using Eri, you "
 "agree to this."
 msgstr "えりは不正確な情報を表示する場合がありますので、応答を再確認してください。会話はえりの改善のために記録されます。えりを使用することにより、これに同意したことになります。"
 
-#: templates/eri.html:239
+#: templates/eri.html:720
 msgid "Conversations in English may be more accurate than in other languages."
 msgstr "英語での会話は、他の言語よりも正確な場合があります。"
 
-#: templates/eri.html:257 templates/eri_widget.html:510
+#: templates/eri.html:752 templates/eri_widget.html:825
 msgid "Let's see..."
 msgstr "えっと..."
 
-#: templates/eri.html:258 templates/eri_widget.html:511
+#: templates/eri.html:753 templates/eri_widget.html:826
 msgid "Deciphering your request..."
 msgstr "リクエストを確認しています..."
 
-#: templates/eri.html:259 templates/eri_widget.html:512
+#: templates/eri.html:754 templates/eri_widget.html:827
 msgid "Alright, plotting a course of action."
 msgstr "わかった、計画を立てているよ。"
 
-#: templates/eri.html:260 templates/eri_widget.html:513
+#: templates/eri.html:755 templates/eri_widget.html:828
 msgid "Searching the HoloChatStats archives..."
 msgstr "HoloChatStatsのアーカイブを検索中..."
 
-#: templates/eri.html:261 templates/eri_widget.html:514
+#: templates/eri.html:756 templates/eri_widget.html:829
 msgid "Compiling the data..."
 msgstr "データをまとめています..."
 
-#: templates/eri.html:262 templates/eri_widget.html:515
+#: templates/eri.html:757 templates/eri_widget.html:830
 msgid ""
 "Looks like you've reached the daily query limit. Please try again "
 "tomorrow."
 msgstr "1日のクエリ上限に達しちゃったみたい。明日また来てね！"
 
-#: templates/eri.html:327 templates/eri_widget.html:707
+#: templates/eri.html:760 templates/eri_widget.html:833
+msgid "Daily prompt limit reached. Please try again tomorrow."
+msgstr "1日のクエリ上限に達しちゃったみたい。明日また来てね！"
+
+#: templates/eri.html:915 templates/eri_widget.html:1466
 msgid "Sorry — I couldn't reach the assistant (network error)."
 msgstr "ごめんなさい — アシスタントに接続できませんでした（ネットワークエラー）。"
 
-#: templates/eri_widget.html:444 templates/eri_widget.html:568
+#: templates/eri.html:1038 templates/eri_widget.html:986
+msgid "Stop recording"
+msgstr "録音を停止"
+
+#: templates/eri.html:1061 templates/eri_widget.html:1011
+msgid ""
+"Microphone access was denied. Please allow microphone access to use voice"
+" input."
+msgstr "マイクへのアクセスが拒否されました。音声入力を使用するにはマイクへのアクセスを許可してください。"
+
+#: templates/eri.html:1240 templates/eri_widget.html:935
+msgid "Stop reading"
+msgstr "読み上げを停止"
+
+#: templates/eri.html:1370 templates/eri.html:1376
+msgid "Help & Instructions"
+msgstr "ヘルプと使い方"
+
+#: templates/eri.html:1384
+msgid "Eri's Capabilities"
+msgstr "えりにできること"
+
+#: templates/eri.html:1388
+msgid "Stream Stats & Schedules"
+msgstr "配信統計とスケジュール"
+
+#: templates/eri.html:1393
+msgid ""
+"Ask Eri about streaming habits (monthly hours, averages, longest streams)"
+" or check real-time schedules to see who is live, upcoming, or recently "
+"finished streaming."
+msgstr "配信の傾向（月間配信時間、平均、最長配信など）についてえりに尋ねたり、現在配信中、予定されている配信、または終了したばかりの配信のリアルタイムスケジュールを確認したりできます。"
+
+#: templates/eri.html:1400
+msgid "Chat & Community"
+msgstr "チャットとコミュニティ"
+
+#: templates/eri.html:1405
+msgid ""
+"Analyze chat language makeup (EN/JP/KR/RU), engagement rates, and "
+"membership trends. Eri can also visualize fanbase overlap by finding "
+"common users between different channels."
+msgstr "チャットの言語構成（EN/JP/KR/RU）、エンゲージメント率、メンバーシップの傾向を分析します。えりは、異なるチャンネル間の共通ユーザーを見つけることで、ファン層の重なりを視覚化することもできます。"
+
+#: templates/eri.html:1412
+msgid "Content & Highlights"
+msgstr "コンテンツとハイライト"
+
+#: templates/eri.html:1417
+msgid ""
+"Find AI-summarized highlights, search for specific moments (e.g., 'funny "
+"moments from Marine'), or locate the 'funniest' timestamp in a stream "
+"based on chat reactions."
+msgstr "AIによる要約ハイライトを見つけたり、特定の瞬間（例：「マリンの面白い瞬間」）を検索したり、チャットの反応に基づいて配信内の「最も面白い」タイムスタンプを見つけたりします。"
+
+#: templates/eri.html:1424
+msgid "Channel & Merch"
+msgstr "チャンネルとグッズ"
+
+#: templates/eri.html:1429
+msgid ""
+"Get channel metrics like subscriber counts and total views. Eri can also "
+"search the official Hololive Shop for merchandise (English or Japanese)."
+msgstr "登録者数や総再生回数などのチャンネル指標を取得します。えりは、ホロライブ公式ショップのグッズ（英語または日本語）を検索することもできます。"
+
+#: templates/eri.html:1436
+msgid "Personal Statistics"
+msgstr "個人の統計"
+
+#: templates/eri.html:1441
+msgid ""
+"Provide your YouTube Channel ID (starts with 'UC...') to see your own "
+"chat frequency, percentiles, and get channel recommendations based on "
+"your history."
+msgstr "YouTubeチャンネルID（'UC...'で始まる）を提供すると、あなた自身のチャット頻度やパーセンタイルを確認したり、履歴に基づいたおすすめのチャンネルを取得したりできます。"
+
+#: templates/eri.html:1448
+msgid "Page Context"
+msgstr "ページコンテキスト"
+
+#: templates/eri.html:1453
+msgid ""
+"Eri has a widget on most dataset pages and can answer questions about the"
+" specific data you are viewing. However, she cannot 'see' the visual UI "
+"or charts exactly as you do."
+msgstr "えりはほとんどのデータセットページにウィジェットを持っており、表示している特定のデータについて質問に答えることができます。ただし、彼女はあなたがしているのとまったく同じように視覚的なUIやチャートを「見る」ことはできません。"
+
+#: templates/eri.html:1460
+msgid "Eri's Limitations"
+msgstr "えりの制限事項"
+
+#: templates/eri.html:1464
+msgid "Data Scope"
+msgstr "データの範囲"
+
+#: templates/eri.html:1469
+msgid ""
+"Eri only has data for Hololive and select Indies. She does NOT have data "
+"for other agencies (e.g., Nijisanji) or Holostars."
+msgstr "えりはホロライブと一部のインディーのデータのみを持っています。他の事務所（例：にじさんじ）やホロスターズのデータはありません。"
+
+#: templates/eri.html:1470
+msgid ""
+"Chat stats are updated monthly. Real-time data is available for schedules"
+" and merch only. No SuperChat or private stream data."
+msgstr "チャット統計は毎月更新されます。リアルタイムデータは、スケジュールとグッズのみ利用可能です。スーパーチャットやメンバーシップ限定配信のデータはありません。"
+
+#: templates/eri.html:1477
+msgid "Accuracy & Complexity"
+msgstr "正確性と複雑さ"
+
+#: templates/eri.html:1482
+msgid ""
+"Eri is an AI and may occasionally provide inaccurate information or "
+"hallucinate data."
+msgstr "えりはAIであり、不正確な情報を提供したり、データを幻覚（ハルシネーション）させたりすることがあります。"
+
+#: templates/eri.html:1483
+msgid ""
+"She is limited to 3 data requests per prompt - please break down complex "
+"questions (e.g., comparing 5 different months)."
+msgstr "1回のプロンプトにつき3つのデータリクエストに制限されています。複雑な質問（例：5つの異なる月を比較する）は分割してください。"
+
+#: templates/eri.html:1490
+msgid "Daily Query Limits"
+msgstr "1日のクエリ制限"
+
+#: templates/eri.html:1495
+msgid ""
+"You have a limited number of queries per day, indicated by the counter "
+"next to the chat bubble icon. This quota resets daily at midnight UTC."
+msgstr "1日に質問できる回数には制限があり、吹き出しアイコンの横にある数字で示されています。この割り当ては、UTCの深夜に毎日リセットされます。"
+
+#: templates/eri_widget.html:710 templates/eri_widget.html:1320
 msgid "Minimize to side"
-msgstr ""
+msgstr "サイドに最小化"
 
-#: templates/eri_widget.html:447
-#, fuzzy
+#: templates/eri_widget.html:713
 msgid "💬 Got a question?"
-msgstr "💬 私に質問がありますか？"
+msgstr "💬 質問ある？"
 
-#: templates/eri_widget.html:456
+#: templates/eri_widget.html:730
 msgid "Chat with Eri"
 msgstr "えりとチャット"
 
-#: templates/eri_widget.html:459
-#, fuzzy
+#: templates/eri_widget.html:741
 msgid "Minimize"
-msgstr "インディー"
+msgstr "最小化"
 
-#: templates/eri_widget.html:482
-#, fuzzy
+#: templates/eri_widget.html:772
 msgid "Send"
-msgstr "終了:"
+msgstr "送信"
 
-#: templates/eri_widget.html:573
+#: templates/eri_widget.html:1325
 msgid "Restore"
-msgstr ""
+msgstr "元に戻す"
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:103
 #: templates/menu.html:64 templates/menu_pwa.html:39
@@ -559,16 +707,13 @@ msgid "Funniest Timestamps"
 msgstr "最も面白いタイムスタンプ"
 
 #: templates/funniest_timestamps.html:165
-#, fuzzy
 msgid ""
 "Determined using the highest concentration of humerous reactions by chat "
 "for each stream.<br><br>\n"
 "    Each link opens YouTube in a new window.<br><br>CSV Download contains"
 " timestamps in HH:MM:SS format for use with yt-dlp, ffmpeg, etc. for "
 "clipping."
-msgstr ""
-"各配信でチャット内の最も面白い反応が集中したタイムスタンプを使用して決定されます。<br><br>各リンクはYouTubeで新しいウィンドウで開きます。<br><br>CSVダウンロードには"
-"、yt-dlp、ffmpegなどでクリッピングに使用できるHH:MM:SS形式のタイムスタンプが含まれています。"
+msgstr "各配信でチャット内の最も面白い反応が集中したタイムスタンプを使用して決定されます。<br><br>各リンクはYouTubeで新しいウィンドウで開きます。<br><br>CSVダウンロードには、yt-dlp、ffmpegなどでクリッピングに使用できるHH:MM:SS形式のタイムスタンプが含まれています。"
 
 #: templates/funniest_timestamps.html:180
 msgid "Fetch Funniest Moments"
@@ -615,9 +760,7 @@ msgstr "AIハイライト検索"
 msgid ""
 "Search for moments using semantic meaning. You can use operators like "
 "channel:<name>, from:<YYYY-MM-DD>, and to:<YYYY-MM-DD>."
-msgstr ""
-"意味的な意味合いで瞬間を検索します。 channel:<名前>、from:<YYYY-MM-DD>、to:<YYYY-MM-DD> "
-"のような演算子が使用できます。"
+msgstr "意味的な意味合いで瞬間を検索します。 channel:<名前>、from:<YYYY-MM-DD>、to:<YYYY-MM-DD> のような演算子が使用できます。"
 
 #: templates/highlight_search.html:159
 msgid "e.g., paper boat channel:saba from:2025-08-01"
@@ -758,9 +901,8 @@ msgid "Error fetching message count."
 msgstr "メッセージ数の取得中にエラーが発生しました。"
 
 #: templates/index.html:291 templates/index_pwa.html:362
-#, fuzzy
 msgid "Error fetching updates."
-msgstr "日付範囲の取得中にエラーが発生しました。"
+msgstr "更新情報の取得中にエラーが発生しました。"
 
 #: templates/index_pwa.html:176
 msgid "You are offline. Some features may be limited."
@@ -775,7 +917,6 @@ msgid "Chat Logs:"
 msgstr "チャットログ:"
 
 #: templates/index_pwa.html:338
-#, fuzzy
 msgid "Messages:"
 msgstr "メッセージ:"
 
@@ -814,6 +955,12 @@ msgid "Losses"
 msgstr "減少"
 
 #: templates/membership_counts.html:118
+msgid ""
+"Based on chat log contents. Membership renewals/gifts are included from "
+"Nov. 2025. Membership durations are based on available badges for each "
+"channel."
+msgstr "チャットログの内容に基づいています。メンバーシップの更新/ギフトは2025年11月から含まれています。メンバーシップ期間は、各チャンネルで利用可能なバッジに基づいています。"
+
 #: templates/membership_counts_pwa.html:397
 msgid ""
 "Only counts members that participated in chat. Membership durations are "
@@ -829,7 +976,6 @@ msgid "Rotate device for better chart visibility"
 msgstr "デバイスを回転させてチャートを見やすくする"
 
 #: templates/membership_counts_pwa.html:423
-#, fuzzy
 msgid "Swipe to see more channels"
 msgstr "スワイプして他のチャンネルを見る"
 
@@ -920,7 +1066,7 @@ msgstr "月間ストリーミング時間"
 
 #: templates/menu.html:102 templates/menu_pwa.html:88
 msgid "Content"
-msgstr ""
+msgstr "コンテンツ"
 
 #: templates/menu.html:106 templates/menu_pwa.html:94
 msgid "Funniest Moments"
@@ -948,9 +1094,8 @@ msgid "Blog"
 msgstr "ブログ (英語のみ)"
 
 #: templates/menu_pwa.html:126
-#, fuzzy
 msgid "Language"
-msgstr "言語："
+msgstr "言語"
 
 #: templates/message_types.html:106
 msgid ""
@@ -1015,9 +1160,10 @@ msgstr "P25-P75 範囲"
 
 #: templates/recommendation_engine.html:104
 msgid ""
-"Calculated using chat data from the previous month. Only shows channels "
-"where the user has no recorded interactions."
-msgstr "前月のチャットデータを使用して計算。ユーザーが記録されたやり取りを持たないチャンネルのみを表示。"
+"Calculated using chat data from the previous 6 months. Only shows "
+"channels where the user has chatted 3 times or less. Takes ~30 seconds to"
+" generate."
+msgstr "過去6か月のチャットデータを使用して計算。ユーザーが3回以下しかチャットしていないチャンネルのみを表示。生成に約30秒かかります。"
 
 #: templates/recommendation_engine.html:115
 msgid "Your Channel ID or @handle:"
@@ -1043,7 +1189,7 @@ msgstr "類似度スコア (0-100)"
 msgid "Please enter a Channel ID or handle."
 msgstr "チャンネルIDまたはハンドル名を入力してください。"
 
-#: templates/recommendation_engine.html:170
+#: templates/recommendation_engine.html:169
 msgid ""
 "No recommendations could be generated. This usually means there is not "
 "enough recent chat history for the user."
@@ -1114,61 +1260,3 @@ msgstr "チャンネルIDまたはハンドル名を入力し、月を選択し�
 #: templates/user_info.html:175
 msgid "No data available for the selected user and month."
 msgstr "選択したユーザーと月のデータはありません。"
-
-#~ msgid "Timezone (UTC Offset):"
-#~ msgstr "タイムゾーン（UTC オフセット）:"
-
-#~ msgid "Common Chat Heatmap"
-#~ msgstr "共通ユーザーヒートマップ"
-
-#~ msgid "Since this is a beta, data may be incomplete or inaccurate."
-#~ msgstr "これはベータ版のため、データが不完全または不正確な可能性があります。"
-
-#~ msgid "Current Date Ranges Available (UTC):"
-#~ msgstr "現在利用可能な日付範囲（UTC）:"
-
-#~ msgid "Language"
-#~ msgstr "言語"
-
-#~ msgid "Visitor Count in the Past Year:"
-#~ msgstr "過去1年間の訪問者数:"
-
-#~ msgid "Number of Unique Chatters Observed:"
-#~ msgstr "観測されたユニークチャッター数:"
-
-#~ msgid "Common Chat Percentages Between Channels"
-#~ msgstr "チャンネル間の共通ユーザーの割合"
-
-#~ msgid "Target Channels"
-#~ msgstr "対象チャンネル"
-
-#~ msgid "Source Channels"
-#~ msgstr "送信元チャンネル"
-
-#~ msgid "users"
-#~ msgstr "失ったユーザー"
-
-#~ msgid "Funniest Moment Timestamps"
-#~ msgstr "最も面白い瞬間のタイムスタンプ"
-
-#~ msgid "Username:"
-#~ msgstr "ユーザー名："
-
-#~ msgid "Enter username"
-#~ msgstr "ユーザー名を入力してください"
-
-#~ msgid "Please enter a username."
-#~ msgstr "ユーザー名を入力してください"
-
-#~ msgid "No data available for the selected user."
-#~ msgstr "選択した条件に該当するデータがありません。"
-
-#~ msgid "Common User Channel Clusters"
-#~ msgstr "共通ユーザーによるチャンネルクラスタ"
-
-#~ msgid "Channel Clusters by Common Users"
-#~ msgstr "共通ユーザーによるチャンネルクラスタ"
-
-#~ msgid "Highlights"
-#~ msgstr "ハイライト"
-

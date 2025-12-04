@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-24 14:59-0500\n"
+"POT-Creation-Date: 2025-12-03 20:26-0500\n"
 "PO-Revision-Date: 2025-10-24 14:05-0400\n"
 "Last-Translator: Gemini Assistant\n"
 "Language: ko\n"
@@ -18,23 +18,23 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: api.py:1045 api.py:1344 api.py:1524 api.py:1611 api.py:1748 api.py:1935
-#: api.py:1998 api.py:2078 api.py:2169
+#: api.py:1153 api.py:1452 api.py:1632 api.py:1719 api.py:1856 api.py:2043
+#: api.py:2106 api.py:2186 api.py:2277
 msgid "Missing required parameters"
 msgstr "필수 매개변수가 누락되었습니다"
 
-#: api.py:1966
+#: api.py:2074
 msgid "No data found"
 msgstr "데이터를 찾을 수 없습니다"
 
-#: api.py:2172
+#: api.py:2280
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr "잘못된 언어 매개변수입니다. EN, JP, KR, RU 중 하나여야 합니다."
 
 #: templates/channel_clustering.html:8 templates/index.html:181
 #: templates/menu.html:61 templates/menu_pwa.html:36
 msgid "User Similarity Graph"
-msgstr ""
+msgstr "사용자 유사도 그래프"
 
 #: templates/channel_clustering.html:119
 msgid "Channel Clustering"
@@ -159,7 +159,7 @@ msgstr "선택한 기준에 대한 데이터가 없습니다."
 #: templates/chat_leaderboards.html:194 templates/common_members.html:230
 #: templates/common_users.html:232 templates/funniest_timestamps.html:245
 #: templates/funniest_timestamps.html:290 templates/highlight_search.html:233
-#: templates/highlights.html:275 templates/recommendation_engine.html:185
+#: templates/highlights.html:275 templates/recommendation_engine.html:184
 #: templates/user_info.html:192
 msgid "Error fetching data. Please try again later."
 msgstr "데이터를 가져오는 중 오류가 발생했습니다. 나중에 다시 시도하세요."
@@ -220,7 +220,7 @@ msgstr "인디"
 #: templates/streaming_hours_diff.html:135
 #: templates/streaming_hours_max.html:134 templates/user_change.html:124
 msgid "PNGTubers"
-msgstr ""
+msgstr "PNG튜버"
 
 #: templates/chat_makeup.html:129 templates/engagement.html:122
 #: templates/funniest_timestamps.html:181 templates/membership_change.html:129
@@ -242,7 +242,6 @@ msgstr "CSV 다운로드"
 #: templates/streaming_hours.html:149 templates/streaming_hours_avg.html:149
 #: templates/streaming_hours_diff.html:150
 #: templates/streaming_hours_max.html:149 templates/user_change.html:139
-#, fuzzy
 msgid "Download PNG"
 msgstr "PNG 다운로드"
 
@@ -340,130 +339,145 @@ msgstr "사용자당 평균 채팅 메시지 수."
 msgid "Eri Chat"
 msgstr "에리 챗"
 
-#: templates/eri.html:191 templates/eri_widget.html:467
+#: templates/eri.html:659 templates/eri_widget.html:750
 msgid "Eri"
 msgstr "에리"
 
-#: templates/eri.html:192 templates/eri_widget.html:468
+#: templates/eri.html:660 templates/eri.html:738 templates/eri_widget.html:751
+#: templates/eri_widget.html:798
 msgid "Hey, I'm Eri - HoloChatStats' virtual assistant. How can I help you today?"
 msgstr "안녕하세요, 저는 HoloChatStats의 가상 어시스턴트 에리입니다. 무엇을 도와드릴까요?"
 
-#: templates/eri.html:198 templates/eri_widget.html:478
+#: templates/eri.html:667 templates/eri.html:761 templates/eri_widget.html:762
+#: templates/eri_widget.html:834
 msgid "Ask Eri a question..."
 msgstr "에리에게 질문하기..."
 
-#: templates/eri.html:204
+#: templates/eri.html:669 templates/eri.html:1112 templates/eri_widget.html:767
+#: templates/eri_widget.html:1054
+msgid "Voice input"
+msgstr "음성 입력"
+
+#: templates/eri.html:672 templates/eri.html:1249 templates/eri_widget.html:738
+#: templates/eri_widget.html:943
+msgid "Read aloud"
+msgstr "소리내어 읽기"
+
+#: templates/eri.html:678 templates/eri_widget.html:733
+msgid "Prompts remaining today"
+msgstr "오늘 남은 질문 횟수"
+
+#: templates/eri.html:685
 msgid "💡 Try one of these prompts..."
 msgstr "💡 이런 질문은 어떠세요..."
 
-#: templates/eri.html:206
+#: templates/eri.html:687
 msgid "Who streamed the most in Hololive last month?"
 msgstr "지난달 홀로라이브에서 가장 많이 방송한 사람은 누구인가요?"
 
-#: templates/eri.html:207
+#: templates/eri.html:688
 msgid "Which Hololive member had the highest average stream duration last month?"
 msgstr "지난달 홀로라이브 멤버 중 평균 방송 시간이 가장 길었던 멤버는 누구인가요?"
 
-#: templates/eri.html:208
+#: templates/eri.html:689
 msgid "Which Hololive member had the longest stream last month?"
 msgstr "지난달 홀로라이브 멤버 중 가장 긴 방송을 한 멤버는 누구인가요?"
 
-#: templates/eri.html:209
+#: templates/eri.html:690
 msgid ""
 "Which Hololive member had the highest average Korean chat messages per "
 "minute last month?"
 msgstr "지난달 홀로라이브 멤버 중 분당 평균 한국어 채팅 메시지가 가장 많았던 멤버는 누구인가요?"
 
-#: templates/eri.html:210
+#: templates/eri.html:691
 msgid "Which Hololive member had the most members last month?"
 msgstr "지난달 홀로라이브 멤버 중 멤버 수가 가장 많았던 멤버는 누구인가요?"
 
-#: templates/eri.html:211
+#: templates/eri.html:692
 msgid ""
 "What are the top 3 Hololive members that gained the most memberships last"
 " month?"
 msgstr "지난달 멤버십이 가장 많이 늘어난 홀로라이브 멤버 상위 3명은 누구인가요?"
 
-#: templates/eri.html:212
+#: templates/eri.html:693
 msgid ""
 "Which Hololive member had the greatest increase in streaming hours last "
 "month?"
 msgstr "지난달 방송 시간이 가장 많이 증가한 홀로라이브 멤버는 누구인가요?"
 
-#: templates/eri.html:213
+#: templates/eri.html:694
 msgid "How can I support HoloChatStats?"
 msgstr "HoloChatStats를 어떻게 후원할 수 있나요?"
 
-#: templates/eri.html:214
+#: templates/eri.html:695
 msgid "Hi Eri! How are you today? Who is your oshi?"
 msgstr "안녕 에리! 오늘 기분 어때? 오시(최애)는 누구야?"
 
-#: templates/eri.html:218
+#: templates/eri.html:699
 msgid "Recommend some VTubers for me. My channel ID is: [YOUR_CHANNEL_ID_HERE]"
 msgstr "VTuber를 추천해 주세요. 제 채널 ID는 [YOUR_CHANNEL_ID_HERE]입니다."
 
-#: templates/eri.html:219
+#: templates/eri.html:700
 msgid "How many hours did [VTUBER_NAME] stream last month?"
 msgstr "[VTUBER_NAME]은(는) 지난달 몇 시간 방송했나요?"
 
-#: templates/eri.html:220
+#: templates/eri.html:701
 msgid ""
 "How many chat users were common to [VTUBER_NAME] and [VTUBER_NAME] last "
 "month?"
 msgstr "지난달 [VTUBER_NAME]과(와) [VTUBER_NAME]의 공통 채팅 사용자는 몇 명이었나요?"
 
-#: templates/eri.html:221
+#: templates/eri.html:702
 msgid ""
 "How many membered chat users were common to [VTUBER_NAME] and "
 "[VTUBER_NAME] last month?"
 msgstr "지난달 [VTUBER_NAME]과(와) [VTUBER_NAME]의 공통 멤버십 채팅 사용자는 몇 명이었나요?"
 
-#: templates/eri.html:222
+#: templates/eri.html:703
 msgid "Who are the most active chatters for [VTUBER_NAME] last month?"
 msgstr "지난달 [VTUBER_NAME]의 채팅에서 가장 활발했던 사용자는 누구인가요?"
 
-#: templates/eri.html:223
+#: templates/eri.html:704
 msgid ""
 "What percentage of chat users chatted exclusively in [VTUBER_NAME]'s chat"
 " last month?"
 msgstr "지난달 [VTUBER_NAME]의 채팅에서만 채팅한 사용자의 비율은 어떻게 되나요?"
 
-#: templates/eri.html:224
+#: templates/eri.html:705
 msgid "What percentage of [VTUBER_NAME]'s chat was in Japanese last month?"
 msgstr "지난달 [VTUBER_NAME]의 채팅 중 일본어 비율은 어떻게 되나요?"
 
-#: templates/eri.html:225
+#: templates/eri.html:706
 msgid ""
 "What percentage of [GRADUATED_FANBASE_NAME] still participate in Hololive"
 " chats?"
 msgstr "[GRADUATED_FANBASE_NAME] 중 여전히 홀로라이브 채팅에 참여하는 비율은 어떻게 되나요?"
 
-#: templates/eri.html:226
+#: templates/eri.html:707
 msgid ""
 "Give me some YouTube links to funny moments from [VTUBER_NAME]'s streams "
 "last month."
 msgstr "지난달 [VTUBER_NAME] 방송의 재미있는 순간에 대한 유튜브 링크를 알려주세요."
 
-#: templates/eri.html:227
+#: templates/eri.html:708
 msgid ""
 "Can you tell me which channels I chatted on last month? My channel ID is:"
 " [YOUR_CHANNEL_ID_HERE]"
 msgstr "지난달 제가 채팅했던 채널을 알려줄 수 있나요? 제 채널 ID는 [YOUR_CHANNEL_ID_HERE]입니다."
 
-#: templates/eri.html:228
+#: templates/eri.html:709
 msgid "Show me Hololive merch currently on sale for [VTUBER_NAME]"
 msgstr "[VTUBER_NAME]의 현재 판매 중인 홀로라이브 굿즈를 보여줘"
 
-#: templates/eri.html:229
-#, fuzzy
+#: templates/eri.html:710
 msgid "How many subscribers does [VTUBER_NAME] have?"
-msgstr "[VTUBER_NAME]은(는) 지난달 몇 시간 방송했나요?"
+msgstr "[VTUBER_NAME]의 구독자 수는 몇 명인가요?"
 
-#: templates/eri.html:230
+#: templates/eri.html:711
 msgid "What was [VTUBER_NAME]'s last stream?"
-msgstr ""
+msgstr "[VTUBER_NAME]의 마지막 방송은 무엇이었나요?"
 
-#: templates/eri.html:236
+#: templates/eri.html:717
 msgid ""
 "Eri may display inaccurate information, so double-check its responses. "
 "Your conversations are logged to help make Eri better. By using Eri, you "
@@ -472,66 +486,210 @@ msgstr ""
 "에리는 부정확한 정보를 표시할 수 있으니 응답을 다시 확인해 주세요. 대화는 에리를 개선하는 데 도움이 되도록 기록됩니다. 에리를 "
 "사용하면 이에 동의하는 것입니다."
 
-#: templates/eri.html:239
+#: templates/eri.html:720
 msgid "Conversations in English may be more accurate than in other languages."
 msgstr "영어로 대화하는 것이 다른 언어보다 더 정확할 수 있습니다."
 
-#: templates/eri.html:257 templates/eri_widget.html:510
+#: templates/eri.html:752 templates/eri_widget.html:825
 msgid "Let's see..."
 msgstr "어디 보자..."
 
-#: templates/eri.html:258 templates/eri_widget.html:511
+#: templates/eri.html:753 templates/eri_widget.html:826
 msgid "Deciphering your request..."
 msgstr "요청 내용을 확인하는 중..."
 
-#: templates/eri.html:259 templates/eri_widget.html:512
+#: templates/eri.html:754 templates/eri_widget.html:827
 msgid "Alright, plotting a course of action."
 msgstr "알겠어요, 계획을 세우는 중이에요."
 
-#: templates/eri.html:260 templates/eri_widget.html:513
+#: templates/eri.html:755 templates/eri_widget.html:828
 msgid "Searching the HoloChatStats archives..."
 msgstr "HoloChatStats 아카이브를 검색하는 중..."
 
-#: templates/eri.html:261 templates/eri_widget.html:514
+#: templates/eri.html:756 templates/eri_widget.html:829
 msgid "Compiling the data..."
 msgstr "데이터를 정리하는 중..."
 
-#: templates/eri.html:262 templates/eri_widget.html:515
+#: templates/eri.html:757 templates/eri_widget.html:830
 msgid ""
 "Looks like you've reached the daily query limit. Please try again "
 "tomorrow."
 msgstr "오늘의 질문 횟수를 다 사용하셨어요. 내일 다시 시도해 주세요."
 
-#: templates/eri.html:327 templates/eri_widget.html:707
+#: templates/eri.html:760 templates/eri_widget.html:833
+msgid "Daily prompt limit reached. Please try again tomorrow."
+msgstr "일일 질문 한도에 도달했습니다. 내일 다시 시도해 주세요."
+
+#: templates/eri.html:915 templates/eri_widget.html:1466
 msgid "Sorry — I couldn't reach the assistant (network error)."
 msgstr "죄송해요 — 어시스턴트에 연결할 수 없었어요 (네트워크 오류)."
 
-#: templates/eri_widget.html:444 templates/eri_widget.html:568
-msgid "Minimize to side"
+#: templates/eri.html:1038 templates/eri_widget.html:986
+msgid "Stop recording"
+msgstr "녹음 중지"
+
+#: templates/eri.html:1061 templates/eri_widget.html:1011
+msgid ""
+"Microphone access was denied. Please allow microphone access to use voice"
+" input."
+msgstr "마이크 액세스가 거부되었습니다. 음성 입력을 사용하려면 마이크 액세스를 허용해주세요."
+
+#: templates/eri.html:1240 templates/eri_widget.html:935
+msgid "Stop reading"
+msgstr "읽기 중지"
+
+#: templates/eri.html:1370 templates/eri.html:1376
+msgid "Help & Instructions"
+msgstr "도움말 및 설명"
+
+#: templates/eri.html:1384
+msgid "Eri's Capabilities"
+msgstr "에리의 기능"
+
+#: templates/eri.html:1388
+msgid "Stream Stats & Schedules"
+msgstr "방송 통계 및 일정"
+
+#: templates/eri.html:1393
+msgid ""
+"Ask Eri about streaming habits (monthly hours, averages, longest streams)"
+" or check real-time schedules to see who is live, upcoming, or recently "
+"finished streaming."
 msgstr ""
+"에리에게 방송 습관(월간 시간, 평균, 최장 방송 등)에 대해 묻거나 현재 방송 중, 예정된 방송, 최근 종료된 방송의 실시간 일정을 확인하세요."
 
-#: templates/eri_widget.html:447
-#, fuzzy
+#: templates/eri.html:1400
+msgid "Chat & Community"
+msgstr "채팅 및 커뮤니티"
+
+#: templates/eri.html:1405
+msgid ""
+"Analyze chat language makeup (EN/JP/KR/RU), engagement rates, and "
+"membership trends. Eri can also determine fanbase overlap by finding "
+"common users between different channels."
+msgstr ""
+"채팅 언어 구성(EN/JP/KR/RU), 참여율, 멤버십 추세를 분석합니다. 에리는 또한 채널 간 공통 사용자를 찾아 팬층의 중복을 시각화할 수 있습니다."
+
+#: templates/eri.html:1412
+msgid "Content & Highlights"
+msgstr "콘텐츠 및 하이라이트"
+
+#: templates/eri.html:1417
+msgid ""
+"Find AI-summarized highlights, search for specific moments (e.g., 'funny "
+"moments from Marine'), or locate the 'funniest' timestamp in a stream "
+"based on chat reactions."
+msgstr ""
+"AI 요약 하이라이트를 찾거나, 특정 순간(예: '마린의 재미있는 순간')을 검색하거나, 채팅 반응을 기반으로 방송에서 '가장 재미있는' 타임스탬프를 찾습니다."
+
+#: templates/eri.html:1424
+msgid "Channel & Merch"
+msgstr "채널 및 굿즈"
+
+#: templates/eri.html:1429
+msgid ""
+"Get channel metrics like subscriber counts and total views. Eri can also "
+"search the official Hololive Shop for merchandise (English or Japanese)."
+msgstr ""
+"구독자 수 및 총 조회수와 같은 채널 지표를 확인하세요. 에리는 공식 홀로라이브 샵에서 굿즈(영어 또는 일본어)를 검색할 수도 있습니다."
+
+#: templates/eri.html:1436
+msgid "Personal Statistics"
+msgstr "개인 통계"
+
+#: templates/eri.html:1441
+msgid ""
+"Provide your YouTube Channel ID (starts with 'UC...') to see your own "
+"chat frequency, percentiles, and get channel recommendations based on "
+"your history."
+msgstr ""
+"YouTube 채널 ID('UC...'로 시작)를 제공하면 자신의 채팅 빈도, 백분위수를 확인하고 기록을 기반으로 채널 추천을 받을 수 있습니다."
+
+#: templates/eri.html:1448
+msgid "Page Context"
+msgstr "페이지 컨텍스트"
+
+#: templates/eri.html:1453
+msgid ""
+"Eri has a widget on most dataset pages and can answer questions about the"
+" specific data you are viewing. However, she cannot 'see' the visual UI "
+"or charts exactly as you do."
+msgstr ""
+"에리는 대부분의 데이터셋 페이지에 위젯이 있으며 보고 있는 특정 데이터에 대한 질문에 답할 수 있습니다. 하지만 시각적 UI나 차트를 사용자와 똑같이 '볼' 수는 없습니다."
+
+#: templates/eri.html:1460
+msgid "Eri's Limitations"
+msgstr "에리의 제한 사항"
+
+#: templates/eri.html:1464
+msgid "Data Scope"
+msgstr "데이터 범위"
+
+#: templates/eri.html:1469
+msgid ""
+"Eri only has data for Hololive and select Indies. She does NOT have data "
+"for other agencies (e.g., Nijisanji) or Holostars."
+msgstr ""
+"에리는 **홀로라이브** 및 일부 **인디**에 대한 데이터만 가지고 있습니다. 다른 소속사(예: 니지산지)나 홀로스타즈에 대한 데이터는 없습니다."
+
+#: templates/eri.html:1470
+msgid ""
+"Chat stats are updated monthly. Real-time data is available for schedules"
+" and merch only. No SuperChat or membership stream data."
+msgstr ""
+"채팅 통계는 매월 업데이트됩니다. 실시간 데이터는 일정 및 굿즈에 대해서만 사용할 수 있습니다. 슈퍼챗이나 멤버십 전용 방송 데이터는 없습니다."
+
+#: templates/eri.html:1477
+msgid "Accuracy & Complexity"
+msgstr "정확성 및 복잡성"
+
+#: templates/eri.html:1482
+msgid ""
+"Eri is an AI and may occasionally provide inaccurate information or "
+"hallucinate data."
+msgstr "에리는 AI이며 가끔 부정확한 정보를 제공하거나 데이터를 환각(hallucinate)할 수 있습니다."
+
+#: templates/eri.html:1483
+msgid ""
+"She is limited to 3 data requests per prompt - please break down complex "
+"questions (e.g., comparing 5 different months)."
+msgstr ""
+"프롬프트당 3개의 데이터 요청으로 제한됩니다. 복잡한 질문(예: 5개의 다른 달 비교)은 더 작은 질문으로 나누어 주세요."
+
+#: templates/eri.html:1490
+msgid "Daily Query Limits"
+msgstr "일일 쿼리 제한"
+
+#: templates/eri.html:1495
+msgid ""
+"You have a limited number of queries per day, indicated by the counter "
+"next to the chat bubble icon. This quota resets daily at midnight UTC."
+msgstr ""
+"하루에 사용할 수 있는 쿼리 수는 제한되어 있으며, 말풍선 아이콘 옆의 카운터로 표시됩니다. 이 할당량은 매일 자정(UTC)에 초기화됩니다."
+
+#: templates/eri_widget.html:710 templates/eri_widget.html:1320
+msgid "Minimize to side"
+msgstr "측면으로 최소화"
+
+#: templates/eri_widget.html:713
 msgid "💬 Got a question?"
-msgstr "💬 제게 질문 있으신가요?"
+msgstr "💬 질문이 있으신가요?"
 
-#: templates/eri_widget.html:456
+#: templates/eri_widget.html:730
 msgid "Chat with Eri"
 msgstr "에리와 대화하기"
 
-#: templates/eri_widget.html:459
-#, fuzzy
+#: templates/eri_widget.html:741
 msgid "Minimize"
-msgstr "인디"
+msgstr "최소화"
 
-#: templates/eri_widget.html:482
-#, fuzzy
+#: templates/eri_widget.html:772
 msgid "Send"
-msgstr "종료:"
+msgstr "전송"
 
-#: templates/eri_widget.html:573
+#: templates/eri_widget.html:1325
 msgid "Restore"
-msgstr ""
+msgstr "복원"
 
 #: templates/exclusive_chat.html:8 templates/exclusive_chat.html:103
 #: templates/menu.html:64 templates/menu_pwa.html:39
@@ -563,7 +721,6 @@ msgid "Funniest Timestamps"
 msgstr "가장 웃긴 타임스탬프"
 
 #: templates/funniest_timestamps.html:165
-#, fuzzy
 msgid ""
 "Determined using the highest concentration of humerous reactions by chat "
 "for each stream.<br><br>\n"
@@ -779,7 +936,6 @@ msgid "Chat Logs:"
 msgstr "채팅 로그:"
 
 #: templates/index_pwa.html:338
-#, fuzzy
 msgid "Messages:"
 msgstr "메시지:"
 
@@ -818,6 +974,12 @@ msgid "Losses"
 msgstr "감소"
 
 #: templates/membership_counts.html:118
+msgid ""
+"Based on chat log contents. Membership renewals/gifts are included from "
+"Nov. 2025. Membership durations are based on available badges for each "
+"channel."
+msgstr "채팅 로그 내용을 기반으로 합니다. 2025년 11월부터 멤버십 갱신/선물이 포함됩니다. 멤버십 기간은 각 채널에서 사용 가능한 배지를 기준으로 합니다."
+
 #: templates/membership_counts_pwa.html:397
 msgid ""
 "Only counts members that participated in chat. Membership durations are "
@@ -833,7 +995,6 @@ msgid "Rotate device for better chart visibility"
 msgstr "차트 가시성을 높이기 위해 장치를 회전하세요"
 
 #: templates/membership_counts_pwa.html:423
-#, fuzzy
 msgid "Swipe to see more channels"
 msgstr "더 많은 채널을 보려면 스와이프하세요"
 
@@ -924,7 +1085,7 @@ msgstr "월간 스트리밍 시간"
 
 #: templates/menu.html:102 templates/menu_pwa.html:88
 msgid "Content"
-msgstr ""
+msgstr "콘텐츠"
 
 #: templates/menu.html:106 templates/menu_pwa.html:94
 msgid "Funniest Moments"
@@ -952,9 +1113,8 @@ msgid "Blog"
 msgstr "블로그 (영어 전용)"
 
 #: templates/menu_pwa.html:126
-#, fuzzy
 msgid "Language"
-msgstr "언어:"
+msgstr "언어"
 
 #: templates/message_types.html:106
 msgid ""
@@ -1019,9 +1179,10 @@ msgstr "P25-P75 범위"
 
 #: templates/recommendation_engine.html:104
 msgid ""
-"Calculated using chat data from the previous month. Only shows channels "
-"where the user has no recorded interactions."
-msgstr "지난 달의 채팅 데이터를 기반으로 계산됩니다. 사용자가 기록된 상호 작용이 없는 채널만 표시됩니다."
+"Calculated using chat data from the previous 6 months. Only shows "
+"channels where the user has chatted 3 times or less. Takes ~30 seconds to"
+" generate."
+msgstr "지난 6개월간의 채팅 데이터를 사용하여 계산됩니다. 사용자가 3회 이하로 채팅한 채널만 표시됩니다. 생성에 약 30초가 소요됩니다."
 
 #: templates/recommendation_engine.html:115
 msgid "Your Channel ID or @handle:"
@@ -1047,7 +1208,7 @@ msgstr "유사도 점수 (0-100)"
 msgid "Please enter a Channel ID or handle."
 msgstr "채널 ID 또는 핸들을 입력해 주세요."
 
-#: templates/recommendation_engine.html:170
+#: templates/recommendation_engine.html:169
 msgid ""
 "No recommendations could be generated. This usually means there is not "
 "enough recent chat history for the user."
@@ -1177,4 +1338,3 @@ msgstr "선택한 사용자 및 월에 대한 데이터가 없습니다."
 
 #~ msgid "Highlights"
 #~ msgstr "하이라이트"
-

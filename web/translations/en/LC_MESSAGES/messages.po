@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-24 14:59-0500\n"
+"POT-Creation-Date: 2025-12-03 20:26-0500\n"
 "PO-Revision-Date: 2025-03-20 14:31-0400\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -18,16 +18,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: api.py:1045 api.py:1344 api.py:1524 api.py:1611 api.py:1748 api.py:1935
-#: api.py:1998 api.py:2078 api.py:2169
+#: api.py:1153 api.py:1452 api.py:1632 api.py:1719 api.py:1856 api.py:2043
+#: api.py:2106 api.py:2186 api.py:2277
 msgid "Missing required parameters"
 msgstr ""
 
-#: api.py:1966
+#: api.py:2074
 msgid "No data found"
 msgstr ""
 
-#: api.py:2172
+#: api.py:2280
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
@@ -157,7 +157,7 @@ msgstr ""
 #: templates/chat_leaderboards.html:194 templates/common_members.html:230
 #: templates/common_users.html:232 templates/funniest_timestamps.html:245
 #: templates/funniest_timestamps.html:290 templates/highlight_search.html:233
-#: templates/highlights.html:275 templates/recommendation_engine.html:185
+#: templates/highlights.html:275 templates/recommendation_engine.html:184
 #: templates/user_info.html:192
 msgid "Error fetching data. Please try again later."
 msgstr ""
@@ -337,190 +337,343 @@ msgstr ""
 msgid "Eri Chat"
 msgstr ""
 
-#: templates/eri.html:191 templates/eri_widget.html:467
+#: templates/eri.html:659 templates/eri_widget.html:750
 msgid "Eri"
 msgstr ""
 
-#: templates/eri.html:192 templates/eri_widget.html:468
+#: templates/eri.html:660 templates/eri.html:738 templates/eri_widget.html:751
+#: templates/eri_widget.html:798
 msgid "Hey, I'm Eri - HoloChatStats' virtual assistant. How can I help you today?"
 msgstr ""
 
-#: templates/eri.html:198 templates/eri_widget.html:478
+#: templates/eri.html:667 templates/eri.html:761 templates/eri_widget.html:762
+#: templates/eri_widget.html:834
 msgid "Ask Eri a question..."
 msgstr ""
 
-#: templates/eri.html:204
+#: templates/eri.html:669 templates/eri.html:1112 templates/eri_widget.html:767
+#: templates/eri_widget.html:1054
+msgid "Voice input"
+msgstr ""
+
+#: templates/eri.html:672 templates/eri.html:1249 templates/eri_widget.html:738
+#: templates/eri_widget.html:943
+msgid "Read aloud"
+msgstr ""
+
+#: templates/eri.html:678 templates/eri_widget.html:733
+msgid "Prompts remaining today"
+msgstr ""
+
+#: templates/eri.html:685
 msgid "💡 Try one of these prompts..."
 msgstr ""
 
-#: templates/eri.html:206
+#: templates/eri.html:687
 msgid "Who streamed the most in Hololive last month?"
 msgstr ""
 
-#: templates/eri.html:207
+#: templates/eri.html:688
 msgid "Which Hololive member had the highest average stream duration last month?"
 msgstr ""
 
-#: templates/eri.html:208
+#: templates/eri.html:689
 msgid "Which Hololive member had the longest stream last month?"
 msgstr ""
 
-#: templates/eri.html:209
+#: templates/eri.html:690
 msgid ""
 "Which Hololive member had the highest average Korean chat messages per "
 "minute last month?"
 msgstr ""
 
-#: templates/eri.html:210
+#: templates/eri.html:691
 msgid "Which Hololive member had the most members last month?"
 msgstr ""
 
-#: templates/eri.html:211
+#: templates/eri.html:692
 msgid ""
 "What are the top 3 Hololive members that gained the most memberships last"
 " month?"
 msgstr ""
 
-#: templates/eri.html:212
+#: templates/eri.html:693
 msgid ""
 "Which Hololive member had the greatest increase in streaming hours last "
 "month?"
 msgstr ""
 
-#: templates/eri.html:213
+#: templates/eri.html:694
 msgid "How can I support HoloChatStats?"
 msgstr ""
 
-#: templates/eri.html:214
+#: templates/eri.html:695
 msgid "Hi Eri! How are you today? Who is your oshi?"
 msgstr ""
 
-#: templates/eri.html:218
+#: templates/eri.html:699
 msgid "Recommend some VTubers for me. My channel ID is: [YOUR_CHANNEL_ID_HERE]"
 msgstr ""
 
-#: templates/eri.html:219
+#: templates/eri.html:700
 msgid "How many hours did [VTUBER_NAME] stream last month?"
 msgstr ""
 
-#: templates/eri.html:220
+#: templates/eri.html:701
 msgid ""
 "How many chat users were common to [VTUBER_NAME] and [VTUBER_NAME] last "
 "month?"
 msgstr ""
 
-#: templates/eri.html:221
+#: templates/eri.html:702
 msgid ""
 "How many membered chat users were common to [VTUBER_NAME] and "
 "[VTUBER_NAME] last month?"
 msgstr ""
 
-#: templates/eri.html:222
+#: templates/eri.html:703
 msgid "Who are the most active chatters for [VTUBER_NAME] last month?"
 msgstr ""
 
-#: templates/eri.html:223
+#: templates/eri.html:704
 msgid ""
 "What percentage of chat users chatted exclusively in [VTUBER_NAME]'s chat"
 " last month?"
 msgstr ""
 
-#: templates/eri.html:224
+#: templates/eri.html:705
 msgid "What percentage of [VTUBER_NAME]'s chat was in Japanese last month?"
 msgstr ""
 
-#: templates/eri.html:225
+#: templates/eri.html:706
 msgid ""
 "What percentage of [GRADUATED_FANBASE_NAME] still participate in Hololive"
 " chats?"
 msgstr ""
 
-#: templates/eri.html:226
+#: templates/eri.html:707
 msgid ""
 "Give me some YouTube links to funny moments from [VTUBER_NAME]'s streams "
 "last month."
 msgstr ""
 
-#: templates/eri.html:227
+#: templates/eri.html:708
 msgid ""
 "Can you tell me which channels I chatted on last month? My channel ID is:"
 " [YOUR_CHANNEL_ID_HERE]"
 msgstr ""
 
-#: templates/eri.html:228
+#: templates/eri.html:709
 msgid "Show me Hololive merch currently on sale for [VTUBER_NAME]"
 msgstr ""
 
-#: templates/eri.html:229
+#: templates/eri.html:710
 msgid "How many subscribers does [VTUBER_NAME] have?"
 msgstr ""
 
-#: templates/eri.html:230
+#: templates/eri.html:711
 msgid "What was [VTUBER_NAME]'s last stream?"
 msgstr ""
 
-#: templates/eri.html:236
+#: templates/eri.html:717
 msgid ""
 "Eri may display inaccurate information, so double-check its responses. "
 "Your conversations are logged to help make Eri better. By using Eri, you "
 "agree to this."
 msgstr ""
 
-#: templates/eri.html:239
+#: templates/eri.html:720
 msgid "Conversations in English may be more accurate than in other languages."
 msgstr ""
 
-#: templates/eri.html:257 templates/eri_widget.html:510
+#: templates/eri.html:752 templates/eri_widget.html:825
 msgid "Let's see..."
 msgstr ""
 
-#: templates/eri.html:258 templates/eri_widget.html:511
+#: templates/eri.html:753 templates/eri_widget.html:826
 msgid "Deciphering your request..."
 msgstr ""
 
-#: templates/eri.html:259 templates/eri_widget.html:512
+#: templates/eri.html:754 templates/eri_widget.html:827
 msgid "Alright, plotting a course of action."
 msgstr ""
 
-#: templates/eri.html:260 templates/eri_widget.html:513
+#: templates/eri.html:755 templates/eri_widget.html:828
 msgid "Searching the HoloChatStats archives..."
 msgstr ""
 
-#: templates/eri.html:261 templates/eri_widget.html:514
+#: templates/eri.html:756 templates/eri_widget.html:829
 msgid "Compiling the data..."
 msgstr ""
 
-#: templates/eri.html:262 templates/eri_widget.html:515
+#: templates/eri.html:757 templates/eri_widget.html:830
 msgid ""
 "Looks like you've reached the daily query limit. Please try again "
 "tomorrow."
 msgstr ""
 
-#: templates/eri.html:327 templates/eri_widget.html:707
+#: templates/eri.html:760 templates/eri_widget.html:833
+msgid "Daily prompt limit reached. Please try again tomorrow."
+msgstr ""
+
+#: templates/eri.html:915 templates/eri_widget.html:1466
 msgid "Sorry — I couldn't reach the assistant (network error)."
 msgstr ""
 
-#: templates/eri_widget.html:444 templates/eri_widget.html:568
+#: templates/eri.html:1038 templates/eri_widget.html:986
+msgid "Stop recording"
+msgstr ""
+
+#: templates/eri.html:1061 templates/eri_widget.html:1011
+msgid ""
+"Microphone access was denied. Please allow microphone access to use voice"
+" input."
+msgstr ""
+
+#: templates/eri.html:1240 templates/eri_widget.html:935
+msgid "Stop reading"
+msgstr ""
+
+#: templates/eri.html:1370 templates/eri.html:1376
+msgid "Help & Instructions"
+msgstr ""
+
+#: templates/eri.html:1384
+msgid "Eri's Capabilities"
+msgstr ""
+
+#: templates/eri.html:1388
+msgid "Stream Stats & Schedules"
+msgstr ""
+
+#: templates/eri.html:1393
+msgid ""
+"Ask Eri about streaming habits (monthly hours, averages, longest streams)"
+" or check real-time schedules to see who is live, upcoming, or recently "
+"finished streaming."
+msgstr ""
+
+#: templates/eri.html:1400
+msgid "Chat & Community"
+msgstr ""
+
+#: templates/eri.html:1405
+msgid ""
+"Analyze chat language makeup (EN/JP/KR/RU), engagement rates, and "
+"membership trends. Eri can also determine fanbase overlap by finding "
+"common users between different channels."
+msgstr ""
+
+#: templates/eri.html:1412
+msgid "Content & Highlights"
+msgstr ""
+
+#: templates/eri.html:1417
+msgid ""
+"Find AI-summarized highlights, search for specific moments (e.g., 'funny "
+"moments from Marine'), or locate the 'funniest' timestamp in a stream "
+"based on chat reactions."
+msgstr ""
+
+#: templates/eri.html:1424
+msgid "Channel & Merch"
+msgstr ""
+
+#: templates/eri.html:1429
+msgid ""
+"Get channel metrics like subscriber counts and total views. Eri can also "
+"search the official Hololive Shop for merchandise (English or Japanese)."
+msgstr ""
+
+#: templates/eri.html:1436
+msgid "Personal Statistics"
+msgstr ""
+
+#: templates/eri.html:1441
+msgid ""
+"Provide your YouTube Channel ID (starts with 'UC...') to see your own "
+"chat frequency, percentiles, and get channel recommendations based on "
+"your history."
+msgstr ""
+
+#: templates/eri.html:1448
+msgid "Page Context"
+msgstr ""
+
+#: templates/eri.html:1453
+msgid ""
+"Eri has a widget on most dataset pages and can answer questions about the"
+" specific data you are viewing. However, she cannot 'see' the visual UI "
+"or charts exactly as you do."
+msgstr ""
+
+#: templates/eri.html:1460
+msgid "Eri's Limitations"
+msgstr ""
+
+#: templates/eri.html:1464
+msgid "Data Scope"
+msgstr ""
+
+#: templates/eri.html:1469
+msgid ""
+"Eri only has data for Hololive and select Indies. She does NOT have data "
+"for other agencies (e.g., Nijisanji) or Holostars."
+msgstr ""
+
+#: templates/eri.html:1470
+msgid ""
+"Chat stats are updated monthly. Real-time data is available for schedules"
+" and merch only. No SuperChat or membership stream data."
+msgstr ""
+
+#: templates/eri.html:1477
+msgid "Accuracy & Complexity"
+msgstr ""
+
+#: templates/eri.html:1482
+msgid ""
+"Eri is an AI and may occasionally provide inaccurate information or "
+"hallucinate data."
+msgstr ""
+
+#: templates/eri.html:1483
+msgid ""
+"She is limited to 3 data requests per prompt - please break down complex "
+"questions (e.g., comparing 5 different months)."
+msgstr ""
+
+#: templates/eri.html:1490
+msgid "Daily Query Limits"
+msgstr ""
+
+#: templates/eri.html:1495
+msgid ""
+"You have a limited number of queries per day, indicated by the counter "
+"next to the chat bubble icon. This quota resets daily at midnight UTC."
+msgstr ""
+
+#: templates/eri_widget.html:710 templates/eri_widget.html:1320
 msgid "Minimize to side"
 msgstr ""
 
-#: templates/eri_widget.html:447
+#: templates/eri_widget.html:713
 msgid "💬 Got a question?"
 msgstr ""
 
-#: templates/eri_widget.html:456
+#: templates/eri_widget.html:730
 msgid "Chat with Eri"
 msgstr ""
 
-#: templates/eri_widget.html:459
+#: templates/eri_widget.html:741
 msgid "Minimize"
 msgstr ""
 
-#: templates/eri_widget.html:482
+#: templates/eri_widget.html:772
 msgid "Send"
 msgstr ""
 
-#: templates/eri_widget.html:573
+#: templates/eri_widget.html:1325
 msgid "Restore"
 msgstr ""
 
@@ -802,6 +955,12 @@ msgid "Losses"
 msgstr ""
 
 #: templates/membership_counts.html:118
+msgid ""
+"Based on chat log contents. Membership renewals/gifts are included from "
+"Nov. 2025. Membership durations are based on available badges for each "
+"channel."
+msgstr ""
+
 #: templates/membership_counts_pwa.html:397
 msgid ""
 "Only counts members that participated in chat. Membership durations are "
@@ -1001,8 +1160,9 @@ msgstr ""
 
 #: templates/recommendation_engine.html:104
 msgid ""
-"Calculated using chat data from the previous month. Only shows channels "
-"where the user has no recorded interactions."
+"Calculated using chat data from the previous 6 months. Only shows "
+"channels where the user has chatted 3 times or less. Takes ~30 seconds to"
+" generate."
 msgstr ""
 
 #: templates/recommendation_engine.html:115
@@ -1029,7 +1189,7 @@ msgstr ""
 msgid "Please enter a Channel ID or handle."
 msgstr ""
 
-#: templates/recommendation_engine.html:170
+#: templates/recommendation_engine.html:169
 msgid ""
 "No recommendations could be generated. This usually means there is not "
 "enough recent chat history for the user."
@@ -1360,5 +1520,12 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid "Highlights"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Calculated using chat data from the "
+#~ "previous month. Only shows channels "
+#~ "where the user has no recorded "
+#~ "interactions."
 #~ msgstr ""
 

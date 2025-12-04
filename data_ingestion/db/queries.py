@@ -115,6 +115,7 @@ def create_indexes_and_views():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_id ON channels (channel_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_channels_channel_name ON channels (channel_name);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_membership_summary_group_month ON membership_data_summary (channel_group, observed_month);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_data_recommendations ON user_data (last_message_at, channel_id, user_id, total_message_count) WHERE total_message_count > 0;")
 
     cursor.execute("""CREATE OR REPLACE PROCEDURE refresh_membership_data_for_month(target_month DATE)
     LANGUAGE plpgsql

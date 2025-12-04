@@ -914,26 +914,41 @@ def content_clustering():
 @api_bp.route("/api/recommend", methods=["GET"])
 def recommend_channels():
     """
-Recommends channels for a user based on their recent activity patterns.
+    Recommends channels for a user based on their recent activity patterns.
 
-Args:
-    identifier (str, required): User ID or @username handle (query param)
+    Args:
+        identifier (str, required): User ID or @username handle (query param)
+        months (int, optional): Number of months to look back, 1-6 (default: 1)
 
-Returns:
-    Success (200): JSON with "recommended_channels" list containing channel_name and score
-    Failure (400): Missing identifier parameter
-    Failure (404): User not found or no activity data available
-    Failure (500): Internal server error
-"""
+    Returns:
+        Success (200): JSON with "recommended_channels" list containing channel_name and score
+        Failure (400): Missing identifier parameter or invalid months value
+        Failure (404): User not found or no activity data available
+        Failure (500): Internal server error
+    """
+    # Channels with message count at or below this threshold can still be recommended
+    PARTICIPATION_EXCLUSION_THRESHOLD = 3
+
+    conn = None
+    cursor = None
+
     try:
         identifier = request.args.get("identifier", "")
         if not identifier:
             return jsonify({"error": "Missing required parameter: 'identifier' is required."}), 400
 
+        # Parse and validate months parameter
+        try:
+            months = int(request.args.get("months", 1))
+            if not 1 <= months <= 6:
+                return jsonify({"error": "Parameter 'months' must be between 1 and 6."}), 400
+        except ValueError:
+            return jsonify({"error": "Parameter 'months' must be a valid integer."}), 400
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        user_id = None
 
+        # Resolve user identifier to user_id
         if identifier.startswith('@'):
             cursor.execute("SELECT user_id FROM users WHERE username = %s", (identifier,))
             result = cursor.fetchone()
@@ -943,62 +958,107 @@ Returns:
         else:
             user_id = identifier
 
-        redis_key = f"channel_recommendations_{user_id}"
+        # Check final result cache (includes months in key)
+        redis_key = f"channel_recommendations:{user_id}:{months}m"
         cached_data = g.redis_conn.get(redis_key)
         if cached_data:
             inc_cache_hit_count()
             return jsonify(json.loads(cached_data))
         inc_cache_miss_count()
 
-        last_month = datetime.utcnow().date().replace(day=1) - relativedelta(days=1)
-        month_to_query = last_month.strftime("%Y-%m-01")
+        # Calculate month boundaries for lookback period
+        today = datetime.utcnow().date()
+        current_month_start = today.replace(day=1)
 
-        redis_intermediate_key = f"channel_recommendation_data_{month_to_query}"
-        cached_rows = g.redis_conn.get(redis_intermediate_key)
-        
-        if cached_rows:
-            rows = json.loads(cached_rows)
-        else:
-            cursor.execute("""
-                SELECT ud.user_id, ch.channel_name, SUM(ud.total_message_count) AS message_weight
-                FROM user_data ud
-                JOIN channels ch ON ud.channel_id = ch.channel_id
-                WHERE DATE_TRUNC('month', ud.last_message_at) = %s::DATE
-                AND ud.total_message_count > 0  -- Exclude gift-only entries
-                GROUP BY ud.user_id, ch.channel_name;
-            """, (month_to_query,))
-            rows = cursor.fetchall()
-            g.redis_conn.set(redis_intermediate_key, json.dumps(rows))
+        # Collect aggregated data from each month (with per-month caching)
+        all_data = []
 
-        if not rows:
-            return jsonify({"error": "Not enough recent data available to generate recommendations."}), 404
+        for i in range(months):
+            month_start = current_month_start - relativedelta(months=i + 1)
+            month_end = current_month_start - relativedelta(months=i)
+            month_key = month_start.strftime("%Y-%m")
 
-        data = pd.DataFrame(rows, columns=['user_id', 'channel_name', 'message_weight'])
-        user_channel_matrix = data.pivot(index='user_id', columns='channel_name', values='message_weight').fillna(0)
+            monthly_data = _get_monthly_recommendation_data(
+                cursor,
+                g.redis_conn,
+                month_start,
+                month_end,
+                month_key
+            )
+            all_data.extend(monthly_data)
+
+        if not all_data:
+            return jsonify({
+                "error": "Not enough recent data available to generate recommendations."
+            }), 404
+
+        # Build DataFrame and aggregate message weights across all months
+        df = pd.DataFrame(all_data, columns=['user_id', 'channel_name', 'message_weight'])
+        df['message_weight'] = pd.to_numeric(df['message_weight'], errors='coerce').fillna(0)
+        df = df.groupby(['user_id', 'channel_name'], as_index=False)['message_weight'].sum()
+
+        # Create user-channel pivot matrix
+        user_channel_matrix = df.pivot(
+            index='user_id',
+            columns='channel_name',
+            values='message_weight'
+        ).fillna(0)
+
+        # Verify user has activity in the lookback period
+        if user_id not in user_channel_matrix.index:
+            return jsonify({
+                "error": f"No activity found for this user in the last {months} month(s)."
+            }), 404
+
+        # Get user's activity vector
+        user_vector = user_channel_matrix.loc[user_id]
+
+        # All channels user has participated in (used for similarity calculation)
+        user_channels = list(user_vector[user_vector > 0].index)
+
+        if not user_channels:
+            return jsonify({
+                "error": f"No channel activity found for this user in the last {months} month(s)."
+            }), 404
+
+        # Channels to exclude: only those exceeding the participation threshold
+        # Channels at or below the threshold can still be recommended
+        channels_to_exclude = list(
+            user_vector[user_vector > PARTICIPATION_EXCLUSION_THRESHOLD].index
+        )
+
+        # Compute channel-channel similarity matrix using cosine similarity
         similarity_matrix = cosine_similarity(user_channel_matrix.T)
         channel_names = user_channel_matrix.columns
-        similarity_df = pd.DataFrame(similarity_matrix, index=channel_names, columns=channel_names)
+        similarity_df = pd.DataFrame(
+            similarity_matrix,
+            index=channel_names,
+            columns=channel_names
+        )
 
-        if user_id not in user_channel_matrix.index:
-            return jsonify({"error": "No activity found for this user in the last month."}), 404
-
-        user_vector = user_channel_matrix.loc[user_id]
-        user_channels = user_vector[user_vector > 0].index
+        # Calculate recommendation scores based on similarity to user's channels
         recommendation_scores = similarity_df[user_channels].sum(axis=1)
-        recommendation_scores = recommendation_scores.drop(labels=user_channels, errors='ignore')
-        top_recommendations = recommendation_scores.sort_values(ascending=False).head(5)
-        
+
+        # Exclude only channels where user has significant participation
+        recommendation_scores = recommendation_scores.drop(labels=channels_to_exclude, errors='ignore')
+
+        # Get top 10 recommendations
+        top_recommendations = recommendation_scores.sort_values(ascending=False).head(10)
+
+        # Normalize scores to 0-100 scale with logarithmic dampening
         ideal_max = len(user_channels)
         raw_normalized = (top_recommendations / ideal_max) * 100
         normalized_scores = np.log1p(raw_normalized) / np.log1p(100) * 100
 
         response = [
-            {"channel_name": channel, "score": round(score, 2)}
+            {"channel_name": channel, "score": round(float(score), 2)}
             for channel, score in normalized_scores.items()
         ]
 
         output = {"recommended_channels": response}
-        g.redis_conn.set(redis_key, json.dumps(output))
+
+        # Cache final result for 1 hour
+        g.redis_conn.setex(redis_key, 3600, json.dumps(output))
 
         return jsonify(output)
 
@@ -1006,9 +1066,57 @@ Returns:
         print(f"An error occurred in recommend_channels: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
     finally:
-        if 'conn' in locals() and conn:
+        if cursor:
             cursor.close()
+        if conn:
             conn.close()
+
+
+def _get_monthly_recommendation_data(cursor, redis_conn, month_start, month_end, month_key):
+    """
+    Fetch aggregated user-channel activity data for a specific month.
+    Uses Redis caching to avoid repeated expensive database queries.
+
+    Args:
+        cursor: Database cursor
+        redis_conn: Redis connection
+        month_start: First day of the month (inclusive)
+        month_end: First day of next month (exclusive)
+        month_key: String key for the month (YYYY-MM format)
+
+    Returns:
+        List of [user_id, channel_name, message_weight] entries
+    """
+    redis_monthly_key = f"recommendation_monthly_data:{month_key}"
+
+    # Try to retrieve from cache first
+    cached_data = redis_conn.get(redis_monthly_key)
+    if cached_data:
+        return json.loads(cached_data)
+
+    # Fetch from database using index-friendly date range query
+    cursor.execute("""
+        SELECT 
+            ud.user_id, 
+            ch.channel_name, 
+            SUM(ud.total_message_count)::bigint AS message_weight
+        FROM user_data ud
+        JOIN channels ch ON ud.channel_id = ch.channel_id
+        WHERE ud.last_message_at >= %s
+          AND ud.last_message_at < %s
+          AND ud.total_message_count > 0
+        GROUP BY ud.user_id, ch.channel_name
+    """, (month_start, month_end))
+
+    rows = cursor.fetchall()
+
+    # Convert to list format for JSON serialization
+    data = [[row[0], row[1], int(row[2])] for row in rows]
+
+    # Cache indefinitely - historical month data never changes
+    redis_conn.set(redis_monthly_key, json.dumps(data))
+
+    return data
 
 
 @api_bp.route('/api/get_monthly_streaming_hours', methods=['GET'])

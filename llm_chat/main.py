@@ -18,7 +18,7 @@ from langgraph.graph import END, StateGraph
 from config import settings
 from llm.model import call_openrouter
 from llm.planner import plan_api_calls
-from rate_limit import is_rate_limited
+from rate_limit import is_rate_limited, get_remaining_prompts
 from tools import call_hcs_api, close_api_client, get_api_tools
 from tool_store import tool_store
 
@@ -474,6 +474,30 @@ async def chat(request: Request):
                 yield f"data: {json.dumps(error_data)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+@app.get("/prompts-remaining")
+async def prompts_remaining(request: Request):
+    """Check how many prompts the user has remaining for today.
+
+    Args:
+        request: The FastAPI request object.
+
+    Returns:
+        JSON with prompts_remaining count and daily_limit.
+    """
+    client_ip = (
+        request.headers.get("CF-Connecting-IP")
+        or request.client.host
+        or "unknown"
+    )
+    user_key = hashlib.sha256(client_ip.encode()).hexdigest()[:16]
+    
+    remaining = get_remaining_prompts(user_key)
+    
+    return {
+        "prompts_remaining": remaining,
+        "daily_limit": settings.LLM_DAILY_LIMIT
+    }
 
 
 @app.on_event("shutdown")
