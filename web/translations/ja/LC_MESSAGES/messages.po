@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-12-03 20:26-0500\n"
+"POT-Creation-Date: 2025-12-06 15:35-0500\n"
 "PO-Revision-Date: 2025-10-24 14:00-0400\n"
 "Last-Translator: Gemini Assistant\n"
 "Language: ja\n"
@@ -18,16 +18,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: api.py:1153 api.py:1452 api.py:1632 api.py:1719 api.py:1856 api.py:2043
-#: api.py:2106 api.py:2186 api.py:2277
+#: api.py:1153 api.py:1460 api.py:1640 api.py:1727 api.py:1864 api.py:2051
+#: api.py:2114 api.py:2194 api.py:2285
 msgid "Missing required parameters"
 msgstr "必要なパラメータが不足しています"
 
-#: api.py:2074
+#: api.py:2082
 msgid "No data found"
 msgstr "データが見つかりません"
 
-#: api.py:2280
+#: api.py:2288
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr "無効な言語パラメーターです。EN、JP、KR、RUのいずれかである必要があります。"
 
@@ -108,7 +108,7 @@ msgstr "チャットリーダーボード"
 #: templates/chat_leaderboards.html:109 templates/exclusive_chat.html:110
 #: templates/funniest_timestamps.html:169 templates/highlights.html:161
 #: templates/jp_user_percents.html:111 templates/message_types.html:111
-#: templates/monthly_streaming_hours.html:112
+#: templates/monthly_streaming_hours.html:145
 msgid "Channel:"
 msgstr "チャンネル:"
 
@@ -141,7 +141,7 @@ msgstr "メッセージ数"
 #: templates/funniest_timestamps.html:171
 #: templates/funniest_timestamps.html:204 templates/highlights.html:212
 #: templates/jp_user_percents.html:113 templates/message_types.html:113
-#: templates/monthly_streaming_hours.html:114
+#: templates/monthly_streaming_hours.html:147
 msgid "Select Channel"
 msgstr "チャンネルを選択"
 
@@ -236,7 +236,7 @@ msgstr "CSV をダウンロード"
 #: templates/membership_change.html:132 templates/membership_counts.html:141
 #: templates/membership_counts_pwa.html:444
 #: templates/membership_percentages.html:125 templates/message_types.html:130
-#: templates/monthly_streaming_hours.html:122
+#: templates/monthly_streaming_hours.html:155
 #: templates/streaming_hours.html:149 templates/streaming_hours_avg.html:149
 #: templates/streaming_hours_diff.html:150
 #: templates/streaming_hours_max.html:149 templates/user_change.html:139
@@ -314,7 +314,7 @@ msgid "No common users found for the selected criteria."
 msgstr "選択した条件に一致する共通ユーザーが見つかりませんでした。"
 
 #: templates/content_similarity.html:8 templates/content_similarity.html:119
-#: templates/menu.html:105 templates/menu_pwa.html:93
+#: templates/menu.html:106 templates/menu_pwa.html:93
 msgid "Content Similarity Graph"
 msgstr "コンテンツ類似性グラフ"
 
@@ -558,9 +558,10 @@ msgid "Chat & Community"
 msgstr "チャットとコミュニティ"
 
 #: templates/eri.html:1405
+#, fuzzy
 msgid ""
 "Analyze chat language makeup (EN/JP/KR/RU), engagement rates, and "
-"membership trends. Eri can also visualize fanbase overlap by finding "
+"membership trends. Eri can also determine fanbase overlap by finding "
 "common users between different channels."
 msgstr "チャットの言語構成（EN/JP/KR/RU）、エンゲージメント率、メンバーシップの傾向を分析します。えりは、異なるチャンネル間の共通ユーザーを見つけることで、ファン層の重なりを視覚化することもできます。"
 
@@ -622,9 +623,10 @@ msgid ""
 msgstr "えりはホロライブと一部のインディーのデータのみを持っています。他の事務所（例：にじさんじ）やホロスターズのデータはありません。"
 
 #: templates/eri.html:1470
+#, fuzzy
 msgid ""
 "Chat stats are updated monthly. Real-time data is available for schedules"
-" and merch only. No SuperChat or private stream data."
+" and merch only. No SuperChat or membership stream data."
 msgstr "チャット統計は毎月更新されます。リアルタイムデータは、スケジュールとグッズのみ利用可能です。スーパーチャットやメンバーシップ限定配信のデータはありません。"
 
 #: templates/eri.html:1477
@@ -689,7 +691,7 @@ msgid ""
 msgstr "各月において、同じグループ（例：ホロライブ、インディー）内で、このチャンネルだけにチャットしたユーザーの割合。"
 
 #: templates/exclusive_chat.html:160 templates/jp_user_percents.html:155
-#: templates/message_types.html:171 templates/monthly_streaming_hours.html:237
+#: templates/message_types.html:171 templates/monthly_streaming_hours.html:289
 msgid "Month"
 msgstr "月"
 
@@ -698,7 +700,7 @@ msgid "Exclusive Users (%)"
 msgstr "独占ユーザー (%)"
 
 #: templates/exclusive_chat.html:194 templates/jp_user_percents.html:186
-#: templates/monthly_streaming_hours.html:288
+#: templates/monthly_streaming_hours.html:353
 msgid "Please select a channel."
 msgstr "チャンネルを選択してください。"
 
@@ -713,7 +715,9 @@ msgid ""
 "    Each link opens YouTube in a new window.<br><br>CSV Download contains"
 " timestamps in HH:MM:SS format for use with yt-dlp, ffmpeg, etc. for "
 "clipping."
-msgstr "各配信でチャット内の最も面白い反応が集中したタイムスタンプを使用して決定されます。<br><br>各リンクはYouTubeで新しいウィンドウで開きます。<br><br>CSVダウンロードには、yt-dlp、ffmpegなどでクリッピングに使用できるHH:MM:SS形式のタイムスタンプが含まれています。"
+msgstr ""
+"各配信でチャット内の最も面白い反応が集中したタイムスタンプを使用して決定されます。<br><br>各リンクはYouTubeで新しいウィンドウで開きます。<br><br>CSVダウンロードには"
+"、yt-dlp、ffmpegなどでクリッピングに使用できるHH:MM:SS形式のタイムスタンプが含まれています。"
 
 #: templates/funniest_timestamps.html:180
 msgid "Fetch Funniest Moments"
@@ -724,6 +728,7 @@ msgid "Please select a channel and a month."
 msgstr "チャンネルと月を選択してください。"
 
 #: templates/funniest_timestamps.html:225
+#: templates/monthly_streaming_hours.html:174
 msgid "No data available."
 msgstr "データがありません。"
 
@@ -760,7 +765,9 @@ msgstr "AIハイライト検索"
 msgid ""
 "Search for moments using semantic meaning. You can use operators like "
 "channel:<name>, from:<YYYY-MM-DD>, and to:<YYYY-MM-DD>."
-msgstr "意味的な意味合いで瞬間を検索します。 channel:<名前>、from:<YYYY-MM-DD>、to:<YYYY-MM-DD> のような演算子が使用できます。"
+msgstr ""
+"意味的な意味合いで瞬間を検索します。 channel:<名前>、from:<YYYY-MM-DD>、to:<YYYY-MM-DD> "
+"のような演算子が使用できます。"
 
 #: templates/highlight_search.html:159
 msgid "e.g., paper boat channel:saba from:2025-08-01"
@@ -1030,12 +1037,12 @@ msgid "Message Percentages and Rates by Language"
 msgstr "言語別のメッセージ割合とレート"
 
 #: templates/menu.html:89 templates/menu_pwa.html:70
-#: templates/monthly_streaming_hours.html:162
-#: templates/monthly_streaming_hours.html:189
-#: templates/monthly_streaming_hours.html:190
-#: templates/monthly_streaming_hours.html:210
+#: templates/monthly_streaming_hours.html:214
 #: templates/monthly_streaming_hours.html:241
-#: templates/monthly_streaming_hours.html:417
+#: templates/monthly_streaming_hours.html:242
+#: templates/monthly_streaming_hours.html:262
+#: templates/monthly_streaming_hours.html:293
+#: templates/monthly_streaming_hours.html:534
 msgid "Streaming Hours"
 msgstr "配信時間"
 
@@ -1060,7 +1067,7 @@ msgstr "配信時間の変化"
 
 #: templates/menu.html:96 templates/menu_pwa.html:79
 #: templates/monthly_streaming_hours.html:8
-#: templates/monthly_streaming_hours.html:105
+#: templates/monthly_streaming_hours.html:138
 msgid "Monthly Streaming Hours"
 msgstr "月間ストリーミング時間"
 
@@ -1068,28 +1075,32 @@ msgstr "月間ストリーミング時間"
 msgid "Content"
 msgstr "コンテンツ"
 
-#: templates/menu.html:106 templates/menu_pwa.html:94
+#: templates/menu.html:105
+msgid "Live Stream Viewer"
+msgstr ""
+
+#: templates/menu.html:107 templates/menu_pwa.html:94
 msgid "Funniest Moments"
 msgstr "最も面白い瞬間"
 
-#: templates/menu.html:107 templates/menu_pwa.html:95
+#: templates/menu.html:108 templates/menu_pwa.html:95
 msgid "AI Summarized Highlights (BETA)"
 msgstr "AI要約ハイライト（ベータ版、英語のみ）"
 
-#: templates/menu.html:108 templates/menu_pwa.html:96
+#: templates/menu.html:109 templates/menu_pwa.html:96
 msgid "Search AI Highlights (BETA)"
 msgstr "AIハイライト検索（ベータ版、英語のみ）"
 
-#: templates/menu.html:113 templates/menu_pwa.html:103
+#: templates/menu.html:114 templates/menu_pwa.html:103
 msgid "Ask Eri (NEW)"
 msgstr "えりに聞く (NEW)"
 
-#: templates/menu.html:119 templates/menu_pwa.html:109
+#: templates/menu.html:120 templates/menu_pwa.html:109
 #: templates/site_metrics.html:8
 msgid "Site Metrics"
 msgstr "サイト指標"
 
-#: templates/menu.html:122 templates/menu_pwa.html:115
+#: templates/menu.html:123 templates/menu_pwa.html:115
 msgid "Blog"
 msgstr "ブログ (英語のみ)"
 
@@ -1135,26 +1146,35 @@ msgstr "レート（メッセージ/分）"
 msgid "Please select both a channel and a language."
 msgstr "チャンネルと言語を両方選択してください。"
 
-#: templates/monthly_streaming_hours.html:107
+#: templates/monthly_streaming_hours.html:140
 msgid "Only counts public archived streams from YouTube."
 msgstr "YouTubeの公開アーカイブストリームのみをカウントします。"
 
-#: templates/monthly_streaming_hours.html:153
-#: templates/monthly_streaming_hours.html:172
-#: templates/monthly_streaming_hours.html:202
-#: templates/monthly_streaming_hours.html:227
-#: templates/monthly_streaming_hours.html:433
+#: templates/monthly_streaming_hours.html:170
+#, fuzzy
+msgid "No Data"
+msgstr "データが見つかりません"
+
+#: templates/monthly_streaming_hours.html:177
+msgid "OK"
+msgstr ""
+
+#: templates/monthly_streaming_hours.html:205
+#: templates/monthly_streaming_hours.html:224
+#: templates/monthly_streaming_hours.html:254
+#: templates/monthly_streaming_hours.html:279
+#: templates/monthly_streaming_hours.html:551
 msgid "Confidence Band"
 msgstr "信頼区間"
 
-#: templates/monthly_streaming_hours.html:159
-#: templates/monthly_streaming_hours.html:175
-#: templates/monthly_streaming_hours.html:208
-#: templates/monthly_streaming_hours.html:461
+#: templates/monthly_streaming_hours.html:211
+#: templates/monthly_streaming_hours.html:227
+#: templates/monthly_streaming_hours.html:260
+#: templates/monthly_streaming_hours.html:579
 msgid "Forecast"
 msgstr "予測"
 
-#: templates/monthly_streaming_hours.html:181
+#: templates/monthly_streaming_hours.html:233
 msgid "P25-P75 Range"
 msgstr "P25-P75 範囲"
 
@@ -1260,3 +1280,75 @@ msgstr "チャンネルIDまたはハンドル名を入力し、月を選択し�
 #: templates/user_info.html:175
 msgid "No data available for the selected user and month."
 msgstr "選択したユーザーと月のデータはありません。"
+
+#: templates/viewer.html:316
+msgid "Live Chat Viewer"
+msgstr "ライブチャットビューア"
+
+#: templates/viewer.html:317
+msgid ""
+"Enter a YouTube live stream URL to view the video with chat and "
+"statistics. VODs are not supported and the HyperChat browser extension "
+"must be disabled before using this feature."
+msgstr "YouTubeライブ配信のURLを入力して、チャットと統計情報付きで動画を視聴します。アーカイブ（VOD）はサポートされていません。この機能を使用する前に、HyperChatブラウザ拡張機能を無効にする必要があります。"
+
+#: templates/viewer.html:327
+msgid "Load"
+msgstr "読み込む"
+
+#: templates/viewer.html:334
+msgid "For live chat statistics:"
+msgstr "ライブチャットの統計情報について:"
+
+#: templates/viewer.html:335
+msgid "Install the Userscript"
+msgstr "ユーザースクリプトをインストール"
+
+#: templates/viewer.html:337
+msgid "Requires Greasemonkey (Firefox) or Tampermonkey (Chrome/Edge)"
+msgstr "Greasemonkey (Firefox) または Tampermonkey (Chrome/Edge) が必要です"
+
+#: templates/viewer.html:343
+msgid "Video loaded! Chat statistics will appear if the userscript is installed."
+msgstr "動画が読み込まれました！ユーザースクリプトがインストールされていれば、チャット統計が表示されます。"
+
+#: templates/viewer.html:361
+msgid "Messages"
+msgstr "メッセージ"
+
+#: templates/viewer.html:366
+msgid "Msgs/Min"
+msgstr "メッセージ/分"
+
+#: templates/viewer.html:371
+msgid "Users"
+msgstr "ユーザー"
+
+#: templates/viewer.html:376
+msgid "Members"
+msgstr "メンバー"
+
+#: templates/viewer.html:384
+msgid "JP Messages"
+msgstr "日本語メッセージ"
+
+#: templates/viewer.html:392
+msgid "Gifts / Purchases"
+msgstr "ギフト / 購入"
+
+#: templates/viewer.html:399
+msgid "Est. Revenue"
+msgstr "推定収益"
+
+#: templates/viewer.html:404
+msgid "Time"
+msgstr "時間"
+
+#: templates/viewer.html:686
+msgid "Please enter a YouTube URL"
+msgstr "YouTubeのURLを入力してください"
+
+#: templates/viewer.html:692
+msgid "Invalid YouTube URL"
+msgstr "無効なYouTube URLです"
+

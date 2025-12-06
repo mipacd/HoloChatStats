@@ -30,6 +30,7 @@
             width: 100% !important;
             height: 100% !important;
         }
+        
         /* === Sticky Eri Widget === */
         .eri-widget {
             position: fixed;
@@ -76,6 +77,38 @@
 
         .eri-chibi:hover {
             transform: scale(1.05);
+        }
+
+        /* Modal styling to match site theme - using !important to override Bootstrap */
+        .modal-content {
+            background-color: #2c3e50 !important;
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .modal-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .modal-title {
+            color: white !important;
+        }
+
+        .modal-body {
+            color: white !important;
+        }
+
+        .modal-header .btn-close {
+            filter: invert(1) grayscale(100%) brightness(200%);
+            opacity: 0.8;
+        }
+
+        .modal-header .btn-close:hover {
+            opacity: 1;
         }
 
         @media (max-width: 768px) {
@@ -128,6 +161,25 @@
         <canvas id="streamingChart"></canvas>
     </div>
 </div>
+
+<!-- No Data Modal -->
+<div class="modal fade" id="noDataModal" tabindex="-1" aria-labelledby="noDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="noDataModalLabel">{{ _("No Data") }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {{ _("No data available.") }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">{{ _("OK") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% include 'eri_widget.html' %}
 
 <script>
@@ -280,6 +332,19 @@
             return `${year}-${String(month).padStart(2, '0')}`;
         }
 
+        // Helper function to get current month as number
+        function getCurrentMonthNumber() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1; // JavaScript months are 0-indexed
+            return year * 12 + month;
+        }
+
+        // Helper function to get previous month as number
+        function getPreviousMonthNumber() {
+            return getCurrentMonthNumber() - 1;
+        }
+
         // Fetch data and update chart
         function fetchData() {
             let channelName = document.getElementById('channelSelect').value;
@@ -299,6 +364,9 @@
                     if (!data || data.length === 0) {
                         console.error("No data available for the selected channel.");
                         $("#chartSpinner").hide();
+                        // Show the "No data available" modal
+                        const noDataModal = new bootstrap.Modal(document.getElementById('noDataModal'));
+                        noDataModal.show();
                         return;
                     }
 
@@ -308,10 +376,43 @@
 
                     console.log('Historical data:', historicalData.length, 'months');
                     console.log('Forecast data:', forecastData.length, 'months');
-                    console.log('Forecast months:', forecastData.map(d => d.month));
+
+                    // Determine if we should show forecast
+                    let shouldShowForecast = false;
+                    
+                    if (historicalData.length > 0 && forecastData.length > 0) {
+                        // Sort historical data by month to find the last one
+                        const sortedHistorical = [...historicalData].sort((a, b) => 
+                            monthToNumber(a.month) - monthToNumber(b.month)
+                        );
+                        
+                        // Get the last historical month
+                        const lastHistoricalMonth = sortedHistorical[sortedHistorical.length - 1];
+                        const lastHistoricalMonthNum = monthToNumber(lastHistoricalMonth.month);
+                        
+                        // Get the previous month (relative to current date)
+                        const previousMonthNum = getPreviousMonthNumber();
+                        
+                        console.log('Last historical month:', lastHistoricalMonth.month, 'Hours:', lastHistoricalMonth.total_streaming_hours);
+                        console.log('Previous month (relative to now):', numberToMonth(previousMonthNum));
+                        console.log('Current month:', numberToMonth(getCurrentMonthNumber()));
+                        
+                        // Show forecast ONLY if:
+                        // 1. Last historical month is the previous month (no gap), AND
+                        // 2. Last historical month has non-zero hours
+                        if (lastHistoricalMonthNum === previousMonthNum && 
+                            lastHistoricalMonth.total_streaming_hours > 0) {
+                            shouldShowForecast = true;
+                            console.log('Conditions met: showing forecast');
+                        } else {
+                            console.log('Conditions NOT met: hiding forecast');
+                            console.log('  - Is last historical month the previous month?', lastHistoricalMonthNum === previousMonthNum);
+                            console.log('  - Does last month have hours?', lastHistoricalMonth.total_streaming_hours > 0);
+                        }
+                    }
 
                     // Helper function to fill in missing months
-                    function fillMissingMonths(historicalData, forecastData) {
+                    function fillMissingMonths(historicalData, forecastData, shouldShowForecast) {
                         if (historicalData.length === 0) {
                             return { 
                                 labels: [], 
@@ -334,17 +435,25 @@
                             }])
                         );
                         
-                        // Get all months from both datasets
-                        const allMonths = [
-                            ...historicalData.map(d => d.month),
-                            ...forecastData.map(d => d.month)
-                        ];
+                        // Determine which months to include
+                        let allMonths;
+                        if (shouldShowForecast) {
+                            // Include both historical and forecast months
+                            allMonths = [
+                                ...historicalData.map(d => d.month),
+                                ...forecastData.map(d => d.month)
+                            ];
+                        } else {
+                            // Only include historical months, no forecast
+                            allMonths = historicalData.map(d => d.month);
+                        }
                         
                         // Convert to numbers for reliable comparison
                         const monthNumbers = allMonths.map(monthToNumber);
                         const minMonthNum = Math.min(...monthNumbers);
                         const maxMonthNum = Math.max(...monthNumbers);
                         
+                        console.log('Should show forecast:', shouldShowForecast);
                         console.log('Month range:', numberToMonth(minMonthNum), 'to', numberToMonth(maxMonthNum));
                         
                         const labels = [];
@@ -359,10 +468,16 @@
                         // Iterate through all months using simple number comparison
                         for (let monthNum = minMonthNum; monthNum <= maxMonthNum; monthNum++) {
                             const monthStr = numberToMonth(monthNum);
-                            labels.push(monthStr);
                             
                             const historicalValue = historicalMap.get(monthStr);
                             const forecastEntry = forecastMap.get(monthStr);
+                            
+                            // Skip forecast months if we shouldn't show forecast
+                            if (!shouldShowForecast && forecastEntry && historicalValue === undefined) {
+                                continue;
+                            }
+                            
+                            labels.push(monthStr);
                             
                             if (historicalValue !== undefined) {
                                 // Historical data point
@@ -372,8 +487,8 @@
                                 confidenceHigh.push(null);
                                 lastHistoricalValue = historicalValue;
                                 lastHistoricalIndex = labels.length - 1;
-                            } else if (forecastEntry) {
-                                // Forecast data point
+                            } else if (forecastEntry && shouldShowForecast) {
+                                // Forecast data point (only if shouldShowForecast is true)
                                 historicalValues.push(null);
                                 forecastValues.push(forecastEntry.value);
                                 confidenceLow.push(forecastEntry.low);
@@ -389,14 +504,16 @@
                             }
                         }
                         
-                        // Connect the last historical point to forecast line
-                        if (lastHistoricalIndex >= 0 && forecastData.length > 0 && lastHistoricalValue !== null) {
+                        // Connect the last historical point to forecast line (only if showing forecast and last value is not 0)
+                        if (shouldShowForecast && lastHistoricalIndex >= 0 && forecastData.length > 0 && 
+                            lastHistoricalValue !== null && lastHistoricalValue > 0) {
                             forecastValues[lastHistoricalIndex] = lastHistoricalValue;
                             confidenceLow[lastHistoricalIndex] = lastHistoricalValue;
                             confidenceHigh[lastHistoricalIndex] = lastHistoricalValue;
                         }
                         
                         console.log('Processed labels:', labels);
+                        console.log('Historical values:', historicalValues);
                         console.log('Forecast values:', forecastValues);
                         
                         return { 
@@ -409,7 +526,7 @@
                     }
 
                     // Process the data
-                    const processed = fillMissingMonths(historicalData, forecastData);
+                    const processed = fillMissingMonths(historicalData, forecastData, shouldShowForecast);
 
                     // Build datasets array
                     const datasets = [
@@ -426,8 +543,9 @@
                         }
                     ];
 
-                    // Add forecast datasets if there's forecast data
-                    if (forecastData.length > 0) {
+                    // Add forecast datasets only if shouldShowForecast is true and there's forecast data
+                    if (shouldShowForecast && forecastData.length > 0 && 
+                        processed.forecastValues.some(v => v !== null)) {
                         // Confidence band lower bound
                         datasets.push({
                             label: '{{ _("Confidence Band") }}',

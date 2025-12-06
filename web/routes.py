@@ -170,6 +170,10 @@ def heatmap_view():
 def eri_chat():
     return render_template("eri.html", _=_, get_locale=get_locale)
 
+@routes_bp.route('/viewer')
+def viewer_view():
+    return render_template('viewer.html', _=_, get_locale=get_locale)
+
 
 # v1 redirects
 @routes_bp.route('/stream-time')

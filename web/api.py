@@ -1169,15 +1169,19 @@ def get_monthly_streaming_hours():
     cursor.execute(historical_query, (channel_name,))
     historical_results = cursor.fetchall()
     
-    # Format historical data
-    output_data = [
-        {
-            "month": row[0].strftime('%Y-%m'), 
-            "total_streaming_hours": float(row[1]),
+    # Format historical data, skipping any rows where total_streaming_hours is null
+    output_data = []
+    for row in historical_results:
+        month, total_hours = row
+        # Skip this month if total_streaming_hours is null
+        if total_hours is None:
+            continue
+        
+        output_data.append({
+            "month": month.strftime('%Y-%m'),
+            "total_streaming_hours": float(total_hours),
             "is_forecast": False
-        } 
-        for row in historical_results
-    ]
+        })
     
     # Add forecast data if requested
     if include_forecast and historical_results:
@@ -1204,12 +1208,16 @@ def get_monthly_streaming_hours():
         for row in forecast_results:
             forecast_month, predicted_hours, p25, p75 = row
             
+            # Skip if predicted_hours is null
+            if predicted_hours is None:
+                continue
+            
             output_data.append({
                 "month": forecast_month.strftime('%Y-%m'),
                 "total_streaming_hours": float(predicted_hours),
                 "is_forecast": True,
-                "confidence_low": float(p25) if p25 else float(predicted_hours) * 0.8,
-                "confidence_high": float(p75) if p75 else float(predicted_hours) * 1.2
+                "confidence_low": float(p25) if p25 is not None else float(predicted_hours) * 0.8,
+                "confidence_high": float(p75) if p75 is not None else float(predicted_hours) * 1.2
             })
     
     cursor.close()

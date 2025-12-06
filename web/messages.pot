@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-12-03 20:26-0500\n"
+"POT-Creation-Date: 2025-12-06 15:35-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,16 +17,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: api.py:1153 api.py:1452 api.py:1632 api.py:1719 api.py:1856 api.py:2043
-#: api.py:2106 api.py:2186 api.py:2277
+#: api.py:1153 api.py:1460 api.py:1640 api.py:1727 api.py:1864 api.py:2051
+#: api.py:2114 api.py:2194 api.py:2285
 msgid "Missing required parameters"
 msgstr ""
 
-#: api.py:2074
+#: api.py:2082
 msgid "No data found"
 msgstr ""
 
-#: api.py:2280
+#: api.py:2288
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr ""
 
@@ -107,7 +107,7 @@ msgstr ""
 #: templates/chat_leaderboards.html:109 templates/exclusive_chat.html:110
 #: templates/funniest_timestamps.html:169 templates/highlights.html:161
 #: templates/jp_user_percents.html:111 templates/message_types.html:111
-#: templates/monthly_streaming_hours.html:112
+#: templates/monthly_streaming_hours.html:145
 msgid "Channel:"
 msgstr ""
 
@@ -140,7 +140,7 @@ msgstr ""
 #: templates/funniest_timestamps.html:171
 #: templates/funniest_timestamps.html:204 templates/highlights.html:212
 #: templates/jp_user_percents.html:113 templates/message_types.html:113
-#: templates/monthly_streaming_hours.html:114
+#: templates/monthly_streaming_hours.html:147
 msgid "Select Channel"
 msgstr ""
 
@@ -235,7 +235,7 @@ msgstr ""
 #: templates/membership_change.html:132 templates/membership_counts.html:141
 #: templates/membership_counts_pwa.html:444
 #: templates/membership_percentages.html:125 templates/message_types.html:130
-#: templates/monthly_streaming_hours.html:122
+#: templates/monthly_streaming_hours.html:155
 #: templates/streaming_hours.html:149 templates/streaming_hours_avg.html:149
 #: templates/streaming_hours_diff.html:150
 #: templates/streaming_hours_max.html:149 templates/user_change.html:139
@@ -313,7 +313,7 @@ msgid "No common users found for the selected criteria."
 msgstr ""
 
 #: templates/content_similarity.html:8 templates/content_similarity.html:119
-#: templates/menu.html:105 templates/menu_pwa.html:93
+#: templates/menu.html:106 templates/menu_pwa.html:93
 msgid "Content Similarity Graph"
 msgstr ""
 
@@ -688,7 +688,7 @@ msgid ""
 msgstr ""
 
 #: templates/exclusive_chat.html:160 templates/jp_user_percents.html:155
-#: templates/message_types.html:171 templates/monthly_streaming_hours.html:237
+#: templates/message_types.html:171 templates/monthly_streaming_hours.html:289
 msgid "Month"
 msgstr ""
 
@@ -697,7 +697,7 @@ msgid "Exclusive Users (%)"
 msgstr ""
 
 #: templates/exclusive_chat.html:194 templates/jp_user_percents.html:186
-#: templates/monthly_streaming_hours.html:288
+#: templates/monthly_streaming_hours.html:353
 msgid "Please select a channel."
 msgstr ""
 
@@ -723,6 +723,7 @@ msgid "Please select a channel and a month."
 msgstr ""
 
 #: templates/funniest_timestamps.html:225
+#: templates/monthly_streaming_hours.html:174
 msgid "No data available."
 msgstr ""
 
@@ -1029,12 +1030,12 @@ msgid "Message Percentages and Rates by Language"
 msgstr ""
 
 #: templates/menu.html:89 templates/menu_pwa.html:70
-#: templates/monthly_streaming_hours.html:162
-#: templates/monthly_streaming_hours.html:189
-#: templates/monthly_streaming_hours.html:190
-#: templates/monthly_streaming_hours.html:210
+#: templates/monthly_streaming_hours.html:214
 #: templates/monthly_streaming_hours.html:241
-#: templates/monthly_streaming_hours.html:417
+#: templates/monthly_streaming_hours.html:242
+#: templates/monthly_streaming_hours.html:262
+#: templates/monthly_streaming_hours.html:293
+#: templates/monthly_streaming_hours.html:534
 msgid "Streaming Hours"
 msgstr ""
 
@@ -1059,7 +1060,7 @@ msgstr ""
 
 #: templates/menu.html:96 templates/menu_pwa.html:79
 #: templates/monthly_streaming_hours.html:8
-#: templates/monthly_streaming_hours.html:105
+#: templates/monthly_streaming_hours.html:138
 msgid "Monthly Streaming Hours"
 msgstr ""
 
@@ -1067,28 +1068,32 @@ msgstr ""
 msgid "Content"
 msgstr ""
 
-#: templates/menu.html:106 templates/menu_pwa.html:94
+#: templates/menu.html:105
+msgid "Live Stream Viewer"
+msgstr ""
+
+#: templates/menu.html:107 templates/menu_pwa.html:94
 msgid "Funniest Moments"
 msgstr ""
 
-#: templates/menu.html:107 templates/menu_pwa.html:95
+#: templates/menu.html:108 templates/menu_pwa.html:95
 msgid "AI Summarized Highlights (BETA)"
 msgstr ""
 
-#: templates/menu.html:108 templates/menu_pwa.html:96
+#: templates/menu.html:109 templates/menu_pwa.html:96
 msgid "Search AI Highlights (BETA)"
 msgstr ""
 
-#: templates/menu.html:113 templates/menu_pwa.html:103
+#: templates/menu.html:114 templates/menu_pwa.html:103
 msgid "Ask Eri (NEW)"
 msgstr ""
 
-#: templates/menu.html:119 templates/menu_pwa.html:109
+#: templates/menu.html:120 templates/menu_pwa.html:109
 #: templates/site_metrics.html:8
 msgid "Site Metrics"
 msgstr ""
 
-#: templates/menu.html:122 templates/menu_pwa.html:115
+#: templates/menu.html:123 templates/menu_pwa.html:115
 msgid "Blog"
 msgstr ""
 
@@ -1134,26 +1139,34 @@ msgstr ""
 msgid "Please select both a channel and a language."
 msgstr ""
 
-#: templates/monthly_streaming_hours.html:107
+#: templates/monthly_streaming_hours.html:140
 msgid "Only counts public archived streams from YouTube."
 msgstr ""
 
-#: templates/monthly_streaming_hours.html:153
-#: templates/monthly_streaming_hours.html:172
-#: templates/monthly_streaming_hours.html:202
-#: templates/monthly_streaming_hours.html:227
-#: templates/monthly_streaming_hours.html:433
+#: templates/monthly_streaming_hours.html:170
+msgid "No Data"
+msgstr ""
+
+#: templates/monthly_streaming_hours.html:177
+msgid "OK"
+msgstr ""
+
+#: templates/monthly_streaming_hours.html:205
+#: templates/monthly_streaming_hours.html:224
+#: templates/monthly_streaming_hours.html:254
+#: templates/monthly_streaming_hours.html:279
+#: templates/monthly_streaming_hours.html:551
 msgid "Confidence Band"
 msgstr ""
 
-#: templates/monthly_streaming_hours.html:159
-#: templates/monthly_streaming_hours.html:175
-#: templates/monthly_streaming_hours.html:208
-#: templates/monthly_streaming_hours.html:461
+#: templates/monthly_streaming_hours.html:211
+#: templates/monthly_streaming_hours.html:227
+#: templates/monthly_streaming_hours.html:260
+#: templates/monthly_streaming_hours.html:579
 msgid "Forecast"
 msgstr ""
 
-#: templates/monthly_streaming_hours.html:181
+#: templates/monthly_streaming_hours.html:233
 msgid "P25-P75 Range"
 msgstr ""
 
@@ -1258,5 +1271,76 @@ msgstr ""
 
 #: templates/user_info.html:175
 msgid "No data available for the selected user and month."
+msgstr ""
+
+#: templates/viewer.html:316
+msgid "Live Chat Viewer"
+msgstr ""
+
+#: templates/viewer.html:317
+msgid ""
+"Enter a YouTube live stream URL to view the video with chat and "
+"statistics. VODs are not supported and the HyperChat browser extension "
+"must be disabled before using this feature."
+msgstr ""
+
+#: templates/viewer.html:327
+msgid "Load"
+msgstr ""
+
+#: templates/viewer.html:334
+msgid "For live chat statistics:"
+msgstr ""
+
+#: templates/viewer.html:335
+msgid "Install the Userscript"
+msgstr ""
+
+#: templates/viewer.html:337
+msgid "Requires Greasemonkey (Firefox) or Tampermonkey (Chrome/Edge)"
+msgstr ""
+
+#: templates/viewer.html:343
+msgid "Video loaded! Chat statistics will appear if the userscript is installed."
+msgstr ""
+
+#: templates/viewer.html:361
+msgid "Messages"
+msgstr ""
+
+#: templates/viewer.html:366
+msgid "Msgs/Min"
+msgstr ""
+
+#: templates/viewer.html:371
+msgid "Users"
+msgstr ""
+
+#: templates/viewer.html:376
+msgid "Members"
+msgstr ""
+
+#: templates/viewer.html:384
+msgid "JP Messages"
+msgstr ""
+
+#: templates/viewer.html:392
+msgid "Gifts / Purchases"
+msgstr ""
+
+#: templates/viewer.html:399
+msgid "Est. Revenue"
+msgstr ""
+
+#: templates/viewer.html:404
+msgid "Time"
+msgstr ""
+
+#: templates/viewer.html:686
+msgid "Please enter a YouTube URL"
+msgstr ""
+
+#: templates/viewer.html:692
+msgid "Invalid YouTube URL"
 msgstr ""
 

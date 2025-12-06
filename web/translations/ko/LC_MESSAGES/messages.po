@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-12-03 20:26-0500\n"
+"POT-Creation-Date: 2025-12-06 15:35-0500\n"
 "PO-Revision-Date: 2025-10-24 14:05-0400\n"
 "Last-Translator: Gemini Assistant\n"
 "Language: ko\n"
@@ -18,16 +18,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: api.py:1153 api.py:1452 api.py:1632 api.py:1719 api.py:1856 api.py:2043
-#: api.py:2106 api.py:2186 api.py:2277
+#: api.py:1153 api.py:1460 api.py:1640 api.py:1727 api.py:1864 api.py:2051
+#: api.py:2114 api.py:2194 api.py:2285
 msgid "Missing required parameters"
 msgstr "필수 매개변수가 누락되었습니다"
 
-#: api.py:2074
+#: api.py:2082
 msgid "No data found"
 msgstr "데이터를 찾을 수 없습니다"
 
-#: api.py:2280
+#: api.py:2288
 msgid "Invalid language parameter. Must be one of: EN, JP, KR, RU."
 msgstr "잘못된 언어 매개변수입니다. EN, JP, KR, RU 중 하나여야 합니다."
 
@@ -110,7 +110,7 @@ msgstr "채팅 리더보드"
 #: templates/chat_leaderboards.html:109 templates/exclusive_chat.html:110
 #: templates/funniest_timestamps.html:169 templates/highlights.html:161
 #: templates/jp_user_percents.html:111 templates/message_types.html:111
-#: templates/monthly_streaming_hours.html:112
+#: templates/monthly_streaming_hours.html:145
 msgid "Channel:"
 msgstr "채널:"
 
@@ -143,7 +143,7 @@ msgstr "메시지 수"
 #: templates/funniest_timestamps.html:171
 #: templates/funniest_timestamps.html:204 templates/highlights.html:212
 #: templates/jp_user_percents.html:113 templates/message_types.html:113
-#: templates/monthly_streaming_hours.html:114
+#: templates/monthly_streaming_hours.html:147
 msgid "Select Channel"
 msgstr "채널 선택"
 
@@ -238,7 +238,7 @@ msgstr "CSV 다운로드"
 #: templates/membership_change.html:132 templates/membership_counts.html:141
 #: templates/membership_counts_pwa.html:444
 #: templates/membership_percentages.html:125 templates/message_types.html:130
-#: templates/monthly_streaming_hours.html:122
+#: templates/monthly_streaming_hours.html:155
 #: templates/streaming_hours.html:149 templates/streaming_hours_avg.html:149
 #: templates/streaming_hours_diff.html:150
 #: templates/streaming_hours_max.html:149 templates/user_change.html:139
@@ -316,7 +316,7 @@ msgid "No common users found for the selected criteria."
 msgstr "선택한 기준에 대한 공통 사용자를 찾을 수 없습니다."
 
 #: templates/content_similarity.html:8 templates/content_similarity.html:119
-#: templates/menu.html:105 templates/menu_pwa.html:93
+#: templates/menu.html:106 templates/menu_pwa.html:93
 msgid "Content Similarity Graph"
 msgstr "콘텐츠 유사성 그래프"
 
@@ -556,7 +556,8 @@ msgid ""
 " or check real-time schedules to see who is live, upcoming, or recently "
 "finished streaming."
 msgstr ""
-"에리에게 방송 습관(월간 시간, 평균, 최장 방송 등)에 대해 묻거나 현재 방송 중, 예정된 방송, 최근 종료된 방송의 실시간 일정을 확인하세요."
+"에리에게 방송 습관(월간 시간, 평균, 최장 방송 등)에 대해 묻거나 현재 방송 중, 예정된 방송, 최근 종료된 방송의 실시간 "
+"일정을 확인하세요."
 
 #: templates/eri.html:1400
 msgid "Chat & Community"
@@ -568,7 +569,8 @@ msgid ""
 "membership trends. Eri can also determine fanbase overlap by finding "
 "common users between different channels."
 msgstr ""
-"채팅 언어 구성(EN/JP/KR/RU), 참여율, 멤버십 추세를 분석합니다. 에리는 또한 채널 간 공통 사용자를 찾아 팬층의 중복을 시각화할 수 있습니다."
+"채팅 언어 구성(EN/JP/KR/RU), 참여율, 멤버십 추세를 분석합니다. 에리는 또한 채널 간 공통 사용자를 찾아 팬층의 중복을"
+" 시각화할 수 있습니다."
 
 #: templates/eri.html:1412
 msgid "Content & Highlights"
@@ -580,7 +582,8 @@ msgid ""
 "moments from Marine'), or locate the 'funniest' timestamp in a stream "
 "based on chat reactions."
 msgstr ""
-"AI 요약 하이라이트를 찾거나, 특정 순간(예: '마린의 재미있는 순간')을 검색하거나, 채팅 반응을 기반으로 방송에서 '가장 재미있는' 타임스탬프를 찾습니다."
+"AI 요약 하이라이트를 찾거나, 특정 순간(예: '마린의 재미있는 순간')을 검색하거나, 채팅 반응을 기반으로 방송에서 '가장 "
+"재미있는' 타임스탬프를 찾습니다."
 
 #: templates/eri.html:1424
 msgid "Channel & Merch"
@@ -591,7 +594,8 @@ msgid ""
 "Get channel metrics like subscriber counts and total views. Eri can also "
 "search the official Hololive Shop for merchandise (English or Japanese)."
 msgstr ""
-"구독자 수 및 총 조회수와 같은 채널 지표를 확인하세요. 에리는 공식 홀로라이브 샵에서 굿즈(영어 또는 일본어)를 검색할 수도 있습니다."
+"구독자 수 및 총 조회수와 같은 채널 지표를 확인하세요. 에리는 공식 홀로라이브 샵에서 굿즈(영어 또는 일본어)를 검색할 수도 "
+"있습니다."
 
 #: templates/eri.html:1436
 msgid "Personal Statistics"
@@ -603,7 +607,8 @@ msgid ""
 "chat frequency, percentiles, and get channel recommendations based on "
 "your history."
 msgstr ""
-"YouTube 채널 ID('UC...'로 시작)를 제공하면 자신의 채팅 빈도, 백분위수를 확인하고 기록을 기반으로 채널 추천을 받을 수 있습니다."
+"YouTube 채널 ID('UC...'로 시작)를 제공하면 자신의 채팅 빈도, 백분위수를 확인하고 기록을 기반으로 채널 추천을 받을"
+" 수 있습니다."
 
 #: templates/eri.html:1448
 msgid "Page Context"
@@ -615,7 +620,8 @@ msgid ""
 " specific data you are viewing. However, she cannot 'see' the visual UI "
 "or charts exactly as you do."
 msgstr ""
-"에리는 대부분의 데이터셋 페이지에 위젯이 있으며 보고 있는 특정 데이터에 대한 질문에 답할 수 있습니다. 하지만 시각적 UI나 차트를 사용자와 똑같이 '볼' 수는 없습니다."
+"에리는 대부분의 데이터셋 페이지에 위젯이 있으며 보고 있는 특정 데이터에 대한 질문에 답할 수 있습니다. 하지만 시각적 UI나 "
+"차트를 사용자와 똑같이 '볼' 수는 없습니다."
 
 #: templates/eri.html:1460
 msgid "Eri's Limitations"
@@ -630,14 +636,16 @@ msgid ""
 "Eri only has data for Hololive and select Indies. She does NOT have data "
 "for other agencies (e.g., Nijisanji) or Holostars."
 msgstr ""
-"에리는 **홀로라이브** 및 일부 **인디**에 대한 데이터만 가지고 있습니다. 다른 소속사(예: 니지산지)나 홀로스타즈에 대한 데이터는 없습니다."
+"에리는 **홀로라이브** 및 일부 **인디**에 대한 데이터만 가지고 있습니다. 다른 소속사(예: 니지산지)나 홀로스타즈에 대한 "
+"데이터는 없습니다."
 
 #: templates/eri.html:1470
 msgid ""
 "Chat stats are updated monthly. Real-time data is available for schedules"
 " and merch only. No SuperChat or membership stream data."
 msgstr ""
-"채팅 통계는 매월 업데이트됩니다. 실시간 데이터는 일정 및 굿즈에 대해서만 사용할 수 있습니다. 슈퍼챗이나 멤버십 전용 방송 데이터는 없습니다."
+"채팅 통계는 매월 업데이트됩니다. 실시간 데이터는 일정 및 굿즈에 대해서만 사용할 수 있습니다. 슈퍼챗이나 멤버십 전용 방송 "
+"데이터는 없습니다."
 
 #: templates/eri.html:1477
 msgid "Accuracy & Complexity"
@@ -653,8 +661,7 @@ msgstr "에리는 AI이며 가끔 부정확한 정보를 제공하거나 데이�
 msgid ""
 "She is limited to 3 data requests per prompt - please break down complex "
 "questions (e.g., comparing 5 different months)."
-msgstr ""
-"프롬프트당 3개의 데이터 요청으로 제한됩니다. 복잡한 질문(예: 5개의 다른 달 비교)은 더 작은 질문으로 나누어 주세요."
+msgstr "프롬프트당 3개의 데이터 요청으로 제한됩니다. 복잡한 질문(예: 5개의 다른 달 비교)은 더 작은 질문으로 나누어 주세요."
 
 #: templates/eri.html:1490
 msgid "Daily Query Limits"
@@ -665,7 +672,8 @@ msgid ""
 "You have a limited number of queries per day, indicated by the counter "
 "next to the chat bubble icon. This quota resets daily at midnight UTC."
 msgstr ""
-"하루에 사용할 수 있는 쿼리 수는 제한되어 있으며, 말풍선 아이콘 옆의 카운터로 표시됩니다. 이 할당량은 매일 자정(UTC)에 초기화됩니다."
+"하루에 사용할 수 있는 쿼리 수는 제한되어 있으며, 말풍선 아이콘 옆의 카운터로 표시됩니다. 이 할당량은 매일 자정(UTC)에 "
+"초기화됩니다."
 
 #: templates/eri_widget.html:710 templates/eri_widget.html:1320
 msgid "Minimize to side"
@@ -703,7 +711,7 @@ msgid ""
 msgstr "매월 동일 그룹(예: 홀로라이브, 인디) 내에서 이 채널에만 독점적으로 채팅하는 사용자 비율."
 
 #: templates/exclusive_chat.html:160 templates/jp_user_percents.html:155
-#: templates/message_types.html:171 templates/monthly_streaming_hours.html:237
+#: templates/message_types.html:171 templates/monthly_streaming_hours.html:289
 msgid "Month"
 msgstr "월"
 
@@ -712,7 +720,7 @@ msgid "Exclusive Users (%)"
 msgstr "독점 사용자 (%)"
 
 #: templates/exclusive_chat.html:194 templates/jp_user_percents.html:186
-#: templates/monthly_streaming_hours.html:288
+#: templates/monthly_streaming_hours.html:353
 msgid "Please select a channel."
 msgstr "채널을 선택해 주세요."
 
@@ -741,6 +749,7 @@ msgid "Please select a channel and a month."
 msgstr "채널과 월을 선택해 주세요."
 
 #: templates/funniest_timestamps.html:225
+#: templates/monthly_streaming_hours.html:174
 msgid "No data available."
 msgstr "데이터가 없습니다."
 
@@ -978,7 +987,9 @@ msgid ""
 "Based on chat log contents. Membership renewals/gifts are included from "
 "Nov. 2025. Membership durations are based on available badges for each "
 "channel."
-msgstr "채팅 로그 내용을 기반으로 합니다. 2025년 11월부터 멤버십 갱신/선물이 포함됩니다. 멤버십 기간은 각 채널에서 사용 가능한 배지를 기준으로 합니다."
+msgstr ""
+"채팅 로그 내용을 기반으로 합니다. 2025년 11월부터 멤버십 갱신/선물이 포함됩니다. 멤버십 기간은 각 채널에서 사용 가능한 "
+"배지를 기준으로 합니다."
 
 #: templates/membership_counts_pwa.html:397
 msgid ""
@@ -1049,12 +1060,12 @@ msgid "Message Percentages and Rates by Language"
 msgstr "언어별 메시지 비율 및 속도"
 
 #: templates/menu.html:89 templates/menu_pwa.html:70
-#: templates/monthly_streaming_hours.html:162
-#: templates/monthly_streaming_hours.html:189
-#: templates/monthly_streaming_hours.html:190
-#: templates/monthly_streaming_hours.html:210
+#: templates/monthly_streaming_hours.html:214
 #: templates/monthly_streaming_hours.html:241
-#: templates/monthly_streaming_hours.html:417
+#: templates/monthly_streaming_hours.html:242
+#: templates/monthly_streaming_hours.html:262
+#: templates/monthly_streaming_hours.html:293
+#: templates/monthly_streaming_hours.html:534
 msgid "Streaming Hours"
 msgstr "스트리밍 시간"
 
@@ -1079,7 +1090,7 @@ msgstr "스트리밍 시간 변화"
 
 #: templates/menu.html:96 templates/menu_pwa.html:79
 #: templates/monthly_streaming_hours.html:8
-#: templates/monthly_streaming_hours.html:105
+#: templates/monthly_streaming_hours.html:138
 msgid "Monthly Streaming Hours"
 msgstr "월간 스트리밍 시간"
 
@@ -1087,28 +1098,32 @@ msgstr "월간 스트리밍 시간"
 msgid "Content"
 msgstr "콘텐츠"
 
-#: templates/menu.html:106 templates/menu_pwa.html:94
+#: templates/menu.html:105
+msgid "Live Stream Viewer"
+msgstr ""
+
+#: templates/menu.html:107 templates/menu_pwa.html:94
 msgid "Funniest Moments"
 msgstr "가장 재미있는 순간"
 
-#: templates/menu.html:107 templates/menu_pwa.html:95
+#: templates/menu.html:108 templates/menu_pwa.html:95
 msgid "AI Summarized Highlights (BETA)"
 msgstr "AI 요약 하이라이트 (베타, 영어 전용)"
 
-#: templates/menu.html:108 templates/menu_pwa.html:96
+#: templates/menu.html:109 templates/menu_pwa.html:96
 msgid "Search AI Highlights (BETA)"
 msgstr "AI 하이라이트 검색 (베타, 영어 전용)"
 
-#: templates/menu.html:113 templates/menu_pwa.html:103
+#: templates/menu.html:114 templates/menu_pwa.html:103
 msgid "Ask Eri (NEW)"
 msgstr "에리에게 물어보기 (NEW)"
 
-#: templates/menu.html:119 templates/menu_pwa.html:109
+#: templates/menu.html:120 templates/menu_pwa.html:109
 #: templates/site_metrics.html:8
 msgid "Site Metrics"
 msgstr "사이트 지표"
 
-#: templates/menu.html:122 templates/menu_pwa.html:115
+#: templates/menu.html:123 templates/menu_pwa.html:115
 msgid "Blog"
 msgstr "블로그 (영어 전용)"
 
@@ -1154,26 +1169,35 @@ msgstr "비율 (메시지/분)"
 msgid "Please select both a channel and a language."
 msgstr "채널과 언어를 모두 선택해주세요."
 
-#: templates/monthly_streaming_hours.html:107
+#: templates/monthly_streaming_hours.html:140
 msgid "Only counts public archived streams from YouTube."
 msgstr "YouTube의 공개 아카이브 스트림만 계산됩니다."
 
-#: templates/monthly_streaming_hours.html:153
-#: templates/monthly_streaming_hours.html:172
-#: templates/monthly_streaming_hours.html:202
-#: templates/monthly_streaming_hours.html:227
-#: templates/monthly_streaming_hours.html:433
+#: templates/monthly_streaming_hours.html:170
+#, fuzzy
+msgid "No Data"
+msgstr "데이터를 찾을 수 없습니다"
+
+#: templates/monthly_streaming_hours.html:177
+msgid "OK"
+msgstr ""
+
+#: templates/monthly_streaming_hours.html:205
+#: templates/monthly_streaming_hours.html:224
+#: templates/monthly_streaming_hours.html:254
+#: templates/monthly_streaming_hours.html:279
+#: templates/monthly_streaming_hours.html:551
 msgid "Confidence Band"
 msgstr "신뢰 구간"
 
-#: templates/monthly_streaming_hours.html:159
-#: templates/monthly_streaming_hours.html:175
-#: templates/monthly_streaming_hours.html:208
-#: templates/monthly_streaming_hours.html:461
+#: templates/monthly_streaming_hours.html:211
+#: templates/monthly_streaming_hours.html:227
+#: templates/monthly_streaming_hours.html:260
+#: templates/monthly_streaming_hours.html:579
 msgid "Forecast"
 msgstr "예측"
 
-#: templates/monthly_streaming_hours.html:181
+#: templates/monthly_streaming_hours.html:233
 msgid "P25-P75 Range"
 msgstr "P25-P75 범위"
 
@@ -1282,6 +1306,77 @@ msgstr "채널 ID 또는 핸들을 입력하고 월을 선택해 주세요."
 msgid "No data available for the selected user and month."
 msgstr "선택한 사용자 및 월에 대한 데이터가 없습니다."
 
+#: templates/viewer.html:316
+msgid "Live Chat Viewer"
+msgstr "실시간 채팅 뷰어"
+
+#: templates/viewer.html:317
+msgid ""
+"Enter a YouTube live stream URL to view the video with chat and "
+"statistics. VODs are not supported and the HyperChat browser extension "
+"must be disabled before using this feature."
+msgstr "YouTube 라이브 스트림 URL을 입력하여 채팅 및 통계와 함께 비디오를 시청하세요. VOD는 지원되지 않으며, 이 기능을 사용하려면 HyperChat 브라우저 확장 프로그램을 비활성화해야 합니다."
+
+#: templates/viewer.html:327
+msgid "Load"
+msgstr "로드"
+
+#: templates/viewer.html:334
+msgid "For live chat statistics:"
+msgstr "실시간 채팅 통계:"
+
+#: templates/viewer.html:335
+msgid "Install the Userscript"
+msgstr "유저스크립트 설치"
+
+#: templates/viewer.html:337
+msgid "Requires Greasemonkey (Firefox) or Tampermonkey (Chrome/Edge)"
+msgstr "Greasemonkey(Firefox) 또는 Tampermonkey(Chrome/Edge)가 필요합니다"
+
+#: templates/viewer.html:343
+msgid "Video loaded! Chat statistics will appear if the userscript is installed."
+msgstr "비디오가 로드되었습니다! 유저스크립트가 설치된 경우 채팅 통계가 표시됩니다."
+
+#: templates/viewer.html:361
+msgid "Messages"
+msgstr "메시지"
+
+#: templates/viewer.html:366
+msgid "Msgs/Min"
+msgstr "메시지/분"
+
+#: templates/viewer.html:371
+msgid "Users"
+msgstr "사용자"
+
+#: templates/viewer.html:376
+msgid "Members"
+msgstr "멤버"
+
+#: templates/viewer.html:384
+msgid "JP Messages"
+msgstr "일본어 메시지"
+
+#: templates/viewer.html:392
+msgid "Gifts / Purchases"
+msgstr "선물 / 구매"
+
+#: templates/viewer.html:399
+msgid "Est. Revenue"
+msgstr "예상 수익"
+
+#: templates/viewer.html:404
+msgid "Time"
+msgstr "시간"
+
+#: templates/viewer.html:686
+msgid "Please enter a YouTube URL"
+msgstr "YouTube URL을 입력해 주세요"
+
+#: templates/viewer.html:692
+msgid "Invalid YouTube URL"
+msgstr "유효하지 않은 YouTube URL입니다"
+
 #~ msgid "Timezone (UTC Offset):"
 #~ msgstr "시간대 (UTC 오프셋):"
 
@@ -1338,3 +1433,4 @@ msgstr "선택한 사용자 및 월에 대한 데이터가 없습니다."
 
 #~ msgid "Highlights"
 #~ msgstr "하이라이트"
+
