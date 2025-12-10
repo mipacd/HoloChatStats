@@ -9,15 +9,12 @@
     
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
-    
-    <!-- jVectorMap CSS and JS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jvectormap@2.0.4/jquery-jvectormap.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/jvectormap@2.0.4/jquery-jvectormap.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jvectormap@2.0.4/tests/assets/jquery-jvectormap-world-mill-en.js"></script>
     
     <style>
         html, body {
@@ -56,76 +53,89 @@
             max-width: 98vw;
             background-color: #1a1a2e;
             border-radius: 8px;
-            padding: 10px;
+            overflow: hidden;
         }
-        #countryVisitsMap {
+        
+        #worldMap {
             width: 100%;
             height: 100%;
         }
+        
+        #worldMap svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .country {
+            stroke: #2d2d44;
+            stroke-width: 0.5px;
+            transition: opacity 0.2s;
+        }
+        
+        .country:hover {
+            opacity: 0.8;
+            stroke: #fff;
+            stroke-width: 1px;
+        }
+        
+        .country-tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            border: 1px solid #444;
+        }
+        
+        .country-tooltip .country-name {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .country-tooltip .visitor-count {
+            color: #4ecdc4;
+        }
+        
         .map-title {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
             color: white;
             font-size: 14px;
             font-weight: bold;
-            text-align: center;
-            margin-bottom: 5px;
+            z-index: 10;
+            pointer-events: none;
         }
+        
         .map-legend {
             position: absolute;
             bottom: 15px;
             right: 15px;
-            background: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.7);
             padding: 8px 12px;
-            border-radius: 5px;
+            border-radius: 4px;
             font-size: 11px;
-            z-index: 100;
-        }
-        .map-legend-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: white;
-        }
-        .map-legend-scale {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .map-legend-gradient {
-            width: 100px;
-            height: 12px;
-            background: linear-gradient(to right, #2d2d44, #ff6b6b);
-            border-radius: 2px;
-        }
-        .map-legend-labels {
-            display: flex;
-            justify-content: space-between;
-            width: 100px;
-            font-size: 10px;
-            color: #aaa;
-            margin-top: 2px;
-        }
-        .map-stats {
-            position: absolute;
-            top: 35px;
-            left: 15px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 8px 12px;
-            border-radius: 5px;
-            font-size: 11px;
-            z-index: 100;
-            color: white;
-        }
-        .map-stats-item {
-            margin: 3px 0;
+            z-index: 10;
         }
         
-        /* jVectorMap tooltip styling */
-        .jvectormap-tip {
-            background: #1a1a2e !important;
-            border: 1px solid #ff6b6b !important;
-            color: white !important;
-            font-family: inherit !important;
-            padding: 8px 12px !important;
-            border-radius: 5px !important;
+        .legend-gradient {
+            width: 120px;
+            height: 10px;
+            background: linear-gradient(to right, #2d3436, #ff6b6b);
+            border-radius: 2px;
+            margin-bottom: 4px;
+        }
+        
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            color: #aaa;
         }
     </style>
 </head>
@@ -161,23 +171,18 @@
     
     <div class="row mt-4">
         <div class="col-md-6">
+            <!-- Replaced bar chart with world map -->
             <div class="map-container">
                 <div class="map-title">{{ _("Unique Visitors by Country (Last 30 Days)") }}</div>
-                <div id="countryVisitsMap"></div>
-                <div class="map-stats">
-                    <div class="map-stats-item"><strong>{{ _("Countries") }}:</strong> <span id="countryCount">0</span></div>
-                    <div class="map-stats-item"><strong>{{ _("Total Visitors") }}:</strong> <span id="totalVisitors">0</span></div>
-                    <div class="map-stats-item"><strong>{{ _("Top Country") }}:</strong> <span id="topCountry">-</span></div>
-                </div>
+                <div id="worldMap"></div>
                 <div class="map-legend">
-                    <div class="map-legend-title">{{ _("Visitors") }}</div>
-                    <div class="map-legend-gradient"></div>
-                    <div class="map-legend-labels">
-                        <span id="legendMin">0</span>
-                        <span id="legendMax">0</span>
+                    <div class="legend-gradient"></div>
+                    <div class="legend-labels">
+                        <span>0</span>
+                        <span id="maxVisitors">-</span>
                     </div>
                 </div>
-                <div id="countryVisitsLoading" class="position-absolute top-50 start-50 translate-middle d-none">
+                <div id="countryVisitsLoading" class="position-absolute top-50 start-50 translate-middle">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
@@ -207,41 +212,125 @@ $(document).ready(function() {
         timeout: 5000
     });
 
-    // Country code mapping for CloudFlare to jVectorMap
-    // jVectorMap uses uppercase ISO 3166-1 alpha-2 codes
-    const countryCodeMap = {
-        // Special cases where CloudFlare codes differ from jVectorMap
-        'UK': 'GB',  // United Kingdom
-        'AN': 'NL',  // Netherlands Antilles -> Netherlands
-        // Add more mappings if needed
+    // ISO Alpha-2 to ISO Numeric code mapping (for TopoJSON world-atlas)
+    const isoA2ToNum = {
+        'AF': '004', 'AL': '008', 'DZ': '012', 'AS': '016', 'AD': '020',
+        'AO': '024', 'AI': '660', 'AQ': '010', 'AG': '028', 'AR': '032',
+        'AM': '051', 'AW': '533', 'AU': '036', 'AT': '040', 'AZ': '031',
+        'BS': '044', 'BH': '048', 'BD': '050', 'BB': '052', 'BY': '112',
+        'BE': '056', 'BZ': '084', 'BJ': '204', 'BM': '060', 'BT': '064',
+        'BO': '068', 'BA': '070', 'BW': '072', 'BR': '076', 'BN': '096',
+        'BG': '100', 'BF': '854', 'BI': '108', 'CV': '132', 'KH': '116',
+        'CM': '120', 'CA': '124', 'KY': '136', 'CF': '140', 'TD': '148',
+        'CL': '152', 'CN': '156', 'CO': '170', 'KM': '174', 'CG': '178',
+        'CD': '180', 'CR': '188', 'CI': '384', 'HR': '191', 'CU': '192',
+        'CY': '196', 'CZ': '203', 'DK': '208', 'DJ': '262', 'DM': '212',
+        'DO': '214', 'EC': '218', 'EG': '818', 'SV': '222', 'GQ': '226',
+        'ER': '232', 'EE': '233', 'SZ': '748', 'ET': '231', 'FJ': '242',
+        'FI': '246', 'FR': '250', 'GF': '254', 'PF': '258', 'GA': '266',
+        'GM': '270', 'GE': '268', 'DE': '276', 'GH': '288', 'GR': '300',
+        'GL': '304', 'GD': '308', 'GP': '312', 'GU': '316', 'GT': '320',
+        'GN': '324', 'GW': '624', 'GY': '328', 'HT': '332', 'HN': '340',
+        'HK': '344', 'HU': '348', 'IS': '352', 'IN': '356', 'ID': '360',
+        'IR': '364', 'IQ': '368', 'IE': '372', 'IL': '376', 'IT': '380',
+        'JM': '388', 'JP': '392', 'JO': '400', 'KZ': '398', 'KE': '404',
+        'KI': '296', 'KP': '408', 'KR': '410', 'KW': '414', 'KG': '417',
+        'LA': '418', 'LV': '428', 'LB': '422', 'LS': '426', 'LR': '430',
+        'LY': '434', 'LI': '438', 'LT': '440', 'LU': '442', 'MO': '446',
+        'MG': '450', 'MW': '454', 'MY': '458', 'MV': '462', 'ML': '466',
+        'MT': '470', 'MH': '584', 'MQ': '474', 'MR': '478', 'MU': '480',
+        'MX': '484', 'FM': '583', 'MD': '498', 'MC': '492', 'MN': '496',
+        'ME': '499', 'MA': '504', 'MZ': '508', 'MM': '104', 'NA': '516',
+        'NR': '520', 'NP': '524', 'NL': '528', 'NC': '540', 'NZ': '554',
+        'NI': '558', 'NE': '562', 'NG': '566', 'MK': '807', 'NO': '578',
+        'OM': '512', 'PK': '586', 'PW': '585', 'PS': '275', 'PA': '591',
+        'PG': '598', 'PY': '600', 'PE': '604', 'PH': '608', 'PL': '616',
+        'PT': '620', 'PR': '630', 'QA': '634', 'RE': '638', 'RO': '642',
+        'RU': '643', 'RW': '646', 'SA': '682', 'SN': '686', 'RS': '688',
+        'SC': '690', 'SL': '694', 'SG': '702', 'SK': '703', 'SI': '705',
+        'SB': '090', 'SO': '706', 'ZA': '710', 'SS': '728', 'ES': '724',
+        'LK': '144', 'SD': '729', 'SR': '740', 'SE': '752', 'CH': '756',
+        'SY': '760', 'TW': '158', 'TJ': '762', 'TZ': '834', 'TH': '764',
+        'TL': '626', 'TG': '768', 'TO': '776', 'TT': '780', 'TN': '788',
+        'TR': '792', 'TM': '795', 'UG': '800', 'UA': '804', 'AE': '784',
+        'GB': '826', 'US': '840', 'UY': '858', 'UZ': '860', 'VU': '548',
+        'VE': '862', 'VN': '704', 'YE': '887', 'ZM': '894', 'ZW': '716',
+        'XK': '-99', 'TF': '260', 'EH': '732', 'NC': '540', 'FK': '238',
+        'GG': '831', 'IM': '833', 'JE': '832', 'SX': '534', 'CW': '531',
+        'BQ': '535', 'SS': '728'
     };
-
-    // Country names for display
-    const countryNames = {
-        'US': 'United States', 'GB': 'United Kingdom', 'CA': 'Canada',
-        'AU': 'Australia', 'DE': 'Germany', 'FR': 'France', 'JP': 'Japan',
-        'CN': 'China', 'IN': 'India', 'BR': 'Brazil', 'RU': 'Russia',
-        'KR': 'South Korea', 'MX': 'Mexico', 'IT': 'Italy', 'ES': 'Spain',
-        'NL': 'Netherlands', 'SE': 'Sweden', 'NO': 'Norway', 'DK': 'Denmark',
-        'FI': 'Finland', 'PL': 'Poland', 'TR': 'Turkey', 'ID': 'Indonesia',
-        'TH': 'Thailand', 'VN': 'Vietnam', 'PH': 'Philippines', 'MY': 'Malaysia',
-        'SG': 'Singapore', 'NZ': 'New Zealand', 'AR': 'Argentina', 'CL': 'Chile',
-        'CO': 'Colombia', 'PE': 'Peru', 'ZA': 'South Africa', 'EG': 'Egypt',
-        'NG': 'Nigeria', 'KE': 'Kenya', 'AE': 'UAE', 'SA': 'Saudi Arabia',
-        'IL': 'Israel', 'PK': 'Pakistan', 'BD': 'Bangladesh', 'UA': 'Ukraine',
-        'CZ': 'Czech Republic', 'AT': 'Austria', 'CH': 'Switzerland',
-        'BE': 'Belgium', 'PT': 'Portugal', 'GR': 'Greece', 'HU': 'Hungary',
-        'RO': 'Romania', 'IE': 'Ireland', 'TW': 'Taiwan', 'HK': 'Hong Kong'
+    
+    // ISO Numeric to Country Name mapping
+    const numericToName = {
+        '004': 'Afghanistan', '008': 'Albania', '012': 'Algeria', '016': 'American Samoa',
+        '020': 'Andorra', '024': 'Angola', '028': 'Antigua and Barbuda', '031': 'Azerbaijan',
+        '032': 'Argentina', '036': 'Australia', '040': 'Austria', '044': 'Bahamas',
+        '048': 'Bahrain', '050': 'Bangladesh', '051': 'Armenia', '052': 'Barbados',
+        '056': 'Belgium', '060': 'Bermuda', '064': 'Bhutan', '068': 'Bolivia',
+        '070': 'Bosnia and Herzegovina', '072': 'Botswana', '076': 'Brazil', '084': 'Belize',
+        '086': 'British Indian Ocean Territory', '090': 'Solomon Islands', '096': 'Brunei',
+        '100': 'Bulgaria', '104': 'Myanmar', '108': 'Burundi', '112': 'Belarus',
+        '116': 'Cambodia', '120': 'Cameroon', '124': 'Canada', '132': 'Cape Verde',
+        '136': 'Cayman Islands', '140': 'Central African Republic', '144': 'Sri Lanka',
+        '148': 'Chad', '152': 'Chile', '156': 'China', '158': 'Taiwan',
+        '170': 'Colombia', '174': 'Comoros', '175': 'Mayotte', '178': 'Congo',
+        '180': 'DR Congo', '188': 'Costa Rica', '191': 'Croatia', '192': 'Cuba',
+        '196': 'Cyprus', '203': 'Czech Republic', '204': 'Benin', '208': 'Denmark',
+        '212': 'Dominica', '214': 'Dominican Republic', '218': 'Ecuador', '222': 'El Salvador',
+        '226': 'Equatorial Guinea', '231': 'Ethiopia', '232': 'Eritrea', '233': 'Estonia',
+        '238': 'Falkland Islands', '242': 'Fiji', '246': 'Finland', '250': 'France',
+        '254': 'French Guiana', '258': 'French Polynesia', '260': 'French Southern Territories',
+        '262': 'Djibouti', '266': 'Gabon', '268': 'Georgia', '270': 'Gambia',
+        '275': 'Palestine', '276': 'Germany', '288': 'Ghana', '296': 'Kiribati',
+        '300': 'Greece', '304': 'Greenland', '308': 'Grenada', '312': 'Guadeloupe',
+        '316': 'Guam', '320': 'Guatemala', '324': 'Guinea', '328': 'Guyana',
+        '332': 'Haiti', '340': 'Honduras', '344': 'Hong Kong', '348': 'Hungary',
+        '352': 'Iceland', '356': 'India', '360': 'Indonesia', '364': 'Iran',
+        '368': 'Iraq', '372': 'Ireland', '376': 'Israel', '380': 'Italy',
+        '384': 'Ivory Coast', '388': 'Jamaica', '392': 'Japan', '398': 'Kazakhstan',
+        '400': 'Jordan', '404': 'Kenya', '408': 'North Korea', '410': 'South Korea',
+        '414': 'Kuwait', '417': 'Kyrgyzstan', '418': 'Laos', '422': 'Lebanon',
+        '426': 'Lesotho', '428': 'Latvia', '430': 'Liberia', '434': 'Libya',
+        '438': 'Liechtenstein', '440': 'Lithuania', '442': 'Luxembourg', '446': 'Macao',
+        '450': 'Madagascar', '454': 'Malawi', '458': 'Malaysia', '462': 'Maldives',
+        '466': 'Mali', '470': 'Malta', '474': 'Martinique', '478': 'Mauritania',
+        '480': 'Mauritius', '484': 'Mexico', '492': 'Monaco', '496': 'Mongolia',
+        '498': 'Moldova', '499': 'Montenegro', '504': 'Morocco', '508': 'Mozambique',
+        '512': 'Oman', '516': 'Namibia', '520': 'Nauru', '524': 'Nepal',
+        '528': 'Netherlands', '531': 'Curaçao', '534': 'Sint Maarten', '535': 'Caribbean Netherlands',
+        '540': 'New Caledonia', '548': 'Vanuatu', '554': 'New Zealand', '558': 'Nicaragua',
+        '562': 'Niger', '566': 'Nigeria', '570': 'Niue', '574': 'Norfolk Island',
+        '578': 'Norway', '580': 'Northern Mariana Islands', '581': 'US Minor Outlying Islands',
+        '583': 'Micronesia', '584': 'Marshall Islands', '585': 'Palau', '586': 'Pakistan',
+        '591': 'Panama', '598': 'Papua New Guinea', '600': 'Paraguay', '604': 'Peru',
+        '608': 'Philippines', '612': 'Pitcairn Islands', '616': 'Poland', '620': 'Portugal',
+        '624': 'Guinea-Bissau', '626': 'Timor-Leste', '630': 'Puerto Rico', '634': 'Qatar',
+        '638': 'Réunion', '642': 'Romania', '643': 'Russia', '646': 'Rwanda',
+        '652': 'Saint Barthélemy', '654': 'Saint Helena', '659': 'Saint Kitts and Nevis',
+        '660': 'Anguilla', '662': 'Saint Lucia', '663': 'Saint Martin', '666': 'Saint Pierre and Miquelon',
+        '670': 'Saint Vincent and the Grenadines', '674': 'San Marino', '678': 'São Tomé and Príncipe',
+        '682': 'Saudi Arabia', '686': 'Senegal', '688': 'Serbia', '690': 'Seychelles',
+        '694': 'Sierra Leone', '702': 'Singapore', '703': 'Slovakia', '704': 'Vietnam',
+        '705': 'Slovenia', '706': 'Somalia', '710': 'South Africa', '716': 'Zimbabwe',
+        '724': 'Spain', '728': 'South Sudan', '729': 'Sudan', '732': 'Western Sahara',
+        '740': 'Suriname', '744': 'Svalbard and Jan Mayen', '748': 'Eswatini', '752': 'Sweden',
+        '756': 'Switzerland', '760': 'Syria', '762': 'Tajikistan', '764': 'Thailand',
+        '768': 'Togo', '772': 'Tokelau', '776': 'Tonga', '780': 'Trinidad and Tobago',
+        '784': 'United Arab Emirates', '788': 'Tunisia', '792': 'Turkey', '795': 'Turkmenistan',
+        '796': 'Turks and Caicos Islands', '798': 'Tuvalu', '800': 'Uganda', '804': 'Ukraine',
+        '807': 'North Macedonia', '818': 'Egypt', '826': 'United Kingdom', '831': 'Guernsey',
+        '832': 'Jersey', '833': 'Isle of Man', '834': 'Tanzania', '840': 'United States',
+        '850': 'US Virgin Islands', '854': 'Burkina Faso', '858': 'Uruguay', '860': 'Uzbekistan',
+        '862': 'Venezuela', '876': 'Wallis and Futuna', '882': 'Samoa', '887': 'Yemen',
+        '894': 'Zambia', '-99': 'Kosovo'
     };
-
-    function getCountryName(code) {
-        return countryNames[code] || code;
-    }
-
-    function mapCountryCode(cfCode) {
-        // Convert CloudFlare country code to jVectorMap format
-        const upperCode = cfCode.toUpperCase();
-        return countryCodeMap[upperCode] || upperCode;
+    
+    // ISO Alpha-2 to Country Name mapping (for tooltip)
+    const alpha2ToName = {};
+    for (const [a2, num] of Object.entries(isoA2ToNum)) {
+        if (numericToName[num]) {
+            alpha2ToName[a2] = numericToName[num];
+        }
     }
 
     // Page Views Chart
@@ -289,122 +378,6 @@ $(document).ready(function() {
         }
     });
 
-    // Initialize World Map
-    let worldMap = null;
-    let currentCountryData = {};
-
-    function initializeMap() {
-        if (worldMap) {
-            worldMap.remove();
-        }
-
-        $('#countryVisitsMap').empty();
-
-        worldMap = $('#countryVisitsMap').vectorMap({
-            map: 'world_mill_en',
-            backgroundColor: 'transparent',
-            zoomOnScroll: true,
-            zoomMin: 1,
-            zoomMax: 8,
-            focusOn: {
-                x: 0.5,
-                y: 0.5,
-                scale: 1
-            },
-            regionStyle: {
-                initial: {
-                    fill: '#2d2d44',
-                    'fill-opacity': 1,
-                    stroke: '#1a1a2e',
-                    'stroke-width': 0.5,
-                    'stroke-opacity': 1
-                },
-                hover: {
-                    'fill-opacity': 0.8,
-                    cursor: 'pointer'
-                },
-                selected: {
-                    fill: '#ff6b6b'
-                }
-            },
-            series: {
-                regions: [{
-                    values: currentCountryData,
-                    scale: ['#2d2d44', '#ff6b6b'],
-                    normalizeFunction: 'polynomial',
-                    min: 0
-                }]
-            },
-            onRegionTipShow: function(e, el, code) {
-                const visitors = currentCountryData[code] || 0;
-                const countryName = getCountryName(code);
-                if (visitors > 0) {
-                    el.html(
-                        '<strong>' + countryName + ' (' + code + ')</strong><br>' +
-                        '<span style="color: #ff6b6b;">Visitors: ' + visitors.toLocaleString() + '</span>'
-                    );
-                } else {
-                    el.html(
-                        '<strong>' + countryName + ' (' + code + ')</strong><br>' +
-                        '<span style="color: #666;">No visitors</span>'
-                    );
-                }
-            }
-        });
-
-        return $('#countryVisitsMap').vectorMap('get', 'mapObject');
-    }
-
-    function updateWorldMap(countryVisits) {
-        // Convert CloudFlare country codes to jVectorMap format
-        const mappedData = {};
-        let totalVisitors = 0;
-        let maxVisitors = 0;
-        let topCountryCode = '';
-
-        // Process all countries (no limit)
-        Object.entries(countryVisits).forEach(([code, count]) => {
-            if (code !== 'Unknown' && code !== 'XX' && code !== 'T1') {
-                const mappedCode = mapCountryCode(code);
-                mappedData[mappedCode] = (mappedData[mappedCode] || 0) + count;
-                totalVisitors += count;
-                
-                if (mappedData[mappedCode] > maxVisitors) {
-                    maxVisitors = mappedData[mappedCode];
-                    topCountryCode = mappedCode;
-                }
-            }
-        });
-
-        currentCountryData = mappedData;
-        const countryCount = Object.keys(mappedData).length;
-
-        // Update statistics
-        $('#countryCount').text(countryCount);
-        $('#totalVisitors').text(totalVisitors.toLocaleString());
-        $('#topCountry').text(topCountryCode ? `${getCountryName(topCountryCode)} (${maxVisitors.toLocaleString()})` : '-');
-        $('#legendMin').text('0');
-        $('#legendMax').text(maxVisitors.toLocaleString());
-
-        // Reinitialize map with new data
-        if (!worldMap) {
-            worldMap = initializeMap();
-        } else {
-            // Update existing map
-            const mapObj = $('#countryVisitsMap').vectorMap('get', 'mapObject');
-            if (mapObj) {
-                mapObj.series.regions[0].setValues(mappedData);
-            }
-        }
-
-        // Flash effect
-        $('.map-container').addClass('chart-update-flash');
-        setTimeout(() => $('.map-container').removeClass('chart-update-flash'), 300);
-    }
-
-    // Initialize map on load
-    initializeMap();
-
     // Cache Data Stacked Bar Chart
     let cacheDataChart = new Chart(document.getElementById("cacheDataChart"), {
         type: "bar",
@@ -426,7 +399,181 @@ $(document).ready(function() {
         }
     });
 
-    // Update Function for Charts
+    // World Map Variables
+    let worldMapSvg = null;
+    let worldMapPath = null;
+    let worldMapCountries = null;
+    let worldMapData = null;
+    let countryVisitsData = {};
+    let tooltip = null;
+    
+    // Color scale for the map
+    const colorScale = d3.scaleSequential()
+        .interpolator(d3.interpolateRgb("#2d3436", "#ff6b6b"));
+
+    // Initialize World Map
+    async function initWorldMap() {
+        const container = d3.select("#worldMap");
+        const containerNode = container.node();
+        const width = containerNode.clientWidth;
+        const height = containerNode.clientHeight;
+        
+        // Create SVG
+        worldMapSvg = container.append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .attr("viewBox", `0 0 ${width} ${height}`)
+            .attr("preserveAspectRatio", "xMidYMid meet");
+        
+        // Create projection
+        const projection = d3.geoNaturalEarth1()
+            .scale(width / 5.5)
+            .translate([width / 2, height / 2]);
+        
+        worldMapPath = d3.geoPath().projection(projection);
+        
+        // Create tooltip
+        tooltip = d3.select("body").append("div")
+            .attr("class", "country-tooltip")
+            .style("opacity", 0)
+            .style("display", "none");
+        
+        // Load world map data
+        try {
+            worldMapData = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+            
+            const countries = topojson.feature(worldMapData, worldMapData.objects.countries);
+            
+            worldMapCountries = worldMapSvg.selectAll("path")
+                .data(countries.features)
+                .enter()
+                .append("path")
+                .attr("class", "country")
+                .attr("d", worldMapPath)
+                .attr("fill", "#2d3436")
+                .on("mouseover", handleMouseOver)
+                .on("mousemove", handleMouseMove)
+                .on("mouseout", handleMouseOut);
+            
+            // Hide loading spinner
+            $("#countryVisitsLoading").addClass("d-none");
+            
+        } catch (error) {
+            console.error("Error loading world map:", error);
+            $("#countryVisitsLoading").html('<span class="text-danger">Error loading map</span>');
+        }
+    }
+    
+    // Get country code from TopoJSON feature
+    function getCountryCode(feature) {
+        // TopoJSON world-atlas uses numeric ISO codes as id
+        const numericId = String(feature.id).padStart(3, '0');
+        // Find alpha-2 code from numeric
+        for (const [a2, num] of Object.entries(isoA2ToNum)) {
+            if (num === numericId) {
+                return a2;
+            }
+        }
+        return null;
+    }
+    
+    // Get country name from feature
+    function getCountryName(feature) {
+        const numericId = String(feature.id).padStart(3, '0');
+        return numericToName[numericId] || 'Unknown';
+    }
+    
+    // Update map colors based on visitor data
+    function updateWorldMap(countryData) {
+        if (!worldMapCountries) return;
+        
+        countryVisitsData = countryData;
+        
+        // Find max visitors for color scale
+        const values = Object.values(countryData);
+        const maxVisitors = values.length > 0 ? Math.max(...values) : 1;
+        
+        // Update legend
+        $("#maxVisitors").text(maxVisitors.toLocaleString());
+        
+        // Update color scale domain
+        colorScale.domain([0, maxVisitors]);
+        
+        // Update country colors
+        worldMapCountries.transition()
+            .duration(500)
+            .attr("fill", function(d) {
+                const countryCode = getCountryCode(d);
+                if (countryCode && countryData[countryCode]) {
+                    return colorScale(countryData[countryCode]);
+                }
+                return "#2d3436"; // Default color for countries with no visitors
+            });
+    }
+    
+    // Mouse event handlers
+    function handleMouseOver(event, d) {
+        const countryCode = getCountryCode(d);
+        const countryName = getCountryName(d);
+        const visitors = countryVisitsData[countryCode] || 0;
+        
+        tooltip
+            .style("display", "block")
+            .transition()
+            .duration(200)
+            .style("opacity", 1);
+        
+        tooltip.html(`
+            <div class="country-name">${countryName}</div>
+            <div class="visitor-count">${visitors.toLocaleString()} visitors</div>
+        `);
+    }
+    
+    function handleMouseMove(event) {
+        tooltip
+            .style("left", (event.pageX + 15) + "px")
+            .style("top", (event.pageY - 10) + "px");
+    }
+    
+    function handleMouseOut() {
+        tooltip
+            .transition()
+            .duration(200)
+            .style("opacity", 0)
+            .on("end", function() {
+                d3.select(this).style("display", "none");
+            });
+    }
+    
+    // Handle window resize
+    function handleResize() {
+        if (!worldMapSvg) return;
+        
+        const container = d3.select("#worldMap").node();
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        
+        const projection = d3.geoNaturalEarth1()
+            .scale(width / 5.5)
+            .translate([width / 2, height / 2]);
+        
+        worldMapPath = d3.geoPath().projection(projection);
+        
+        worldMapSvg.attr("viewBox", `0 0 ${width} ${height}`);
+        
+        if (worldMapCountries) {
+            worldMapCountries.attr("d", worldMapPath);
+        }
+    }
+    
+    // Debounce resize handler
+    let resizeTimeout;
+    $(window).on("resize", function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(handleResize, 250);
+    });
+
+    // Update Function for charts
     function updateChart(chart, labels, data) {
         chart.data.labels = labels;
         chart.data.datasets[0].data = data;
@@ -450,7 +597,7 @@ $(document).ready(function() {
         const sortedPages = Object.entries(parsedData.page_views).sort((a, b) => b[1] - a[1]);
         updateChart(pageViewsChart, sortedPages.map(([page]) => page), sortedPages.map(([_, count]) => count));
 
-        // Update World Map with ALL country data (no limit)
+        // Update World Map with country visits data (all countries, not limited)
         updateWorldMap(parsedData.country_visits);
 
         // Update Cache Data Chart
@@ -468,18 +615,10 @@ $(document).ready(function() {
 
         // Loading Spinner
         $("#pageViewsLoading").addClass("d-none");
-        $("#countryVisitsLoading").addClass("d-none");
     });
 
-    // Handle window resize
-    $(window).on('resize', function() {
-        if (worldMap) {
-            const mapObj = $('#countryVisitsMap').vectorMap('get', 'mapObject');
-            if (mapObj) {
-                mapObj.updateSize();
-            }
-        }
-    });
+    // Initialize the world map
+    initWorldMap();
 
     // Request Initial Data
     socket.emit("request_update");
