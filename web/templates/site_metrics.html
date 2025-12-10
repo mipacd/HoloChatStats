@@ -54,7 +54,6 @@
             background-color: #1a1a2e;
             border-radius: 8px;
             overflow: hidden;
-            padding-top: 25px;
         }
         
         #worldMap {
@@ -119,24 +118,30 @@
             bottom: 15px;
             right: 15px;
             background-color: rgba(0, 0, 0, 0.7);
-            padding: 8px 12px;
+            padding: 10px 14px;
             border-radius: 4px;
             font-size: 11px;
             z-index: 10;
         }
         
         .legend-gradient {
-            width: 120px;
-            height: 10px;
-            background: linear-gradient(to right, #2d3436, #457b9d, #56b4a6, #f1c40f, #e67e22, #e74c3c);
+            width: 150px;
+            height: 12px;
             border-radius: 2px;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
         
         .legend-labels {
             display: flex;
             justify-content: space-between;
             color: #aaa;
+        }
+        
+        .legend-title {
+            color: #ccc;
+            font-size: 10px;
+            margin-bottom: 4px;
+            text-align: center;
         }
     </style>
 </head>
@@ -177,9 +182,11 @@
                 <div class="map-title">{{ _("Unique Visitors by Country (Last 30 Days)") }}</div>
                 <div id="worldMap"></div>
                 <div class="map-legend">
-                    <div class="legend-gradient"></div>
+                    <div class="legend-title">Visitors</div>
+                    <div class="legend-gradient" id="legendGradient"></div>
                     <div class="legend-labels">
                         <span>0</span>
+                        <span id="legendMid">-</span>
                         <span id="maxVisitors">-</span>
                     </div>
                 </div>
@@ -403,54 +410,61 @@ $(document).ready(function() {
     // World Map Variables
     let worldMapSvg = null;
     let worldMapPath = null;
+    let worldMapProjection = null;
     let worldMapCountries = null;
     let worldMapData = null;
+    let worldMapGeoData = null;
     let countryVisitsData = {};
     let tooltip = null;
+    
+    // Color configuration
+    const noVisitorsColor = "#2d3436";      // Dark gray for no visitors
+    const minVisitorsColor = "#4a6fa5";     // Steel blue for low visitors
+    const midVisitorsColor = "#e17055";     // Orange for medium visitors  
+    const maxVisitorsColor = "#d63031";     // Bright red for high visitors
 
-    // Color scale for the map - using a custom scale for better distinction
-    function getColorForValue(value, maxValue) {
-        if (value === 0 || value === undefined) {
-            return "#2d3436"; // Dark gray for no visitors
+    // Get color for a country based on visitor count using logarithmic scale
+    function getCountryColor(visitors, maxVisitors) {
+        if (!visitors || visitors === 0) {
+            return noVisitorsColor;
+        }
+        
+        if (maxVisitors <= 1) {
+            return minVisitorsColor;
         }
         
         // Use logarithmic scale for better distribution
-        // Add 1 to avoid log(0), then normalize
-        const logValue = Math.log10(value + 1);
-        const logMax = Math.log10(maxValue + 1);
-        const normalized = logValue / logMax;
+        // This makes lower values more distinguishable
+        const logMax = Math.log(maxVisitors);
+        const logValue = Math.log(visitors);
+        const t = logValue / logMax; // 0 to 1 on log scale
         
-        // Color gradient from light blue to bright red
-        // This ensures even 1 visitor is visibly different from 0
-        const colors = [
-            { pos: 0, r: 69, g: 123, b: 157 },    // Steel blue for low values
-            { pos: 0.25, r: 86, g: 180, b: 166 }, // Teal
-            { pos: 0.5, r: 241, g: 196, b: 15 },  // Yellow
-            { pos: 0.75, r: 230, g: 126, b: 34 }, // Orange
-            { pos: 1, r: 231, g: 76, b: 60 }      // Bright red for high values
-        ];
-        
-        // Find the two colors to interpolate between
-        let lower = colors[0];
-        let upper = colors[colors.length - 1];
-        
-        for (let i = 0; i < colors.length - 1; i++) {
-            if (normalized >= colors[i].pos && normalized <= colors[i + 1].pos) {
-                lower = colors[i];
-                upper = colors[i + 1];
-                break;
-            }
+        // Use a multi-stop color interpolation for better visual distinction
+        if (t < 0.5) {
+            // Interpolate from minVisitorsColor to midVisitorsColor
+            return d3.interpolateRgb(minVisitorsColor, midVisitorsColor)(t * 2);
+        } else {
+            // Interpolate from midVisitorsColor to maxVisitorsColor
+            return d3.interpolateRgb(midVisitorsColor, maxVisitorsColor)((t - 0.5) * 2);
         }
+    }
+    
+    // Update the legend gradient
+    function updateLegendGradient(maxVisitors) {
+        const gradient = `linear-gradient(to right, 
+            ${noVisitorsColor} 0%, 
+            ${minVisitorsColor} 1%, 
+            ${midVisitorsColor} 50%, 
+            ${maxVisitorsColor} 100%)`;
+        document.getElementById('legendGradient').style.background = gradient;
         
-        // Interpolate between the two colors
-        const range = upper.pos - lower.pos;
-        const factor = range === 0 ? 0 : (normalized - lower.pos) / range;
-        
-        const r = Math.round(lower.r + (upper.r - lower.r) * factor);
-        const g = Math.round(lower.g + (upper.g - lower.g) * factor);
-        const b = Math.round(lower.b + (upper.b - lower.b) * factor);
-        
-        return `rgb(${r}, ${g}, ${b})`;
+        // Calculate and display midpoint value (using log scale)
+        if (maxVisitors > 1) {
+            const midValue = Math.round(Math.sqrt(maxVisitors));
+            document.getElementById('legendMid').textContent = midValue.toLocaleString();
+        } else {
+            document.getElementById('legendMid').textContent = '-';
+        }
     }
 
     // Initialize World Map
@@ -467,13 +481,6 @@ $(document).ready(function() {
             .attr("viewBox", `0 0 ${width} ${height}`)
             .attr("preserveAspectRatio", "xMidYMid meet");
         
-        // Create projection - adjusted for better fit showing all continents
-        const projection = d3.geoNaturalEarth1()
-            .scale(width / 6)
-            .translate([width / 2, height / 1.85]); // Shift down slightly to show northern regions
-        
-        worldMapPath = d3.geoPath().projection(projection);
-        
         // Create tooltip
         tooltip = d3.select("body").append("div")
             .attr("class", "country-tooltip")
@@ -484,15 +491,25 @@ $(document).ready(function() {
         try {
             worldMapData = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
             
-            const countries = topojson.feature(worldMapData, worldMapData.objects.countries);
+            worldMapGeoData = topojson.feature(worldMapData, worldMapData.objects.countries);
+            
+            // Create projection using fitExtent to ensure full map is visible with padding
+            const padding = 20;
+            worldMapProjection = d3.geoNaturalEarth1()
+                .fitExtent(
+                    [[padding, padding], [width - padding, height - padding]], 
+                    worldMapGeoData
+                );
+            
+            worldMapPath = d3.geoPath().projection(worldMapProjection);
             
             worldMapCountries = worldMapSvg.selectAll("path")
-                .data(countries.features)
+                .data(worldMapGeoData.features)
                 .enter()
                 .append("path")
                 .attr("class", "country")
                 .attr("d", worldMapPath)
-                .attr("fill", "#2d3436")
+                .attr("fill", noVisitorsColor)
                 .on("mouseover", handleMouseOver)
                 .on("mousemove", handleMouseMove)
                 .on("mouseout", handleMouseOut);
@@ -505,7 +522,7 @@ $(document).ready(function() {
             $("#countryVisitsLoading").html('<span class="text-danger">Error loading map</span>');
         }
     }
-
+    
     // Get country code from TopoJSON feature
     function getCountryCode(feature) {
         // TopoJSON world-atlas uses numeric ISO codes as id
@@ -518,13 +535,13 @@ $(document).ready(function() {
         }
         return null;
     }
-
+    
     // Get country name from feature
     function getCountryName(feature) {
         const numericId = String(feature.id).padStart(3, '0');
         return numericToName[numericId] || 'Unknown';
     }
-
+    
     // Update map colors based on visitor data
     function updateWorldMap(countryData) {
         if (!worldMapCountries) return;
@@ -537,19 +554,18 @@ $(document).ready(function() {
         
         // Update legend
         $("#maxVisitors").text(maxVisitors.toLocaleString());
+        updateLegendGradient(maxVisitors);
         
         // Update country colors
         worldMapCountries.transition()
             .duration(500)
             .attr("fill", function(d) {
                 const countryCode = getCountryCode(d);
-                if (countryCode && countryData[countryCode]) {
-                    return getColorForValue(countryData[countryCode], maxVisitors);
-                }
-                return "#2d3436"; // Default color for countries with no visitors
+                const visitors = countryCode ? (countryData[countryCode] || 0) : 0;
+                return getCountryColor(visitors, maxVisitors);
             });
     }
-
+    
     // Mouse event handlers
     function handleMouseOver(event, d) {
         const countryCode = getCountryCode(d);
@@ -563,17 +579,17 @@ $(document).ready(function() {
             .style("opacity", 1);
         
         tooltip.html(`
-            <div class="country-name">${countryName} ${countryCode ? '(' + countryCode + ')' : ''}</div>
+            <div class="country-name">${countryName} (${countryCode || '??'})</div>
             <div class="visitor-count">${visitors.toLocaleString()} visitor${visitors !== 1 ? 's' : ''}</div>
         `);
     }
-
+    
     function handleMouseMove(event) {
         tooltip
             .style("left", (event.pageX + 15) + "px")
             .style("top", (event.pageY - 10) + "px");
     }
-
+    
     function handleMouseOut() {
         tooltip
             .transition()
@@ -583,20 +599,23 @@ $(document).ready(function() {
                 d3.select(this).style("display", "none");
             });
     }
-
+    
     // Handle window resize
     function handleResize() {
-        if (!worldMapSvg) return;
+        if (!worldMapSvg || !worldMapGeoData) return;
         
         const container = d3.select("#worldMap").node();
         const width = container.clientWidth;
         const height = container.clientHeight;
         
-        const projection = d3.geoNaturalEarth1()
-            .scale(width / 6)
-            .translate([width / 2, height / 1.85]);
+        const padding = 20;
+        worldMapProjection = d3.geoNaturalEarth1()
+            .fitExtent(
+                [[padding, padding], [width - padding, height - padding]], 
+                worldMapGeoData
+            );
         
-        worldMapPath = d3.geoPath().projection(projection);
+        worldMapPath = d3.geoPath().projection(worldMapProjection);
         
         worldMapSvg.attr("viewBox", `0 0 ${width} ${height}`);
         
