@@ -59,6 +59,11 @@
         #worldMap {
             width: 100%;
             height: 100%;
+            cursor: grab;
+        }
+        
+        #worldMap:active {
+            cursor: grabbing;
         }
         
         #worldMap svg {
@@ -69,13 +74,13 @@
         .country {
             stroke: #2d2d44;
             stroke-width: 0.5px;
-            transition: opacity 0.2s;
+            transition: fill 0.3s;
         }
         
         .country:hover {
-            opacity: 0.8;
             stroke: #fff;
-            stroke-width: 1px;
+            stroke-width: 1.5px;
+            filter: brightness(1.2);
         }
         
         .country-tooltip {
@@ -143,6 +148,53 @@
             margin-bottom: 4px;
             text-align: center;
         }
+        
+        /* Map Controls */
+        .map-controls {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            z-index: 10;
+        }
+        
+        .map-control-btn {
+            width: 32px;
+            height: 32px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        
+        .map-control-btn:hover {
+            background-color: rgba(60, 60, 60, 0.9);
+        }
+        
+        .map-control-btn:active {
+            background-color: rgba(80, 80, 80, 0.9);
+        }
+        
+        .zoom-hint {
+            position: absolute;
+            bottom: 60px;
+            left: 15px;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            color: #888;
+            z-index: 10;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -181,6 +233,18 @@
             <div class="map-container">
                 <div class="map-title">{{ _("Unique Visitors by Country (Last 30 Days)") }}</div>
                 <div id="worldMap"></div>
+                
+                <!-- Zoom Controls -->
+                <div class="map-controls">
+                    <button class="map-control-btn" id="zoomIn" title="Zoom In">+</button>
+                    <button class="map-control-btn" id="zoomOut" title="Zoom Out">−</button>
+                    <button class="map-control-btn" id="zoomReset" title="Reset View">
+                        <i class="bi bi-arrows-fullscreen" style="font-size: 12px;"></i>
+                    </button>
+                </div>
+                
+                <div class="zoom-hint">Scroll to zoom • Drag to pan</div>
+                
                 <div class="map-legend">
                     <div class="legend-title">Visitors</div>
                     <div class="legend-gradient" id="legendGradient"></div>
@@ -409,6 +473,7 @@ $(document).ready(function() {
 
     // World Map Variables
     let worldMapSvg = null;
+    let worldMapG = null;  // Group element for zoom/pan
     let worldMapPath = null;
     let worldMapProjection = null;
     let worldMapCountries = null;
@@ -416,6 +481,12 @@ $(document).ready(function() {
     let worldMapGeoData = null;
     let countryVisitsData = {};
     let tooltip = null;
+    let zoom = null;
+    let currentTransform = d3.zoomIdentity;
+    
+    // Zoom configuration
+    const minZoom = 1;
+    const maxZoom = 8;
     
     // Color configuration
     const noVisitorsColor = "#2d3436";      // Dark gray for no visitors
@@ -434,7 +505,6 @@ $(document).ready(function() {
         }
         
         // Use logarithmic scale for better distribution
-        // This makes lower values more distinguishable
         const logMax = Math.log(maxVisitors);
         const logValue = Math.log(visitors);
         const t = logValue / logMax; // 0 to 1 on log scale
@@ -467,6 +537,35 @@ $(document).ready(function() {
         }
     }
 
+    // Zoom event handler
+    function handleZoom(event) {
+        currentTransform = event.transform;
+        worldMapG.attr("transform", currentTransform);
+        
+        // Adjust stroke width based on zoom level to keep borders consistent
+        const strokeWidth = 0.5 / currentTransform.k;
+        worldMapCountries.attr("stroke-width", strokeWidth);
+    }
+    
+    // Programmatic zoom functions
+    function zoomIn() {
+        worldMapSvg.transition().duration(300).call(
+            zoom.scaleBy, 1.5
+        );
+    }
+    
+    function zoomOut() {
+        worldMapSvg.transition().duration(300).call(
+            zoom.scaleBy, 0.67
+        );
+    }
+    
+    function zoomReset() {
+        worldMapSvg.transition().duration(500).call(
+            zoom.transform, d3.zoomIdentity
+        );
+    }
+
     // Initialize World Map
     async function initWorldMap() {
         const container = d3.select("#worldMap");
@@ -481,11 +580,55 @@ $(document).ready(function() {
             .attr("viewBox", `0 0 ${width} ${height}`)
             .attr("preserveAspectRatio", "xMidYMid meet");
         
+        // Create a group element for zoom/pan transformations
+        worldMapG = worldMapSvg.append("g");
+        
         // Create tooltip
         tooltip = d3.select("body").append("div")
             .attr("class", "country-tooltip")
             .style("opacity", 0)
             .style("display", "none");
+        
+        // Setup zoom behavior
+        zoom = d3.zoom()
+            .scaleExtent([minZoom, maxZoom])
+            .on("zoom", handleZoom);
+        
+        // Apply zoom to SVG
+        worldMapSvg.call(zoom);
+        
+        // Prevent default scroll behavior when zooming on the map
+        worldMapSvg.on("wheel.zoom", function(event) {
+            event.preventDefault();
+            const currentZoom = currentTransform.k;
+            const direction = event.deltaY < 0 ? 1 : -1;
+            const factor = direction > 0 ? 1.2 : 0.8;
+            const newZoom = Math.max(minZoom, Math.min(maxZoom, currentZoom * factor));
+            
+            // Get mouse position relative to SVG
+            const pointer = d3.pointer(event, worldMapSvg.node());
+            
+            // Calculate new transform centered on mouse position
+            worldMapSvg.transition().duration(150).call(
+                zoom.transform,
+                d3.zoomIdentity
+                    .translate(pointer[0], pointer[1])
+                    .scale(newZoom)
+                    .translate(-pointer[0] / currentZoom * newZoom + (currentTransform.x - pointer[0]) / currentZoom * newZoom + pointer[0] / newZoom, 
+                               -pointer[1] / currentZoom * newZoom + (currentTransform.y - pointer[1]) / currentZoom * newZoom + pointer[1] / newZoom),
+                d3.pointer(event)
+            );
+            
+            // Simpler zoom towards mouse
+            const transform = d3.zoomIdentity
+                .translate(
+                    pointer[0] - (pointer[0] - currentTransform.x) * (newZoom / currentZoom),
+                    pointer[1] - (pointer[1] - currentTransform.y) * (newZoom / currentZoom)
+                )
+                .scale(newZoom);
+            
+            worldMapSvg.transition().duration(150).call(zoom.transform, transform);
+        }, { passive: false });
         
         // Load world map data
         try {
@@ -503,7 +646,8 @@ $(document).ready(function() {
             
             worldMapPath = d3.geoPath().projection(worldMapProjection);
             
-            worldMapCountries = worldMapSvg.selectAll("path")
+            // Draw countries in the group element (not directly in SVG)
+            worldMapCountries = worldMapG.selectAll("path")
                 .data(worldMapGeoData.features)
                 .enter()
                 .append("path")
@@ -516,6 +660,11 @@ $(document).ready(function() {
             
             // Hide loading spinner
             $("#countryVisitsLoading").addClass("d-none");
+            
+            // Setup control button event listeners
+            document.getElementById('zoomIn').addEventListener('click', zoomIn);
+            document.getElementById('zoomOut').addEventListener('click', zoomOut);
+            document.getElementById('zoomReset').addEventListener('click', zoomReset);
             
         } catch (error) {
             console.error("Error loading world map:", error);
@@ -572,6 +721,12 @@ $(document).ready(function() {
         const countryName = getCountryName(d);
         const visitors = countryVisitsData[countryCode] || 0;
         
+        // Highlight the country
+        d3.select(this)
+            .raise()  // Bring to front
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 1.5 / currentTransform.k);
+        
         tooltip
             .style("display", "block")
             .transition()
@@ -590,7 +745,12 @@ $(document).ready(function() {
             .style("top", (event.pageY - 10) + "px");
     }
     
-    function handleMouseOut() {
+    function handleMouseOut(event, d) {
+        // Reset the country style
+        d3.select(this)
+            .attr("stroke", "#2d2d44")
+            .attr("stroke-width", 0.5 / currentTransform.k);
+        
         tooltip
             .transition()
             .duration(200)
@@ -622,6 +782,9 @@ $(document).ready(function() {
         if (worldMapCountries) {
             worldMapCountries.attr("d", worldMapPath);
         }
+        
+        // Reset zoom on resize to avoid awkward positioning
+        zoomReset();
     }
     
     // Debounce resize handler
