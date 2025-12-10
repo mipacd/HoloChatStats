@@ -14,6 +14,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
     
+    <!-- jVectorMap CSS and JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jvectormap@2.0.4/jquery-jvectormap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jvectormap@2.0.4/jquery-jvectormap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jvectormap@2.0.4/tests/assets/jquery-jvectormap-world-mill-en.js"></script>
+    
     <style>
         html, body {
            overflow-x: hidden;
@@ -41,6 +46,86 @@
         .form-select option {
             background-color: #222;
             color: white;
+        }
+        
+        /* World Map Styles */
+        .map-container {
+            margin-top: 10px;
+            position: relative;
+            height: 40vh;
+            max-width: 98vw;
+            background-color: #1a1a2e;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        #countryVisitsMap {
+            width: 100%;
+            height: 100%;
+        }
+        .map-title {
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .map-legend {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 11px;
+            z-index: 100;
+        }
+        .map-legend-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: white;
+        }
+        .map-legend-scale {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .map-legend-gradient {
+            width: 100px;
+            height: 12px;
+            background: linear-gradient(to right, #2d2d44, #ff6b6b);
+            border-radius: 2px;
+        }
+        .map-legend-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 100px;
+            font-size: 10px;
+            color: #aaa;
+            margin-top: 2px;
+        }
+        .map-stats {
+            position: absolute;
+            top: 35px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 11px;
+            z-index: 100;
+            color: white;
+        }
+        .map-stats-item {
+            margin: 3px 0;
+        }
+        
+        /* jVectorMap tooltip styling */
+        .jvectormap-tip {
+            background: #1a1a2e !important;
+            border: 1px solid #ff6b6b !important;
+            color: white !important;
+            font-family: inherit !important;
+            padding: 8px 12px !important;
+            border-radius: 5px !important;
         }
     </style>
 </head>
@@ -76,8 +161,22 @@
     
     <div class="row mt-4">
         <div class="col-md-6">
-            <div class="chart-container">
-                <canvas id="countryVisitsChart"></canvas>
+            <div class="map-container">
+                <div class="map-title">{{ _("Unique Visitors by Country (Last 30 Days)") }}</div>
+                <div id="countryVisitsMap"></div>
+                <div class="map-stats">
+                    <div class="map-stats-item"><strong>{{ _("Countries") }}:</strong> <span id="countryCount">0</span></div>
+                    <div class="map-stats-item"><strong>{{ _("Total Visitors") }}:</strong> <span id="totalVisitors">0</span></div>
+                    <div class="map-stats-item"><strong>{{ _("Top Country") }}:</strong> <span id="topCountry">-</span></div>
+                </div>
+                <div class="map-legend">
+                    <div class="map-legend-title">{{ _("Visitors") }}</div>
+                    <div class="map-legend-gradient"></div>
+                    <div class="map-legend-labels">
+                        <span id="legendMin">0</span>
+                        <span id="legendMax">0</span>
+                    </div>
+                </div>
                 <div id="countryVisitsLoading" class="position-absolute top-50 start-50 translate-middle d-none">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>
@@ -107,6 +206,43 @@ $(document).ready(function() {
         reconnectionDelay: 2000,
         timeout: 5000
     });
+
+    // Country code mapping for CloudFlare to jVectorMap
+    // jVectorMap uses uppercase ISO 3166-1 alpha-2 codes
+    const countryCodeMap = {
+        // Special cases where CloudFlare codes differ from jVectorMap
+        'UK': 'GB',  // United Kingdom
+        'AN': 'NL',  // Netherlands Antilles -> Netherlands
+        // Add more mappings if needed
+    };
+
+    // Country names for display
+    const countryNames = {
+        'US': 'United States', 'GB': 'United Kingdom', 'CA': 'Canada',
+        'AU': 'Australia', 'DE': 'Germany', 'FR': 'France', 'JP': 'Japan',
+        'CN': 'China', 'IN': 'India', 'BR': 'Brazil', 'RU': 'Russia',
+        'KR': 'South Korea', 'MX': 'Mexico', 'IT': 'Italy', 'ES': 'Spain',
+        'NL': 'Netherlands', 'SE': 'Sweden', 'NO': 'Norway', 'DK': 'Denmark',
+        'FI': 'Finland', 'PL': 'Poland', 'TR': 'Turkey', 'ID': 'Indonesia',
+        'TH': 'Thailand', 'VN': 'Vietnam', 'PH': 'Philippines', 'MY': 'Malaysia',
+        'SG': 'Singapore', 'NZ': 'New Zealand', 'AR': 'Argentina', 'CL': 'Chile',
+        'CO': 'Colombia', 'PE': 'Peru', 'ZA': 'South Africa', 'EG': 'Egypt',
+        'NG': 'Nigeria', 'KE': 'Kenya', 'AE': 'UAE', 'SA': 'Saudi Arabia',
+        'IL': 'Israel', 'PK': 'Pakistan', 'BD': 'Bangladesh', 'UA': 'Ukraine',
+        'CZ': 'Czech Republic', 'AT': 'Austria', 'CH': 'Switzerland',
+        'BE': 'Belgium', 'PT': 'Portugal', 'GR': 'Greece', 'HU': 'Hungary',
+        'RO': 'Romania', 'IE': 'Ireland', 'TW': 'Taiwan', 'HK': 'Hong Kong'
+    };
+
+    function getCountryName(code) {
+        return countryNames[code] || code;
+    }
+
+    function mapCountryCode(cfCode) {
+        // Convert CloudFlare country code to jVectorMap format
+        const upperCode = cfCode.toUpperCase();
+        return countryCodeMap[upperCode] || upperCode;
+    }
 
     // Page Views Chart
     let pageViewsChart = new Chart(document.getElementById("pageViewsChart"), {
@@ -153,27 +289,121 @@ $(document).ready(function() {
         }
     });
 
-    // Country Visits Chart
-    let countryVisitsChart = new Chart(document.getElementById("countryVisitsChart"), {
-        type: "bar",
-        data: { labels: [], datasets: [{
-            label: "Unique Visitors by Country",
-            data: [],
-            backgroundColor: "rgba(255, 99, 132, 0.6)"
-        }] },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { ticks: { color: "white", autoSkip: false } },
-                y: { ticks: { color: "white" } }
+    // Initialize World Map
+    let worldMap = null;
+    let currentCountryData = {};
+
+    function initializeMap() {
+        if (worldMap) {
+            worldMap.remove();
+        }
+
+        $('#countryVisitsMap').empty();
+
+        worldMap = $('#countryVisitsMap').vectorMap({
+            map: 'world_mill_en',
+            backgroundColor: 'transparent',
+            zoomOnScroll: true,
+            zoomMin: 1,
+            zoomMax: 8,
+            focusOn: {
+                x: 0.5,
+                y: 0.5,
+                scale: 1
             },
-            plugins: {
-                title: { display: true, text: "Unique Visitors by Country (Last 30 Days)", color: "white" },
-                legend: { labels: { color: "white" } }
+            regionStyle: {
+                initial: {
+                    fill: '#2d2d44',
+                    'fill-opacity': 1,
+                    stroke: '#1a1a2e',
+                    'stroke-width': 0.5,
+                    'stroke-opacity': 1
+                },
+                hover: {
+                    'fill-opacity': 0.8,
+                    cursor: 'pointer'
+                },
+                selected: {
+                    fill: '#ff6b6b'
+                }
+            },
+            series: {
+                regions: [{
+                    values: currentCountryData,
+                    scale: ['#2d2d44', '#ff6b6b'],
+                    normalizeFunction: 'polynomial',
+                    min: 0
+                }]
+            },
+            onRegionTipShow: function(e, el, code) {
+                const visitors = currentCountryData[code] || 0;
+                const countryName = getCountryName(code);
+                if (visitors > 0) {
+                    el.html(
+                        '<strong>' + countryName + ' (' + code + ')</strong><br>' +
+                        '<span style="color: #ff6b6b;">Visitors: ' + visitors.toLocaleString() + '</span>'
+                    );
+                } else {
+                    el.html(
+                        '<strong>' + countryName + ' (' + code + ')</strong><br>' +
+                        '<span style="color: #666;">No visitors</span>'
+                    );
+                }
+            }
+        });
+
+        return $('#countryVisitsMap').vectorMap('get', 'mapObject');
+    }
+
+    function updateWorldMap(countryVisits) {
+        // Convert CloudFlare country codes to jVectorMap format
+        const mappedData = {};
+        let totalVisitors = 0;
+        let maxVisitors = 0;
+        let topCountryCode = '';
+
+        // Process all countries (no limit)
+        Object.entries(countryVisits).forEach(([code, count]) => {
+            if (code !== 'Unknown' && code !== 'XX' && code !== 'T1') {
+                const mappedCode = mapCountryCode(code);
+                mappedData[mappedCode] = (mappedData[mappedCode] || 0) + count;
+                totalVisitors += count;
+                
+                if (mappedData[mappedCode] > maxVisitors) {
+                    maxVisitors = mappedData[mappedCode];
+                    topCountryCode = mappedCode;
+                }
+            }
+        });
+
+        currentCountryData = mappedData;
+        const countryCount = Object.keys(mappedData).length;
+
+        // Update statistics
+        $('#countryCount').text(countryCount);
+        $('#totalVisitors').text(totalVisitors.toLocaleString());
+        $('#topCountry').text(topCountryCode ? `${getCountryName(topCountryCode)} (${maxVisitors.toLocaleString()})` : '-');
+        $('#legendMin').text('0');
+        $('#legendMax').text(maxVisitors.toLocaleString());
+
+        // Reinitialize map with new data
+        if (!worldMap) {
+            worldMap = initializeMap();
+        } else {
+            // Update existing map
+            const mapObj = $('#countryVisitsMap').vectorMap('get', 'mapObject');
+            if (mapObj) {
+                mapObj.series.regions[0].setValues(mappedData);
             }
         }
-    });
+
+        // Flash effect
+        $('.map-container').addClass('chart-update-flash');
+        setTimeout(() => $('.map-container').removeClass('chart-update-flash'), 300);
+    }
+
+    // Initialize map on load
+    initializeMap();
 
     // Cache Data Stacked Bar Chart
     let cacheDataChart = new Chart(document.getElementById("cacheDataChart"), {
@@ -196,7 +426,7 @@ $(document).ready(function() {
         }
     });
 
-    // Update Function
+    // Update Function for Charts
     function updateChart(chart, labels, data) {
         chart.data.labels = labels;
         chart.data.datasets[0].data = data;
@@ -220,16 +450,8 @@ $(document).ready(function() {
         const sortedPages = Object.entries(parsedData.page_views).sort((a, b) => b[1] - a[1]);
         updateChart(pageViewsChart, sortedPages.map(([page]) => page), sortedPages.map(([_, count]) => count));
 
-        // Update Country Visits Chart
-        const sortedCountries = Object.entries(parsedData.country_visits)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 20); // Limit to top 20
-
-        updateChart(
-            countryVisitsChart,
-            sortedCountries.map(([country]) => country),
-            sortedCountries.map(([_, count]) => count)
-        );
+        // Update World Map with ALL country data (no limit)
+        updateWorldMap(parsedData.country_visits);
 
         // Update Cache Data Chart
         const sortedCacheData = Object.entries(parsedData.cache_data).sort((a, b) => new Date(a[0]) - new Date(b[0]));
@@ -246,6 +468,17 @@ $(document).ready(function() {
 
         // Loading Spinner
         $("#pageViewsLoading").addClass("d-none");
+        $("#countryVisitsLoading").addClass("d-none");
+    });
+
+    // Handle window resize
+    $(window).on('resize', function() {
+        if (worldMap) {
+            const mapObj = $('#countryVisitsMap').vectorMap('get', 'mapObject');
+            if (mapObj) {
+                mapObj.updateSize();
+            }
+        }
     });
 
     // Request Initial Data
