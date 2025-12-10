@@ -216,6 +216,56 @@
             opacity: 0;
         }
 
+        .stat-box-with-graph {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-graph {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.4;
+        }
+
+        .stat-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .ccv-trend {
+            display: inline-block;
+            margin-left: 4px;
+            font-size: 0.9em;
+        }
+
+        .ccv-trend.up {
+            color: #28a745;
+        }
+
+        .ccv-trend.down {
+            color: #dc3545;
+        }
+
+        .ccv-trend.stable {
+            color: #888;
+        }
+
+        @media (max-width: 1600px) {
+            .ccv-trend {
+                font-size: 0.85em;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .ccv-trend {
+                font-size: 0.75em;
+            }
+        }
+
         @media (max-width: 1600px) {
             .stat-value {
                 font-size: 1.1rem;
@@ -362,9 +412,12 @@
                         <div class="stat-value" id="messageCount">0</div>
                     </div>
                     
-                    <div class="stat-box">
-                        <div class="stat-label">{{ _("Msgs/Min") }}</div>
-                        <div class="stat-value" id="messagesPerMinute">0</div>
+                    <div class="stat-box stat-box-with-graph">
+                        <canvas id="msgPerMinGraph" class="stat-graph"></canvas>
+                        <div class="stat-content">
+                            <div class="stat-label">{{ _("Msgs/Min") }}</div>
+                            <div class="stat-value" id="messagesPerMinute">0</div>
+                        </div>
                     </div>
                     
                     <div class="stat-box">
@@ -400,6 +453,17 @@
                         <div class="stat-value" id="estimatedRevenue">{{ "¥0" if get_locale() == "ja" else "$0" }}</div>
                     </div>
                     
+                    <div class="stat-box stat-box-with-graph">
+                        <canvas id="ccvGraph" class="stat-graph"></canvas>
+                        <div class="stat-content">
+                            <div class="stat-label">{{ _("CCV") }}</div>
+                            <div class="stat-value">
+                                <span id="ccvCount">-</span>
+                                <span id="ccvTrend" class="ccv-trend"></span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="stat-box">
                         <div class="stat-label">{{ _("Time") }}</div>
                         <div class="stat-value" id="elapsedTime">0:00</div>
@@ -420,6 +484,7 @@ $(document).ready(function() {
     const useJPY = currentLocale === 'ja';
     const USD_TO_JPY = 150; // Approximate conversion rate
     const MEMBERSHIP_PRICE_USD = 4.99;
+    const MEMBERSHIP_PRICE_JPY = 750; // Approximate JPY price for membership
     
     let messageCount = 0;
     let textMessageCount = 0;
@@ -430,15 +495,23 @@ $(document).ready(function() {
     let jpMessageCount = 0;
     let giftCount = 0;
     let purchaseCount = 0;
-    let revenueUSD = 0;
+    // Store revenue in the base currency depending on locale
+    let revenueBase = 0; // USD if not Japanese locale, JPY if Japanese locale
+    let superChatCount = 0; // Track SuperChats separately for debugging
+    let superStickerCount = 0; // Track SuperStickers separately
     let statsInterval = null;
     let currentVideoId = null;
     let connectionTimeout = null;
     let initialLoadComplete = false;
     let initialLoadTimeout = null;
+    let ccvHistory = [];
+    let ccvFetchInterval = null;
+    let lastCCV = null;
+    let msgPerMinHistory = [];
+    const MAX_GRAPH_POINTS = 200; // Keep last 200 data points
 
-    // Currency conversion rates to USD
-    const currencyRates = {
+    // Currency conversion rates to USD (used when locale is NOT Japanese)
+    const currencyRatesToUSD = {
         '$': 1,
         '¥': 0.0067,
         '￥': 0.0067,
@@ -453,6 +526,24 @@ $(document).ready(function() {
         'NT$': 0.031,
         'HK$': 0.13,
         'MX$': 0.059,
+    };
+
+    // Currency conversion rates to JPY (used when locale IS Japanese)
+    const currencyRatesToJPY = {
+        '$': 150,
+        '¥': 1,
+        '￥': 1,
+        '€': 163,
+        '£': 190,
+        '₩': 0.11,
+        'CA$': 111,
+        'A$': 97,
+        '₹': 1.8,
+        'R$': 30,
+        '₱': 2.7,
+        'NT$': 4.7,
+        'HK$': 19,
+        'MX$': 8.8,
     };
 
     function hasJapanese(text) {
@@ -495,31 +586,40 @@ $(document).ready(function() {
         if (!amountString) return 0;
         
         const cleaned = amountString.replace(/[\s,]/g, '');
+        const rates = useJPY ? currencyRatesToJPY : currencyRatesToUSD;
         
-        for (const [symbol, rate] of Object.entries(currencyRates)) {
+        // Check for currency symbols in order of specificity (longer symbols first)
+        const sortedSymbols = Object.keys(rates).sort((a, b) => b.length - a.length);
+        
+        for (const symbol of sortedSymbols) {
             if (cleaned.includes(symbol)) {
                 const amount = parseFloat(cleaned.replace(symbol, '').replace(/[^\d.]/g, ''));
                 if (!isNaN(amount)) {
-                    return amount * rate;
+                    return amount * rates[symbol];
                 }
             }
         }
         
+        // Fallback: try to parse as number (assume base currency)
         const amount = parseFloat(cleaned.replace(/[^\d.]/g, ''));
         return isNaN(amount) ? 0 : amount;
     }
 
-    function formatRevenue(amountUSD) {
+    function formatRevenue(amountBase) {
         if (useJPY) {
-            const amountJPY = Math.round(amountUSD * USD_TO_JPY);
+            const amountJPY = Math.round(amountBase);
             return '¥' + amountJPY.toLocaleString();
         } else {
-            return '$' + amountUSD.toFixed(2);
+            return '$' + amountBase.toFixed(2);
         }
     }
 
+    function getMembershipPrice() {
+        return useJPY ? MEMBERSHIP_PRICE_JPY : MEMBERSHIP_PRICE_USD;
+    }
+
     function updateRevenueDisplay() {
-        $('#estimatedRevenue').text(formatRevenue(revenueUSD));
+        $('#estimatedRevenue').text(formatRevenue(revenueBase));
     }
 
     window.addEventListener('message', function(event) {
@@ -531,6 +631,8 @@ $(document).ready(function() {
         } else if (data.type === 'HOLOCHATSTATS_SCRIPT_READY') {
             updateConnectionStatus(true);
             console.log('Userscript connected successfully!');
+        } else if (data.type === 'HOLOCHATSTATS_CCV_UPDATE') {
+            updateCCV(data.ccv);
         }
     });
 
@@ -591,28 +693,38 @@ $(document).ready(function() {
             }
         }
         
-        // Track membership gift redemptions
+        // Track membership gift redemptions (someone received a gifted membership)
         if (message.isMembershipGiftRedemption) {
             giftCount++;
             $('#giftCount').text(giftCount.toLocaleString());
-            revenueUSD += MEMBERSHIP_PRICE_USD;
+            revenueBase += getMembershipPrice();
             updateRevenueDisplay();
         }
         
-        // Track membership purchases
-        if (message.isMembershipPurchase) {
+        // Track membership purchases (new member or membership milestone)
+        // Note: This should NOT include SuperChats or SuperStickers
+        if (message.isMembershipPurchase && !message.isSuperChat && !message.isSuperSticker) {
             purchaseCount++;
             $('#purchaseCount').text(purchaseCount.toLocaleString());
-            revenueUSD += MEMBERSHIP_PRICE_USD;
+            revenueBase += getMembershipPrice();
             updateRevenueDisplay();
         }
         
-        // Track SuperChat earnings
+        // Track SuperChat and SuperSticker earnings
         if (message.isSuperChat && message.superChatAmount) {
-            const amountUSD = parseSuperChatAmount(message.superChatAmount);
-            if (amountUSD > 0) {
-                revenueUSD += amountUSD;
+            const amount = parseSuperChatAmount(message.superChatAmount);
+            if (amount > 0) {
+                revenueBase += amount;
                 updateRevenueDisplay();
+                
+                // Track counts for debugging
+                if (message.isSuperSticker) {
+                    superStickerCount++;
+                    console.log('SuperSticker:', message.superChatAmount, '-> Base:', amount);
+                } else {
+                    superChatCount++;
+                    console.log('SuperChat:', message.superChatAmount, '-> Base:', amount);
+                }
             }
         }
         
@@ -635,7 +747,6 @@ $(document).ready(function() {
             $('#jpPercentage').text('(0%)');
         }
     }
-
     function extractVideoId(url) {
         const patterns = [
             /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
@@ -663,6 +774,8 @@ $(document).ready(function() {
             $('#elapsedTime').text(`${elapsedMinutes}:${elapsedSeconds.toString().padStart(2, '0')}`);
         }
         
+        let currentMsgPerMin = 0;
+        
         if (initialLoadComplete && messageTimestamps.length > 0) {
             const now = Date.now();
             const fiveMinutesAgo = now - (5 * 60 * 1000);
@@ -670,14 +783,115 @@ $(document).ready(function() {
             
             if (recentMessages.length > 0) {
                 const timeSpan = Math.min(now - messageTimestamps[0], 5 * 60 * 1000) / 60000;
-                const avgPerMinute = timeSpan > 0 ? (recentMessages.length / timeSpan).toFixed(1) : 0;
-                $('#messagesPerMinute').text(avgPerMinute);
+                currentMsgPerMin = timeSpan > 0 ? parseFloat((recentMessages.length / timeSpan).toFixed(1)) : 0;
+                $('#messagesPerMinute').text(currentMsgPerMin);
             } else {
                 $('#messagesPerMinute').text('0');
             }
         } else {
             $('#messagesPerMinute').text('0');
         }
+        
+        // Update message per minute history (every 5 seconds to avoid too frequent updates)
+        const now = Date.now();
+        const lastEntry = msgPerMinHistory[msgPerMinHistory.length - 1];
+        
+        if (!lastEntry || (now - lastEntry.timestamp) >= 5000) {
+            msgPerMinHistory.push({
+                value: currentMsgPerMin,
+                timestamp: now
+            });
+            
+            // Keep only last MAX_GRAPH_POINTS data points
+            if (msgPerMinHistory.length > MAX_GRAPH_POINTS) {
+                msgPerMinHistory = msgPerMinHistory.slice(-MAX_GRAPH_POINTS);
+            }
+            
+            // Update the graph
+            updateMsgPerMinGraph();
+        }
+    }
+
+    function fetchCCV() {
+        if (!currentVideoId) return;
+        
+        // Method 1: Try to get from the chat iframe's parent page via our API endpoint
+        fetch(`/api/ccv/${currentVideoId}`)
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error('API not available');
+            })
+            .then(data => {
+                if (data.ccv !== null && data.ccv !== undefined) {
+                    updateCCV(data.ccv);
+                }
+            })
+            .catch(error => {
+                // Method 2: Try to extract from YouTube's oembed endpoint (limited info)
+                // This is a fallback but may not always have live viewer count
+                console.log('CCV fetch error, trying fallback:', error);
+                fetchCCVFallback();
+            });
+    }
+
+    function fetchCCVFallback() {
+        // Fallback: Request CCV from userscript
+        const chatFrame = document.getElementById('chatFrame');
+        if (chatFrame && chatFrame.contentWindow) {
+            chatFrame.contentWindow.postMessage({
+                type: 'HOLOCHATSTATS_REQUEST_CCV'
+            }, 'https://www.youtube.com');
+        }
+    }
+
+    function updateCCV(count) {
+        if (count === null || count === undefined || isNaN(count)) {
+            $('#ccvCount').text('-');
+            $('#ccvTrend').removeClass('up down stable').text('');
+            return;
+        }
+        
+        const ccv = parseInt(count);
+        
+        // Update display
+        $('#ccvCount').text(ccv.toLocaleString());
+        
+        // Determine trend
+        const trendEl = $('#ccvTrend');
+        trendEl.removeClass('up down stable');
+        
+        if (lastCCV !== null) {
+            const diff = ccv - lastCCV;
+            const threshold = Math.max(10, lastCCV * 0.01); // 1% or at least 10 viewers
+            
+            if (diff > threshold) {
+                trendEl.addClass('up').html('<i class="bi bi-arrow-up"></i>');
+            } else if (diff < -threshold) {
+                trendEl.addClass('down').html('<i class="bi bi-arrow-down"></i>');
+            } else {
+                trendEl.addClass('stable').html('<i class="bi bi-dash"></i>');
+            }
+        } else {
+            trendEl.addClass('stable').html('<i class="bi bi-dash"></i>');
+        }
+        
+        // Store history
+        ccvHistory.push({
+            count: ccv,
+            timestamp: Date.now()
+        });
+        
+        // Keep only last MAX_GRAPH_POINTS data points
+        if (ccvHistory.length > MAX_GRAPH_POINTS) {
+            ccvHistory = ccvHistory.slice(-MAX_GRAPH_POINTS);
+        }
+        
+        lastCCV = ccv;
+        
+        // Update the graph
+        updateCCVGraph();
     }
 
     function loadVideoAndChat() {
@@ -702,11 +916,18 @@ $(document).ready(function() {
         jpMessageCount = 0;
         giftCount = 0;
         purchaseCount = 0;
-        revenueUSD = 0;
+        revenueBase = 0;
+        superChatCount = 0;
+        superStickerCount = 0;
         uniqueUsers.clear();
         memberUsers.clear();
         startTime = null;
         initialLoadComplete = false;
+        
+        // Reset CCV and graph histories
+        ccvHistory = [];
+        lastCCV = null;
+        msgPerMinHistory = [];
         
         // Reset displays
         $('#messageCount').text('0');
@@ -719,11 +940,26 @@ $(document).ready(function() {
         $('#jpPercentage').text('(0%)');
         $('#giftCount').text('0');
         $('#purchaseCount').text('0');
+        $('#ccvCount').text('-');
+        $('#ccvTrend').removeClass('up down stable').text('');
         updateRevenueDisplay();
         updateConnectionStatus(false);
+        
+        // Clear graphs
+        const ccvCanvas = document.getElementById('ccvGraph');
+        const msgCanvas = document.getElementById('msgPerMinGraph');
+        if (ccvCanvas) {
+            const ctx = ccvCanvas.getContext('2d');
+            ctx.clearRect(0, 0, ccvCanvas.width, ccvCanvas.height);
+        }
+        if (msgCanvas) {
+            const ctx = msgCanvas.getContext('2d');
+            ctx.clearRect(0, 0, msgCanvas.width, msgCanvas.height);
+        }
 
         if (statsInterval) clearInterval(statsInterval);
         if (initialLoadTimeout) clearTimeout(initialLoadTimeout);
+        if (ccvFetchInterval) clearInterval(ccvFetchInterval);
 
         // Set up video iframe
         $('#videoFrame').attr('src', `https://www.youtube.com/embed/${videoId}?autoplay=1`);
@@ -744,6 +980,10 @@ $(document).ready(function() {
         // Start updating stats
         statsInterval = setInterval(updateStats, 1000);
 
+        // Start fetching CCV every 2 minutes
+        setTimeout(fetchCCV, 3000); // Initial fetch after 3 seconds
+        ccvFetchInterval = setInterval(fetchCCV, 120000);
+
         initialLoadTimeout = setTimeout(() => {
             initialLoadComplete = true;
             console.log('Initial load period complete, now tracking message rate');
@@ -761,6 +1001,101 @@ $(document).ready(function() {
         }, 2000);
     }
 
+    function drawGraph(canvasId, dataPoints, color) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || dataPoints.length < 2) return;
+        
+        const ctx = canvas.getContext('2d');
+        const rect = canvas.parentElement.getBoundingClientRect();
+        
+        // Set canvas size to match container (with device pixel ratio for sharpness)
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        
+        // Get min/max values for scaling
+        const values = dataPoints.map(p => p.value);
+        let minVal = Math.min(...values);
+        let maxVal = Math.max(...values);
+        
+        // Add padding to min/max to prevent line from touching edges
+        const range = maxVal - minVal;
+        if (range === 0) {
+            minVal = minVal * 0.9;
+            maxVal = maxVal * 1.1 || 1;
+        } else {
+            minVal = minVal - range * 0.1;
+            maxVal = maxVal + range * 0.1;
+        }
+        
+        const padding = { top: 8, bottom: 8, left: 4, right: 4 };
+        const graphWidth = rect.width - padding.left - padding.right;
+        const graphHeight = rect.height - padding.top - padding.bottom;
+        
+        // Calculate points
+        const points = dataPoints.map((point, index) => {
+            const x = padding.left + (index / (dataPoints.length - 1)) * graphWidth;
+            const y = padding.top + graphHeight - ((point.value - minVal) / (maxVal - minVal)) * graphHeight;
+            return { x, y };
+        });
+        
+        // Draw gradient fill under the line
+        const gradient = ctx.createLinearGradient(0, padding.top, 0, rect.height - padding.bottom);
+        gradient.addColorStop(0, color.replace(')', ', 0.3)').replace('rgb', 'rgba'));
+        gradient.addColorStop(1, color.replace(')', ', 0.05)').replace('rgb', 'rgba'));
+        
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, rect.height - padding.bottom);
+        points.forEach(point => ctx.lineTo(point.x, point.y));
+        ctx.lineTo(points[points.length - 1].x, rect.height - padding.bottom);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        
+        // Draw the line
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        
+        // Use smooth curves
+        for (let i = 1; i < points.length; i++) {
+            const prev = points[i - 1];
+            const curr = points[i];
+            const midX = (prev.x + curr.x) / 2;
+            ctx.quadraticCurveTo(prev.x, prev.y, midX, (prev.y + curr.y) / 2);
+        }
+        ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+    }
+
+    function updateCCVGraph() {
+        // Use a muted teal/cyan color for CCV
+        drawGraph('ccvGraph', ccvHistory.map(h => ({ value: h.count })), 'rgb(72, 166, 167)');
+    }
+
+    function updateMsgPerMinGraph() {
+        // Use a muted blue color for messages per minute
+        drawGraph('msgPerMinGraph', msgPerMinHistory.map(h => ({ value: h.value })), 'rgb(92, 144, 210)');
+    }
+
+    // Handle window resize to redraw graphs
+    let resizeTimeout;
+    $(window).on('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function() {
+            updateCCVGraph();
+            updateMsgPerMinGraph();
+        }, 100);
+    });
+
     // Event listeners
     $('#loadVideo').click(loadVideoAndChat);
     
@@ -775,6 +1110,7 @@ $(document).ready(function() {
         if (statsInterval) clearInterval(statsInterval);
         if (connectionTimeout) clearTimeout(connectionTimeout);
         if (initialLoadTimeout) clearTimeout(initialLoadTimeout);
+        if (ccvFetchInterval) clearInterval(ccvFetchInterval);
     });
 });
 </script>

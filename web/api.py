@@ -3222,3 +3222,51 @@ def search_merchandise():
         "count": len(results),
         "results": results
     })
+
+@api_bp.route('/api/ccv/<video_id>')
+def get_ccv(video_id):
+    """Fetch concurrent viewer count for a YouTube live stream."""
+    try:
+        # Validate video ID format
+        if not re.match(r'^[a-zA-Z0-9_-]{11}$', video_id):
+            return jsonify({'error': 'Invalid video ID', 'ccv': None}), 400
+        
+        # Fetch the YouTube watch page
+        url = f'https://www.youtube.com/watch?v={video_id}'
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        html = response.text
+        
+        # Patterns ordered by priority - originalViewCount is the live CCV
+        patterns = [
+            # originalViewCount is the actual live concurrent viewer count
+            r'"originalViewCount":\s*"(\d+)"',
+            # Fallback patterns for "X watching now" text
+            r'"watching now"[^}]*"simpleText":\s*"([\d,]+)',
+            r'([\d,]+)\s*watching now',
+            r'"viewCountText":\s*\{[^}]*"runs":\s*\[\s*\{[^}]*"text":\s*"([\d,]+)"[^}]*\}[^]]*"text":\s*"[^"]*watching',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, html)
+            if match:
+                count_str = match.group(1).replace(',', '')
+                try:
+                    ccv = int(count_str)
+                    return jsonify({'ccv': ccv, 'video_id': video_id})
+                except ValueError:
+                    continue
+        
+        # If no live viewer count found, the stream might not be live
+        return jsonify({'ccv': None, 'video_id': video_id, 'message': 'Stream may not be live'})
+        
+    except requests.RequestException as e:
+        return jsonify({'error': str(e), 'ccv': None}), 500
+    except Exception as e:
+        return jsonify({'error': str(e), 'ccv': None}), 500
