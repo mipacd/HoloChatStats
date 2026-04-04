@@ -118,6 +118,10 @@ def get_metadata_for_channel(channel_name, channel_id, year, month, download_que
                         end_time=end_date.isoformat(),
                         duration=duration
                     )
+                
+                # To avoid getting rate-limited by YT
+                time.sleep(5)
+                
 
             page_token = playlist_items.nextPageToken
             if not page_token:

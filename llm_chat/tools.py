@@ -557,6 +557,7 @@ async def get_attrition_rates(
     Shion: 2025-03-06 / 2025-04-26 / Shiokko
     Chloe: 2024-11-29 / 2025-01-26 / Handlers (shiikuin)
     Ao: 2025-09-08 / 2025-09-08 / Dokusha
+    Kanata: 2025-12-02 / 2025-12-27 / Heimin
 
     You have no data on graduations other than the ones listed above. Data is only available for graduations after January 2025.
     """

@@ -119,7 +119,7 @@ CAPABILITIES = [
     },
     {
         "category": "capability",
-        "key": "multiple_month_data",
+        "key": "multiple_month_or_year_data",
         "content": "I CANNOT provide data that uses more than 3 API calls per prompt. For example, if a request requires data from more than 3 different months or for an entire year, I will not be able to fulfill it due to API limits.",
         "metadata": {"can_do": False}
     }

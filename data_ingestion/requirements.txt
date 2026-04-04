@@ -1,9 +1,12 @@
-chat_downloader
+chat-downloader@git+https://github.com/Indigo128/chat-downloader
 psycopg2
-pyyoutube
+python-youtube
 emoji
 isodate
 regex
 requests
 urllib3
 yt_dlp
+pandas
+torch
+scikit-learn
