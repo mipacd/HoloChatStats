@@ -74,6 +74,9 @@
             color: #4ecdc4;
             line-height: 1.15;
         }
+        .summary-counters > div {
+            text-align: center;
+        }
 
         /* Chart grid fills remaining height */
         .chart-grid {
@@ -771,6 +774,19 @@ $(document).ready(function() {
     function updateWorldMap(countryData, animate = false) {
         if (!worldMapCountries) return;
 
+        // `animate` is true only on the very first render. We use that to
+        // skip flashing on initial load (otherwise every country would flash).
+        const shouldFlash = !animate;
+
+        // Detect countries whose visitor count increased since last update.
+        const increasedCountries = [];
+        if (shouldFlash) {
+            for (const [code, count] of Object.entries(countryData)) {
+                const prev = countryVisitsData[code] || 0;
+                if (count > prev) increasedCountries.push(code);
+            }
+        }
+
         countryVisitsData = countryData;
 
         const values = Object.values(countryData);
@@ -779,15 +795,43 @@ $(document).ready(function() {
         $("#maxVisitors").text(maxVisitors.toLocaleString());
         updateLegendGradient(maxVisitors);
 
-        const sel = animate
-            ? worldMapCountries.transition().duration(500)
-            : worldMapCountries.interrupt();            // cancel any pending transitions
+        // Cancel any still-running flash before resetting fills.
+        worldMapCountries.interrupt("flash");
 
-        sel.attr("fill", function (d) {
-            const countryCode = getCountryCode(d);
-            const visitors = countryCode ? (countryData[countryCode] || 0) : 0;
+        const fillFn = function (d) {
+            const code = getCountryCode(d);
+            const visitors = code ? (countryData[code] || 0) : 0;
             return getCountryColor(visitors, maxVisitors);
-        });
+        };
+
+        if (animate) {
+            worldMapCountries.transition().duration(500).attr("fill", fillFn);
+        } else {
+            worldMapCountries.attr("fill", fillFn);
+        }
+
+        if (shouldFlash && increasedCountries.length) {
+            flashCountries(increasedCountries, countryData, maxVisitors);
+        }
+    }
+
+    function flashCountries(codes, countryData, maxVisitors) {
+        if (!worldMapCountries || !codes.length) return;
+
+        const flashColor = "#ffeb3b"; // bright yellow
+        const codeSet = new Set(codes);
+
+        worldMapCountries
+            .filter(function (d) { return codeSet.has(getCountryCode(d)); })
+            .interrupt("flash")
+            .attr("fill", flashColor)
+            .transition("flash")
+            .duration(1000)
+            .attr("fill", function (d) {
+                const code = getCountryCode(d);
+                const visitors = countryData[code] || 0;
+                return getCountryColor(visitors, maxVisitors);
+            });
     }
     
     // Mouse event handlers
