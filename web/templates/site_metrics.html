@@ -205,15 +205,12 @@
 <div id="content" class="mt-3">
     <h2 class="text-center mb-4">{{ _("Live Site Metrics") }}</h2>
 
+    <!-- Monthly users counter -->
     <div class="text-center mb-4">
-    <div class="text-secondary small text-uppercase" style="letter-spacing: 1px;">
-        {{ _("Monthly Users") }}
+        <div class="text-secondary small">{{ _("Unique Visitors (Last 30 Days)") }}</div>
+        <div id="monthlyUsersCounter" class="display-5 fw-bold" style="color:#4ecdc4;">–</div>
     </div>
-    <div id="monthlyUsers" style="font-size: 2.5rem; font-weight: 700; color: #4ecdc4;">
-        &mdash;
-    </div>
-    </div>
-    
+
     <div class="row">
         <div class="col-md-6">
             <div class="chart-container">
@@ -289,10 +286,9 @@
             </div>
         </div>
     </div>
-    <div id="topCountries"
-     class="text-center mt-4 mb-3"
-     style="font-size: 0.95rem; color: #ccc; white-space: nowrap; overflow-x: auto;">
-    &mdash;
+    <div class="text-center mt-4 mb-3">
+        <span class="text-secondary small me-2">{{ _("Top countries:") }}</span>
+        <span id="topCountries">–</span>
     </div>
 </div>
 
@@ -779,38 +775,28 @@ $(document).ready(function() {
         chart.update('none');          // <-- skip animation
     }
 
-    // Format a number with locale thousands separators
-    function fmt(n) {
-        return Number(n || 0).toLocaleString();
-    }
-
-    function updateMonthlyUsers(uniqueVisitors) {
-        const total = Object.values(uniqueVisitors)
-            .reduce((a, b) => a + Number(b || 0), 0);
-        $("#monthlyUsers").text(fmt(total));
-    }
-
-    function updateTopCountries(countryVisits) {
-        const top5 = Object.entries(countryVisits)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5);
-
-        if (top5.length === 0) {
-            $("#topCountries").text("—");
-            return;
-        }
-
-        const parts = top5.map(([code, count], i) => {
-            const name = alpha2ToName[code] || code;
-            return `<span><strong>${i + 1}. ${name}</strong> — ${fmt(count)}</span>`;
-        });
-
-        // U+2003 EM SPACE between entries; · separator reads nicely on dark bg
-        $("#topCountries").html(parts.join(' &nbsp;·&nbsp; '));
-    }
-
     let pendingMetrics = null;
     let firstUpdate = true;
+
+    function updateSummaryCounters(parsedData) {
+        // ---- Monthly unique visitors (sum of the series shown in the line chart) ----
+        const monthlyTotal = Object.values(parsedData.unique_visitors)
+            .reduce((sum, v) => sum + (parseInt(v) || 0), 0);
+        document.getElementById('monthlyUsersCounter').textContent =
+            monthlyTotal.toLocaleString();
+
+        // ---- Top 5 countries from the map data ----
+        const top5 = Object.entries(parsedData.country_visits)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([code, count]) => {
+                const name = alpha2ToName[code] || code;
+                return `${name}\u00A0(${Number(count).toLocaleString()})`;
+            });
+
+        document.getElementById('topCountries').textContent =
+            top5.length ? top5.join('  ·  ') : '–';
+    }
 
     function applyMetrics(parsedData) {
         const sortedVisitors = Object.entries(parsedData.unique_visitors)
@@ -819,8 +805,6 @@ $(document).ready(function() {
             sortedVisitors.map(([d]) => d),
             sortedVisitors.map(([, c]) => c));
 
-        updateMonthlyUsers(parsedData.unique_visitors);           // <-- added
-
         const sortedPages = Object.entries(parsedData.page_views)
             .sort((a, b) => b[1] - a[1]);
         updateChart(pageViewsChart,
@@ -828,14 +812,15 @@ $(document).ready(function() {
             sortedPages.map(([, c]) => c));
 
         updateWorldMap(parsedData.country_visits, firstUpdate);
-        updateTopCountries(parsedData.country_visits);            // <-- added
 
         const sortedCacheData = Object.entries(parsedData.cache_data)
             .sort((a, b) => new Date(a[0]) - new Date(b[0]));
-        cacheDataChart.data.labels = sortedCacheData.map(([d]) => d);
+        cacheDataChart.data.labels        = sortedCacheData.map(([d]) => d);
         cacheDataChart.data.datasets[0].data = sortedCacheData.map(([, v]) => parseInt(v.cache_hits   || 0));
         cacheDataChart.data.datasets[1].data = sortedCacheData.map(([, v]) => parseInt(v.cache_misses || 0));
         cacheDataChart.update('none');
+
+        updateSummaryCounters(parsedData);
 
         $("#pageViewsLoading").addClass("d-none");
         firstUpdate = false;
