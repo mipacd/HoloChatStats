@@ -408,10 +408,23 @@ $(document).ready(function() {
     // ISO Alpha-2 to Country Name mapping (for tooltip)
     const alpha2ToName = {};
     for (const [a2, num] of Object.entries(isoA2ToNum)) {
-        if (numericToName[num]) {
-            alpha2ToName[a2] = numericToName[num];
-        }
+        if (numericToName[num]) alpha2ToName[a2] = numericToName[num];
     }
+
+    // --- Visibility + update-coalescing state ---
+    let isTabVisible = !document.hidden;
+    let pendingData = null;     // most recent data received while hidden
+    let isUpdating = false;     // guard against overlapping updates
+    let mapReady = false;       // don't update map until it is loaded
+
+    document.addEventListener('visibilitychange', () => {
+        isTabVisible = !document.hidden;
+        if (isTabVisible && pendingData) {
+            const data = pendingData;
+            pendingData = null;
+            processMetricsUpdate(data);
+        }
+    });
 
     // Page Views Chart
     let pageViewsChart = new Chart(document.getElementById("pageViewsChart"), {
@@ -424,6 +437,7 @@ $(document).ready(function() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: false,           // <-- key change
             scales: {
                 x: { ticks: { color: "white", autoSkip: false } },
                 y: { ticks: { color: "white" } }
@@ -447,6 +461,7 @@ $(document).ready(function() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: false,           // <-- key change
             scales: {
                 x: { ticks: { color: "white" } },
                 y: { ticks: { color: "white" } }
@@ -468,6 +483,7 @@ $(document).ready(function() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: false,           // <-- key change
             scales: {
                 x: { stacked: true, ticks: { color: "white" } },
                 y: { stacked: true, ticks: { color: "white" } }
@@ -638,6 +654,8 @@ $(document).ready(function() {
             
             // Hide loading spinner
             $("#countryVisitsLoading").addClass("d-none");
+            mapReady = true;
+            if (pendingData) { const d = pendingData; pendingData = null; processMetricsUpdate(d); }
             
             // Set up control button event listeners
             document.getElementById('zoomIn').addEventListener('click', zoomIn);
@@ -670,22 +688,27 @@ $(document).ready(function() {
     // Update map colors based on visitor data
     function updateWorldMap(countryData) {
         if (!worldMapCountries) return;
-        
+
         countryVisitsData = countryData;
-        
+
         const values = Object.values(countryData);
         const maxVisitors = values.length > 0 ? Math.max(...values) : 1;
-        
+
         $("#maxVisitors").text(maxVisitors.toLocaleString());
         updateLegendGradient(maxVisitors);
-        
-        worldMapCountries.transition()
-            .duration(500)
-            .attr("fill", function(d) {
-                const countryCode = getCountryCode(d);
-                const visitors = countryCode ? (countryData[countryCode] || 0) : 0;
-                return getCountryColor(visitors, maxVisitors);
-            });
+
+        // Cancel any in-flight transitions so they don't pile up
+        worldMapCountries.interrupt();
+
+        const selection = isTabVisible
+            ? worldMapCountries.transition().duration(400)
+            : worldMapCountries; // no animation when hidden
+
+        selection.attr("fill", function(d) {
+            const countryCode = getCountryCode(d);
+            const visitors = countryCode ? (countryData[countryCode] || 0) : 0;
+            return getCountryColor(visitors, maxVisitors);
+        });
     }
     
     // Mouse event handlers
@@ -748,6 +771,42 @@ $(document).ready(function() {
         // Reset zoom on resize to prevent positioning issues
         resetZoom();
     }
+
+    function processMetricsUpdate(parsedData) {
+        if (isUpdating) return; // drop overlapping calls; latest will still arrive via socket
+        isUpdating = true;
+
+        try {
+            const sortedVisitors = Object.entries(parsedData.unique_visitors)
+                .sort((a, b) => new Date(a[0]) - new Date(b[0]));
+            uniqueVisitorsChart.data.labels = sortedVisitors.map(([d]) => d);
+            uniqueVisitorsChart.data.datasets[0].data = sortedVisitors.map(([_, c]) => c);
+            uniqueVisitorsChart.update('none');
+
+            const sortedPages = Object.entries(parsedData.page_views)
+                .sort((a, b) => b[1] - a[1]);
+            pageViewsChart.data.labels = sortedPages.map(([p]) => p);
+            pageViewsChart.data.datasets[0].data = sortedPages.map(([_, c]) => c);
+            pageViewsChart.update('none');
+
+            if (mapReady) {
+                updateWorldMap(parsedData.country_visits);
+            }
+
+            const sortedCacheData = Object.entries(parsedData.cache_data)
+                .sort((a, b) => new Date(a[0]) - new Date(b[0]));
+            cacheDataChart.data.labels = sortedCacheData.map(([d]) => d);
+            cacheDataChart.data.datasets[0].data =
+                sortedCacheData.map(([_, v]) => parseInt(v.cache_hits || 0));
+            cacheDataChart.data.datasets[1].data =
+                sortedCacheData.map(([_, v]) => parseInt(v.cache_misses || 0));
+            cacheDataChart.update('none');
+
+            $("#pageViewsLoading").addClass("d-none");
+        } finally {
+            isUpdating = false;
+        }
+    }
     
     // Debounce resize handler
     let resizeTimeout;
@@ -769,36 +828,32 @@ $(document).ready(function() {
 
     // WebSocket Listener
     socket.on("metrics_update", (data) => {
-        const parsedData = JSON.parse(data);
+        const parsedData = typeof data === "string" ? JSON.parse(data) : data;
 
-        const sortedVisitors = Object.entries(parsedData.unique_visitors).sort((a, b) => new Date(a[0]) - new Date(b[0]));
-        updateChart(uniqueVisitorsChart, sortedVisitors.map(([date]) => date), sortedVisitors.map(([_, count]) => count));
+        // If hidden OR map not yet loaded, just keep the latest payload
+        if (!isTabVisible || !mapReady) {
+            pendingData = parsedData;
+            return;
+        }
 
-        const sortedPages = Object.entries(parsedData.page_views).sort((a, b) => b[1] - a[1]);
-        updateChart(pageViewsChart, sortedPages.map(([page]) => page), sortedPages.map(([_, count]) => count));
-
-        updateWorldMap(parsedData.country_visits);
-
-        const sortedCacheData = Object.entries(parsedData.cache_data).sort((a, b) => new Date(a[0]) - new Date(b[0]));
-
-        const labels = sortedCacheData.map(([date]) => date);
-        const cacheHits = sortedCacheData.map(([_, values]) => parseInt(values.cache_hits || 0));
-        const cacheMisses = sortedCacheData.map(([_, values]) => parseInt(values.cache_misses || 0));
-
-        cacheDataChart.data.labels = labels;
-        cacheDataChart.data.datasets[0].data = cacheHits;
-        cacheDataChart.data.datasets[1].data = cacheMisses;
-
-        cacheDataChart.update();
-
-        $("#pageViewsLoading").addClass("d-none");
+        processMetricsUpdate(parsedData);
     });
 
-    // Initialize the world map
-    initWorldMap();
+    // Disconnect cleanup so a reloaded/closed tab doesn't leak
+    window.addEventListener('beforeunload', () => {
+        try { socket.disconnect(); } catch (e) {}
+    });
 
-    // Request Initial Data
-    socket.emit("request_update");
+    // Kick off: init map, then request data
+    initWorldMap().then(() => {
+        mapReady = true;
+        if (pendingData) {
+            const d = pendingData;
+            pendingData = null;
+            processMetricsUpdate(d);
+        }
+        socket.emit("request_update");
+    });
 });
 
 </script>
