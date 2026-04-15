@@ -18,7 +18,8 @@
     
     <style>
         html, body {
-           overflow-x: hidden;
+            height: 100%;
+            overflow: hidden;               /* no scrolling */
         }
         .chart-container {
             margin-top: 10px;
@@ -34,7 +35,93 @@
         body {
             background-color: #121212;
             color: white;
+            display: flex;
+            flex-direction: column;
         }
+
+        #content {
+            flex: 1 1 auto;
+            min-height: 0;                  /* allow children to shrink */
+            display: flex;
+            flex-direction: column;
+            padding: 0 0.75rem 0.25rem;
+            margin-top: 0.5rem !important;
+        }
+        #content > h2 {
+            font-size: 1.25rem;
+            margin: 0 0 0.35rem;
+            text-align: center;
+        }
+
+        /* Counters row */
+        .summary-counters {
+            display: flex;
+            justify-content: center;
+            gap: 2.5rem;
+            margin-bottom: 0.35rem;
+            flex-wrap: wrap;
+        }
+        .summary-counters .counter-label {
+            font-size: 0.7rem;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            line-height: 1;
+        }
+        .summary-counters .counter-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #4ecdc4;
+            line-height: 1.15;
+        }
+
+        /* Chart grid fills remaining height */
+        .chart-grid {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .chart-row {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            gap: 0.5rem;
+        }
+        .chart-row > .cell {
+            flex: 1 1 50%;
+            min-width: 0;
+            min-height: 0;
+            position: relative;
+        }
+
+        /* Override the old fixed heights so containers fill their flex cell */
+        .chart-container,
+        .map-container {
+            margin-top: 0;
+            height: 100%;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        /* Top-5 countries line */
+        .top-countries {
+            text-align: center;
+            font-size: 0.8rem;
+            padding: 0.3rem 0 0.1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* On narrow screens, stack rows but keep it within the viewport */
+        @media (max-width: 768px) {
+            .chart-row { flex-direction: column; }
+            #content > h2 { font-size: 1.05rem; }
+            .summary-counters .counter-value { font-size: 1.15rem; }
+        }
+
         .form-select, .form-control {
             background-color: #222;
             color: white;
@@ -202,92 +289,95 @@
 
 {% include 'menu.html' %}
 
-<div id="content" class="mt-3">
-    <h2 class="text-center mb-4">{{ _("Live Site Metrics") }}</h2>
+<div id="content">
+    <h2>{{ _("Live Site Metrics") }}</h2>
 
-    <!-- Monthly users counter -->
-    <div class="text-center mb-4">
-        <div class="text-secondary small">{{ _("Unique Visitors (Last 30 Days)") }}</div>
-        <div id="monthlyUsersCounter" class="display-5 fw-bold" style="color:#4ecdc4;">–</div>
+    <!-- Top summary counters -->
+    <div class="summary-counters">
+        <div>
+            <div class="counter-label">{{ _("Unique Visitors (Last 30 Days)") }}</div>
+            <div id="monthlyUsersCounter" class="counter-value">–</div>
+        </div>
+        <div>
+            <div class="counter-label">{{ _("Avg. Daily Visitors") }}</div>
+            <div id="avgDailyCounter" class="counter-value">–</div>
+        </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-6">
-            <div class="chart-container">
-                <canvas id="pageViewsChart"></canvas>
-                <div id="pageViewsLoading" class="position-absolute top-50 start-50 translate-middle d-none">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+    <!-- Chart grid: fills remaining viewport height -->
+    <div class="chart-grid">
+        <div class="chart-row">
+            <div class="cell">
+                <div class="chart-container">
+                    <canvas id="pageViewsChart"></canvas>
+                    <div id="pageViewsLoading" class="position-absolute top-50 start-50 translate-middle d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="cell">
+                <div class="chart-container">
+                    <canvas id="uniqueVisitorsChart"></canvas>
+                    <div id="uniqueVisitorsLoading" class="position-absolute top-50 start-50 translate-middle d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="chart-container">
-                <canvas id="uniqueVisitorsChart"></canvas>
-                <div id="uniqueVisitorsLoading" class="position-absolute top-50 start-50 translate-middle d-none">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+
+        <div class="chart-row">
+            <div class="cell">
+                <div class="map-container">
+                    <div class="map-title">{{ _("Unique Visitors by Country (Last 30 Days)") }}</div>
+                    <div id="worldMap"></div>
+
+                    <div class="map-controls">
+                        <button class="map-control-btn" id="zoomIn" title="Zoom In"><i class="bi bi-plus"></i></button>
+                        <button class="map-control-btn" id="zoomOut" title="Zoom Out"><i class="bi bi-dash"></i></button>
+                        <button class="map-control-btn" id="resetZoom" title="Reset View"><i class="bi bi-house"></i></button>
+                    </div>
+
+                    <div class="map-legend">
+                        <div class="legend-title">Visitors</div>
+                        <div class="legend-gradient" id="legendGradient"></div>
+                        <div class="legend-labels">
+                            <span>0</span>
+                            <span id="legendMid">-</span>
+                            <span id="maxVisitors">-</span>
+                        </div>
+                    </div>
+
+                    <div class="map-zoom-info">
+                        <span id="zoomLevel">100%</span> · Scroll to zoom · Drag to pan
+                    </div>
+
+                    <div id="countryVisitsLoading" class="position-absolute top-50 start-50 translate-middle">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <div class="row mt-4">
-        <div class="col-md-6">
-            <!-- Replaced bar chart with world map -->
-            <div class="map-container">
-                <div class="map-title">{{ _("Unique Visitors by Country (Last 30 Days)") }}</div>
-                <div id="worldMap"></div>
-                
-                <!-- Map Controls -->
-                <div class="map-controls">
-                    <button class="map-control-btn" id="zoomIn" title="Zoom In">
-                        <i class="bi bi-plus"></i>
-                    </button>
-                    <button class="map-control-btn" id="zoomOut" title="Zoom Out">
-                        <i class="bi bi-dash"></i>
-                    </button>
-                    <button class="map-control-btn" id="resetZoom" title="Reset View">
-                        <i class="bi bi-house"></i>
-                    </button>
-                </div>
-                
-                <div class="map-legend">
-                    <div class="legend-title">Visitors</div>
-                    <div class="legend-gradient" id="legendGradient"></div>
-                    <div class="legend-labels">
-                        <span>0</span>
-                        <span id="legendMid">-</span>
-                        <span id="maxVisitors">-</span>
-                    </div>
-                </div>
-                
-                <div class="map-zoom-info">
-                    <span id="zoomLevel">100%</span> · Scroll to zoom · Drag to pan
-                </div>
-                
-                <div id="countryVisitsLoading" class="position-absolute top-50 start-50 translate-middle">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="chart-container">
-                <canvas id="cacheDataChart"></canvas>
-                <div id="cacheDataLoading" class="position-absolute top-50 start-50 translate-middle d-none">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+            <div class="cell">
+                <div class="chart-container">
+                    <canvas id="cacheDataChart"></canvas>
+                    <div id="cacheDataLoading" class="position-absolute top-50 start-50 translate-middle d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="text-center mt-4 mb-3">
-        <span class="text-secondary small me-2">{{ _("Top countries:") }}</span>
+
+    <!-- Top 5 countries -->
+    <div class="top-countries">
+        <span class="text-secondary me-2">{{ _("Top countries:") }}</span>
         <span id="topCountries">–</span>
     </div>
 </div>
@@ -779,13 +869,24 @@ $(document).ready(function() {
     let firstUpdate = true;
 
     function updateSummaryCounters(parsedData) {
-        // ---- Monthly unique visitors (sum of the series shown in the line chart) ----
-        const monthlyTotal = Object.values(parsedData.unique_visitors)
-            .reduce((sum, v) => sum + (parseInt(v) || 0), 0);
+        const entries = Object.entries(parsedData.unique_visitors)
+            .sort((a, b) => new Date(a[0]) - new Date(b[0]));
+
+        // 30-day total (unchanged)
+        const monthlyTotal = entries.reduce(
+            (s, [, v]) => s + (parseInt(v) || 0), 0);
         document.getElementById('monthlyUsersCounter').textContent =
             monthlyTotal.toLocaleString();
 
-        // ---- Top 5 countries from the map data ----
+        // Average daily visitors, EXCLUDING today's partial day
+        const historical = entries.slice(0, -1);
+        const avg = historical.length
+            ? historical.reduce((s, [, v]) => s + (parseInt(v) || 0), 0) / historical.length
+            : 0;
+        document.getElementById('avgDailyCounter').textContent =
+            Math.round(avg).toLocaleString();
+
+        // Top 5 countries
         const top5 = Object.entries(parsedData.country_visits)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5)
@@ -793,7 +894,6 @@ $(document).ready(function() {
                 const name = alpha2ToName[code] || code;
                 return `${name}\u00A0(${Number(count).toLocaleString()})`;
             });
-
         document.getElementById('topCountries').textContent =
             top5.length ? top5.join('  ·  ') : '–';
     }
