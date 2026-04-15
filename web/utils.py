@@ -164,13 +164,12 @@ def inc_cache_miss_count():
 
 
 def track_metrics(response):
-    """Tracks unique visitors per country and aggregates page views over 30 days."""
     if response.status_code != 200:
         return response
-    
+
     country = request.headers.get("CF-IPCountry", "Unknown")
     page = request.path
-    
+
     if any(path in page for path in ["/api/", "/static/", "/favicon.ico", "/set_language/"]):
         return response
 
@@ -180,65 +179,65 @@ def track_metrics(response):
     ).hexdigest()
 
     redis_conn = get_redis_connection()
-    
-    # Track unique visitors per country
-    redis_conn.sadd(f"unique_visitors_country:{country}:{today}", visitor_ip)
-    redis_conn.sadd(f"unique_visitors:{today}", visitor_ip)
+    expiry_time = 2592000  # 30 days
 
-    # Aggregate page views across 30 days
-    redis_conn.hincrby("page_views_30d", page, 1)
+    pipe = redis_conn.pipeline()
 
-    # Set expiry for cleanup
-    expiry_time = 2592000  # 30 days in seconds
-    redis_conn.expire(f"unique_visitors_country:{country}:{today}", expiry_time)
-    redis_conn.expire(f"unique_visitors:{today}", expiry_time)
-    redis_conn.expire("page_views_30d", expiry_time)
-    redis_conn.expire(f"cache_hits:{today}", expiry_time)
-    redis_conn.expire(f"cache_misses:{today}", expiry_time)
+    # Unique visitors
+    pipe.sadd(f"unique_visitors_country:{country}:{today}", visitor_ip)
+    pipe.expire(f"unique_visitors_country:{country}:{today}", expiry_time)
 
+    pipe.sadd(f"unique_visitors:{today}", visitor_ip)
+    pipe.expire(f"unique_visitors:{today}", expiry_time)
+
+    # Page views – per-day hash so old days fall off naturally
+    pipe.hincrby(f"page_views:{today}", page, 1)
+    pipe.expire(f"page_views:{today}", expiry_time)
+
+    pipe.execute()
     return response
 
 
 def get_metrics():
-    """Retrieve latest metrics data."""
     redis_conn = redis.StrictRedis(
         host=REDIS_CONFIG["host"],
         port=REDIS_CONFIG["port"],
-        decode_responses=True
+        decode_responses=True,
     )
     today = datetime.now(pytz.utc)
+    dates = [(today - relativedelta(days=i)).strftime("%Y-%m-%d") for i in range(30)]
+
     metrics = {}
 
-    metrics["page_views"] = redis_conn.hgetall("page_views_30d")
+    # ---- Page views: sum 30 daily hashes ----
+    page_totals = {}
+    for d in dates:
+        for page, count in redis_conn.hgetall(f"page_views:{d}").items():
+            page_totals[page] = page_totals.get(page, 0) + int(count)
+    metrics["page_views"] = page_totals
 
-    # Aggregate country visits over 30 days
+    # ---- Country visits ----
     country_counts = {}
-    for i in range(30):
-        date_str = (today - relativedelta(days=i)).strftime("%Y-%m-%d")
-        for country in redis_conn.keys(f"unique_visitors_country:*:{date_str}"):
-            country_code = country.split(":")[1]
-            unique_visitors = redis_conn.scard(country)
-            country_counts[country_code] = country_counts.get(country_code, 0) + unique_visitors
+    for d in dates:
+        for key in redis_conn.keys(f"unique_visitors_country:*:{d}"):
+            cc = key.split(":")[1]
+            country_counts[cc] = country_counts.get(cc, 0) + redis_conn.scard(key)
+    metrics["country_visits"] = dict(
+        sorted(country_counts.items(), key=lambda x: x[1], reverse=True)
+    )
 
-    metrics["country_visits"] = dict(sorted(country_counts.items(), key=lambda x: x[1], reverse=True))
-
-    # Unique visitors per day
-    metrics["unique_visitors"] = { 
-        (today - relativedelta(days=i)).strftime("%Y-%m-%d"): redis_conn.scard(
-            f"unique_visitors:{(today - relativedelta(days=i)).strftime('%Y-%m-%d')}"
-        )
-        for i in range(30)
+    # ---- Unique visitors per day ----
+    metrics["unique_visitors"] = {
+        d: redis_conn.scard(f"unique_visitors:{d}") for d in dates
     }
 
+    # ---- Cache data ----
     metrics["cache_data"] = {
-        (today - relativedelta(days=i)).strftime("%Y-%m-%d"): {
-            "cache_hits": int(redis_conn.get(
-                f"cache_hits:{(today - relativedelta(days=i)).strftime('%Y-%m-%d')}"
-            ) or 0),
-            "cache_misses": int(redis_conn.get(
-                f"cache_misses:{(today - relativedelta(days=i)).strftime('%Y-%m-%d')}"
-            ) or 0)
-        } for i in range(30)
+        d: {
+            "cache_hits":  int(redis_conn.get(f"cache_hits:{d}")  or 0),
+            "cache_misses": int(redis_conn.get(f"cache_misses:{d}") or 0),
+        }
+        for d in dates
     }
 
     return metrics
