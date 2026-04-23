@@ -29,6 +29,35 @@ def _fetch_html(url):
     r.raise_for_status()
     return r.text
 
+def _render_runs(runs):
+    """
+    Convert a list of YouTube message 'runs' into a flat string.
+    Text runs are passed through; emoji runs are rendered as their
+    shortcode (custom emotes) or the unicode character (standard emoji).
+    """
+    parts = []
+    for run in runs or []:
+        if "text" in run:
+            parts.append(run["text"])
+        elif "emoji" in run:
+            e = run["emoji"]
+            if e.get("isCustomEmoji"):
+                shortcuts = e.get("shortcuts") or []
+                if shortcuts:
+                    parts.append(shortcuts[0])
+                else:
+                    label = (
+                        e.get("image", {})
+                         .get("accessibility", {})
+                         .get("accessibilityData", {})
+                         .get("label", "emoji")
+                    )
+                    parts.append(f":{label}:")
+            else:
+                # Standard unicode emoji – emojiId is the character itself
+                parts.append(e.get("emojiId", ""))
+    return "".join(parts)
+
 def _extract_params(html):
     """
     Parses HTML to extract YouTube API parameters including the API key, client version, and initial
@@ -202,9 +231,8 @@ def _parse_messages(actions, video_start_ts):
             # Handle regular chat messages with runs
             if t in ("liveChatTextMessageRenderer", "liveChatPaidMessageRenderer"):
                 msg_runs = r.get("message", {}).get("runs", [])
-                msg = "".join([x.get("text", "") for x in msg_runs]).strip()
+                msg = _render_runs(msg_runs).strip()
                 msg_data["message"] = msg
-                # Determine if this is a paid message
                 if t == "liveChatPaidMessageRenderer":
                     msg_type = "paid_message"
                 msg_data["message_type"] = msg_type
@@ -223,7 +251,9 @@ def _parse_messages(actions, video_start_ts):
                 
                 # Extract gifter username from the message
                 msg_runs = r.get("message", {}).get("runs", [])
-                gifter = None
+                full_text = _render_runs(msg_runs)
+                gifter_match = re.search(r'by\s+(\S+)', full_text)
+                gifter = gifter_match.group(1) if gifter_match else None
                 # Look for the gifter's name in the runs (usually after "by" text)
                 if msg_runs:
                     full_text = "".join([x.get("text", "") for x in msg_runs])

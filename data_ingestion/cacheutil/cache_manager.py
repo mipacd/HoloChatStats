@@ -331,3 +331,66 @@ def gzip_uncompressed_chat_logs():
                 shutil.copyfileobj(f_in, f_out)
             os.remove(file_path)
             logger.info(f"Gzipped uncompressed chat log: {filename}")
+
+def get_cached_videos_for_month(year, month):
+    """
+    Scan the metadata cache (videos/<channel_id>.json) and return a list of
+    (channel_id, video_id) tuples whose end_time falls in the given year/month.
+
+    Read-only; safe to call during a dry run.
+    """
+    logger = get_logger()
+    cache_dir = os.path.join(
+        os.path.dirname(os.path.abspath(sys.argv[0])),
+        get_config("Settings", "CacheDir"),
+    )
+    metadata_dir = os.path.join(cache_dir, "videos")
+    prefix = f"{year}-{month:02d}"
+
+    results = []
+    if not os.path.isdir(metadata_dir):
+        logger.warning(f"Metadata cache directory not found: {metadata_dir}")
+        return results
+
+    for filename in os.listdir(metadata_dir):
+        if not filename.endswith(".json"):
+            continue
+        channel_id = filename[:-5]
+        path = os.path.join(metadata_dir, filename)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            logger.warning(f"Could not read {path}: {e}")
+            continue
+        for video_id, info in data.items():
+            end_time = info.get("end_time")
+            if end_time and end_time.startswith(prefix):
+                results.append((channel_id, video_id))
+    return results
+
+
+def purge_month_chat_log_cache(month_videos, dry_run=False):
+    """
+    Delete cached chat logs (chat_logs/<video_id>.jsonl.gz) for the given
+    (channel_id, video_id) pairs. In dry-run mode, only logs what would be
+    removed and touches nothing on disk.
+
+    Returns the number of files that were (or would be) deleted.
+    """
+    logger = get_logger()
+    tag = "[DRY RUN] " if dry_run else ""
+    chat_log_dir = os.path.join(get_config("Settings", "CacheDir"), "chat_logs")
+
+    deleted = 0
+    for _channel_id, video_id in month_videos:
+        path = os.path.join(chat_log_dir, f"{video_id}.jsonl.gz")
+        if os.path.exists(path):
+            logger.info(f"{tag}delete cached chat log: {path}")
+            if not dry_run:
+                os.remove(path)
+            deleted += 1
+
+    verb = "would be" if dry_run else "were"
+    logger.info(f"{tag}{deleted} cached chat log file(s) {verb} removed.")
+    return deleted

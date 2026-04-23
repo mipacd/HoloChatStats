@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     WEB_API_URL: str = "http://127.0.0.1:5000/"
     OPENROUTER_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_API_KEY: str = ""
-    OPENROUTER_MODEL: str = "alibaba/tongyi-deepresearch-30b-a3b:free"
+    OPENROUTER_MODEL: str = "tencent/hy3-preview:free"
     WEB_API_USER_AGENT: str = "HoloChatStats-LLM/1.0"
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6380

@@ -2,6 +2,11 @@ import re
 import emoji
 import regex
 
+# Matches a single YouTube-style shortcode, e.g. :_konkonmori: or :face_with_tears_of_joy:
+_SHORTCODE_RE = re.compile(r":[^:\s]+:")
+# Characters that may appear between/inside emoji sequences but carry no text meaning
+_EMOJI_FILLER_RE = re.compile(r"[\s\u200d\ufe0e\ufe0f]")
+
 # Determine membership rank from badge text
 def parse_membership_rank(badge_text):
     """
@@ -35,39 +40,41 @@ def parse_membership_rank(badge_text):
     
     return -1
 
-# Categorize message into language or emoji
+def _is_pure_emoji(msg):
+    """
+    Returns True if msg consists solely of YouTube shortcodes and/or unicode
+    emoji (optionally separated by whitespace), and contains at least one of them.
+    """
+    # Remove all shortcodes
+    without_shortcodes = _SHORTCODE_RE.sub("", msg)
+    # Remove all unicode emoji
+    without_emoji = emoji.replace_emoji(without_shortcodes, replace="")
+    # Remove whitespace / ZWJ / variation selectors that may remain
+    remainder = _EMOJI_FILLER_RE.sub("", without_emoji)
+    if remainder:
+        return False
+    # Ensure we actually removed something (i.e. the message wasn't just whitespace)
+    return without_shortcodes != msg or without_emoji != without_shortcodes
+
+
 def categorize_message(message):
     """
     Categorize a message as emoji, language-based, or other.
-
-    This function analyzes a given message to determine its category. It first checks if the 
-    message consists of YouTube style emotes or Unicode emojis, categorizing it as "emoji" 
-    if so. If not, it then checks for the presence of Japanese, Korean, or Russian language 
-    characters using regular expressions and categorizes the message accordingly as "jp", "kr", 
-    or "ru". If the message is purely numeric, it returns "number". For all other messages, 
-    it defaults to "es_en_id".
-
-    Args:
-        message (str): The message to be categorized.
-
-    Returns:
-        str: The category of the message, which can be "emoji", "jp", "kr", "ru", "number", 
-             or "es_en_id".
+    ...
     """
-
     if not message or not isinstance(message, str):
         return None
 
-    msg_lower = message.strip().lower()
-
-    if not msg_lower:
+    msg_stripped = message.strip()
+    if not msg_stripped:
         return None
 
-    # Check for YouTube style emotes and unicode emojis. Message must be start and end with either of these.
-    if (msg_lower.startswith(":") and msg_lower.endswith(":")) or (emoji.is_emoji(msg_lower[0]) and emoji.is_emoji(msg_lower[-1])):
+    # Message is purely a chain of YouTube shortcodes and/or unicode emoji
+    if _is_pure_emoji(msg_stripped):
         return "emoji"
-    
-    # Check for language-based messages
+
+    msg_lower = msg_stripped.lower()
+
     jp_regex = regex.compile(r"[\p{Hiragana}\p{Katakana}\p{Han}]+")
     jp_punctuation = regex.compile(r"[！？]")
     jp_laugh = regex.compile(r"^[wｗ]+$")
@@ -82,5 +89,5 @@ def categorize_message(message):
         return "ru"
     elif msg_lower.isnumeric():
         return "number"
-    
+
     return "es_en_id"

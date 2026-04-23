@@ -432,3 +432,105 @@ def get_videos_without_chat_logs(month, year, channel_id):
     finally:
         cursor.close()
         release_db_connection(conn)
+
+def purge_month_db_data(year, month, dry_run=False):
+    """
+    Remove all month-scoped derived data so the month can be rebuilt cleanly:
+
+      * DELETE user_data rows for every video whose end_time is in the month
+      * Reset videos.has_chat_log / funniest_timestamp for those videos
+      * DELETE membership_data_summary rows for that observed_month
+
+    The `videos` metadata rows themselves are kept (only `has_chat_log` is
+    reset) because video metadata was not affected by the emoji bug and will be
+    upserted again by the normal pipeline anyway. `users`, `channels` and the
+    forecast tables are global / regenerated and are intentionally left alone.
+
+    In dry-run mode this function issues only SELECT COUNT(*) queries and logs
+    what it would do; nothing is modified and nothing is committed.
+    """
+    logger = get_logger()
+    tag = "[DRY RUN] " if dry_run else ""
+
+    month_start = f"{year}-{month:02d}-01"
+    next_year = year + (1 if month == 12 else 0)
+    next_month = 1 if month == 12 else month + 1
+    month_end = f"{next_year}-{next_month:02d}-01"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # --- user_data --------------------------------------------------------
+        cursor.execute(
+            """
+            SELECT COUNT(*) FROM user_data
+            WHERE video_id IN (
+                SELECT video_id FROM videos
+                WHERE end_time >= %s::timestamptz AND end_time < %s::timestamptz
+            );
+            """,
+            (month_start, month_end),
+        )
+        ud_count = cursor.fetchone()[0]
+        logger.info(f"{tag}DELETE FROM user_data: {ud_count} row(s) for {year}-{month:02d}")
+        if not dry_run and ud_count:
+            cursor.execute(
+                """
+                DELETE FROM user_data
+                WHERE video_id IN (
+                    SELECT video_id FROM videos
+                    WHERE end_time >= %s::timestamptz AND end_time < %s::timestamptz
+                );
+                """,
+                (month_start, month_end),
+            )
+
+        # --- videos: reset processing flags ----------------------------------
+        cursor.execute(
+            """
+            SELECT COUNT(*) FROM videos
+            WHERE end_time >= %s::timestamptz AND end_time < %s::timestamptz;
+            """,
+            (month_start, month_end),
+        )
+        vid_count = cursor.fetchone()[0]
+        logger.info(
+            f"{tag}UPDATE videos SET has_chat_log = FALSE, funniest_timestamp = NULL: "
+            f"{vid_count} row(s) for {year}-{month:02d}"
+        )
+        if not dry_run and vid_count:
+            cursor.execute(
+                """
+                UPDATE videos
+                SET has_chat_log = FALSE, funniest_timestamp = NULL
+                WHERE end_time >= %s::timestamptz AND end_time < %s::timestamptz;
+                """,
+                (month_start, month_end),
+            )
+
+        # --- membership_data_summary -----------------------------------------
+        cursor.execute(
+            "SELECT COUNT(*) FROM membership_data_summary WHERE observed_month = %s::date;",
+            (month_start,),
+        )
+        mds_count = cursor.fetchone()[0]
+        logger.info(
+            f"{tag}DELETE FROM membership_data_summary: {mds_count} row(s) for {year}-{month:02d}"
+        )
+        if not dry_run and mds_count:
+            cursor.execute(
+                "DELETE FROM membership_data_summary WHERE observed_month = %s::date;",
+                (month_start,),
+            )
+
+        if not dry_run:
+            conn.commit()
+            logger.info(f"Database purge for {year}-{month:02d} committed.")
+    except psycopg2.DatabaseError as e:
+        if not dry_run:
+            conn.rollback()
+        logger.error(f"Error purging month {year}-{month:02d}: {e}")
+        raise
+    finally:
+        cursor.close()
+        release_db_connection(conn)
