@@ -15,141 +15,122 @@ from cacheutil.cache_manager import write_metadata_to_cache, load_channels
 from db.queries import insert_video_metadata
 from db.connection import init_db_pool
 
-# Get metadata for videos within date range from YouTube and add to download queue
 def get_metadata_for_channel(channel_name, channel_id, year, month, download_queue):
     """
-    Fetches video metadata from YouTube for a given channel and date range and adds it to the download queue.
-
-    This function fetches video metadata from YouTube for a given channel and date range, and adds it to the download queue if it has not been processed previously.
-
-    Args:
-        channel_name (str): The name of the channel.
-        channel_id (str): The ID of the channel.
-        year (int): The year to fetch metadata for.
-        month (int): The month to fetch metadata for.
-
-    Returns:
-        None
+    Fetches video metadata from YouTube for a given channel and date range.
     """
-
+    # 1. Initialization
     yt_api = Api(api_key=get_config("API", "YOUTUBE_API_KEY"))
-    # Compute start and end of month
+    chat_downloader = sites.YouTubeChatDownloader()
+    ignore_list = get_ignore_list()
     logger = get_logger()
+    
+    max_retries = int(get_config("Settings", "MaxRetries"))
     start_month = datetime(year, month, 1, tzinfo=timezone.utc)
     end_month = start_month.replace(month=month % 12 + 1, year=year + month // 12)
 
-    retry_count = 0
-    retry_delay = 5
-
     playlist_id = "UU" + channel_id[2:]
-    stop_pagination = False
     page_token = None
+    stop_pagination = False
 
-    try:
-        logger.info(f"Getting metadata for {channel_name} ({channel_id})")
-        while not stop_pagination:
-            playlist_items = yt_api.get_playlist_items(playlist_id=playlist_id, page_token=page_token, count=50)
+    while not stop_pagination:
+        playlist_items = None
+        
+        # 2. Fetch Playlist Page with Retry Logic
+        for attempt in range(max_retries):
+            try:
+                playlist_items = yt_api.get_playlist_items(
+                    playlist_id=playlist_id, 
+                    page_token=page_token, 
+                    count=50
+                )
+                break # Success
+            except (requests.exceptions.ConnectionError, urllib3.exceptions.ProtocolError, pyyoutube.error.PyYouTubeException) as e:
+                if "quota" in str(e).lower():
+                    logger.error(f"❌ Quota exceeded for {channel_name}. Stopping.")
+                    return
+                
+                wait = 2 ** attempt
+                logger.warning(f"Connection error fetching page for {channel_name} (Attempt {attempt+1}/{max_retries}): {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+        
+        if not playlist_items or not playlist_items.items:
+            break
 
-            if not playlist_items or not playlist_items.items:
-                logger.warning(f"Failed to get playlist items for {channel_name} ({channel_id})")
-                break
+        # 3. Process Individual Videos
+        for item in playlist_items.items:
+            video_id = item.contentDetails.videoId
+            
+            if video_id in ignore_list:
+                continue
 
-            if not playlist_items.items:
-                break
+            # Fetch video data (ChatDownloader call)
+            video_data = None
+            for attempt in range(max_retries):
+                try:
+                    video_data = chat_downloader.get_video_data(video_id=video_id)
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed to get video data for {video_id}: {e}. Retry {attempt+1}...")
+                    time.sleep(1)
 
-            for item in playlist_items.items:
-                video_id = item.contentDetails.videoId
+            if not video_data:
+                continue
 
-                # Skip if video ID is in ignore list
-                ignore_list = get_ignore_list()
-                if video_id in ignore_list:
+            # Date Logic
+            end_date = video_data["end_time"]
+            if not end_date:
+                end_date = datetime.fromisoformat(item.contentDetails.videoPublishedAt.replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
+            else:
+                end_date = datetime.fromtimestamp(end_date / 1_000_000, timezone.utc)
+
+            # Check if we should stop paginating (went past our target month)
+            if end_date < start_month:
+                stop_pagination = True
+                break 
+
+            # Check if video is within target range
+            if start_month <= end_date < end_month:
+                if not is_video_past(video_id):
+                    logger.info(f"Skipping {video_id}; not a concluded stream.")
                     continue
 
-                video_data = sites.YouTubeChatDownloader().get_video_data(video_id=video_id)
+                duration = video_data["duration"]
+                if not duration:
+                    # Fallback to YT API for duration if needed
+                    try:
+                        v_details = yt_api.get_video_by_id(video_id=video_id)
+                        duration = isodate.parse_duration(v_details.items[0].contentDetails.duration).total_seconds()
+                    except:
+                        duration = 0
 
-                end_date = video_data["end_time"]
+                # Check DB status
+                is_chat_processed, is_meta_processed = is_metadata_and_chat_log_processed(video_id)
+                if is_meta_processed and is_chat_processed:
+                    continue
 
-                # Prefer end date from chat log if available, otherwise get it from YT API
-                if not end_date:
-                    end_date = datetime.fromisoformat(item.contentDetails.videoPublishedAt.replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
-                else:
-                    end_date = datetime.fromtimestamp(end_date / 1_000_000, timezone.utc)
+                # Add to Shared Queue
+                if (channel_id, video_id) not in download_queue and video_data["continuation_info"]:
+                    download_queue.append((channel_id, video_id))
+                    logger.info(f"Added {video_id} to queue for {channel_name}")
 
-                # Stop pagination if video is too old
-                if end_date < start_month:
-                    stop_pagination = True
+                # Cache & DB persistence
+                write_metadata_to_cache(
+                    channel_id=channel_id, video_id=video_id, title=item.snippet.title,
+                    end_time=end_date.isoformat(), duration=duration
+                )
+                insert_video_metadata(
+                    channel_id=channel_id, video_id=video_id, title=item.snippet.title,
+                    end_time=end_date.isoformat(), duration=duration
+                )
 
-                # Add video to download queue if it's within date range and has chat log
-                if start_month <= end_date < end_month:
-
-                    # If video status is not past, skip it
-                    if not is_video_past(video_id):
-                        logger.info(f"Skipping {video_id} as it is not a concluded live stream.")
-                        continue
-
-                    duration = video_data["duration"] 
-
-                    if not duration:
-                        duration = isodate.parse_duration(yt_api.get_video_by_id(video_id=video_id).items[0].contentDetails.duration).total_seconds()
-
-                    # If video is in database, skip it
-                    is_chat_log_processed, is_metadata_processed = is_metadata_and_chat_log_processed(video_id)
-                    if is_metadata_processed and is_chat_log_processed:
-                        continue
-
-                    if (channel_id, video_id) not in download_queue and video_data["continuation_info"]:
-                        download_queue.append((channel_id, video_id))
-                        logger.info(f"Added {video_id} to download queue for {channel_name} ({channel_id})")
-
-                    # Write metadata to cache
-                    write_metadata_to_cache(
-                        channel_id=channel_id,
-                        video_id=video_id,
-                        title=item.snippet.title,
-                        end_time=end_date.isoformat(),
-                        duration=duration
-                    )
-
-                    # Write metadata to database
-                    insert_video_metadata(
-                        channel_id=channel_id,
-                        video_id=video_id,
-                        title=item.snippet.title,
-                        end_time=end_date.isoformat(),
-                        duration=duration
-                    )
-                
-                # To avoid getting rate-limited by YT
-                time.sleep(5)
-                
-
-            page_token = playlist_items.nextPageToken
-            if not page_token:
-                stop_pagination = True
-
-    except (urllib3.exceptions.SSLError, requests.exceptions.SSLError) as e:
-        retry_count += 1
-        if retry_count < int(get_config("Settings", "MaxRetries")):
-            wait_time = min(retry_delay * (2 ** retry_count), 60)
-            print(e)
-            logger.info(f"SSL Error encountered, retrying in {wait_time} seconds... ({retry_count}/{get_config('Settings', 'MaxRetries')})")
-            time.sleep(wait_time)  
-        else:
-            logger.error(f"Max retries exceeded. Error: {e}")
-            return
-    except pyyoutube.error.PyYouTubeException as e:
-        if "quota" in str(e).lower():
-            logger.error(f"❌ Quota exceeded. Error: {e}")
-            return
-        else:
-            retry_count += 1
-            if retry_count < int(get_config("Settings", "MaxRetries")):
-                logger.info(f"YouTube API error encountered, retrying in {retry_delay} seconds... ({retry_count}/{get_config('Settings', 'MaxRetries')})")
-                wait_time = min(retry_delay * (2 ** retry_count), 60)
-                time.sleep(wait_time)  
-            else:
-                logger.error(f"Max retries exceeded. Error: {e}")
-                return
+        # 4. Advance Pagination
+        page_token = playlist_items.nextPageToken
+        if not page_token:
+            stop_pagination = True
+        
+        # Rate limit once per PAGE (50 videos)
+        time.sleep(1)
         
 def get_metadata_for_date_range(year, month, download_queue):
     """
