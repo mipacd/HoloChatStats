@@ -23,7 +23,9 @@ jobs:
   deploy:
     # Floci and its persistent volume live on this host. Do not use an
     # ephemeral GitHub-hosted runner for this deployment.
-    runs-on: [self-hosted, holochatstats]
+    # Target the repository's existing runner. A custom `holochatstats` label
+    # is not required, so a freshly registered runner can accept the job.
+    runs-on: [self-hosted]
     timeout-minutes: 120
     environment: production
     env:
