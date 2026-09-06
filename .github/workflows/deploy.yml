@@ -14,6 +14,10 @@ on:
         description: Re-run full provisioning
         type: boolean
         default: false
+      wipe_docker:
+        description: 'DANGER: erase every Docker container, image, and volume before bootstrap'
+        type: boolean
+        default: false
 
 concurrency:
   group: holochatstats-deploy
@@ -69,6 +73,34 @@ jobs:
           test -n "$DB_PASSWORD" || { echo 'DB_PASSWORD is required'; exit 1; }
           test -n "$YT_API_KEY" || { echo 'YT_API_KEY is required'; exit 1; }
 
+      - name: Validate destructive bootstrap
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.wipe_docker }}
+        env:
+          DUMP_URL: ${{ secrets.DUMP_URL }}
+          DUMP_SHA256: ${{ secrets.DUMP_SHA256 }}
+        run: |
+          set -euo pipefail
+          test ! -f /.dockerenv || {
+            echo 'Refusing to wipe Docker: the Actions runner itself is containerized.'
+            exit 1
+          }
+          test -n "$DUMP_URL" || { echo 'DUMP_URL is required for bootstrap'; exit 1; }
+          [[ "$DUMP_SHA256" =~ ^[0-9a-fA-F]{64}$ ]] || {
+            echo 'DUMP_SHA256 must be a 64-character SHA-256 digest'
+            exit 1
+          }
+          curl --fail --silent --show-error --head --max-time 30 "$DUMP_URL" >/dev/null
+          echo 'Remote dump is reachable; destructive bootstrap is authorized.'
+
+      - name: Wipe Docker for one-time bootstrap
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.wipe_docker }}
+        run: |
+          set -euo pipefail
+          docker container ls --all --quiet | xargs --no-run-if-empty docker container rm --force
+          docker volume prune --all --force
+          docker system prune --all --volumes --force
+          echo 'Docker containers, images, build cache, networks, and volumes removed.'
+
       - name: Start Floci
         run: docker compose -f infra/docker-compose.yml up -d --remove-orphans
 
@@ -83,22 +115,13 @@ jobs:
           docker compose -f infra/docker-compose.yml logs --tail 80 floci
           exit 1
 
-      - name: Quiesce the legacy application for cutover
-        # Keep hcs-postgres running: the deploy streams from it. Stopping the
-        # writers makes that stream a consistent final snapshot and releases
-        # host port 80 for the replacement frontend.
-        run: |
-          docker stop hcs-frontend hcs-web hcs-llm-chat hcs-redis 2>/dev/null || true
-
       - name: Deploy
         env:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
           LLM_SECRETS_JSON: ${{ secrets.LLM_SECRETS_JSON }}
-          SOURCE_DB_CONTAINER: hcs-postgres
-          SOURCE_DB_NAME: ${{ vars.LEGACY_DB_NAME }}
-          SOURCE_DB_USER: ${{ vars.LEGACY_DB_USER }}
-          SOURCE_DB_PASSWORD: ${{ secrets.LEGACY_DB_PASSWORD }}
+          DUMP_URL: ${{ secrets.DUMP_URL }}
+          DUMP_SHA256: ${{ secrets.DUMP_SHA256 }}
           FORCE_RESTORE: ${{ github.event.inputs.force_restore }}
           FULL_PROVISION: ${{ github.event.inputs.full_provision }}
         run: |
@@ -116,8 +139,10 @@ jobs:
             --backlog-floor 2026-07-01T00:00:00+00:00 \
             --frontend-port 80 \
             --frontend-host-port 80 \
+            --stream-restore \
             --restore-mode docker \
             --restore-network chat-ingest_default \
+            --restore-image pgvector/pgvector:pg18 \
             --build-in-docker
 
       - name: Verify deployed schema and dependencies

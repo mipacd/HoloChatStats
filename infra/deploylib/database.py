@@ -254,16 +254,27 @@ class DatabaseMixin:
                 reset_schema=self.args.force_restore)
         else:
             source = self.args.dump_url
-            dump, digest = dbrestore.fetch(
-                self.args.dump_url, self.args.dump_cache_dir,
-                sha256=self.args.dump_sha256, headers=self.args.dump_header)
-            dbrestore.restore(
-                dump, host=host, port=port, dbname=creds["dbname"],
-                user=creds["username"], password=creds["password"],
-                mode=self.args.restore_mode, network=self.args.restore_network,
-                image=self.args.restore_image, jobs=self.args.restore_jobs,
-                has_create=self.args.dump_has_create,
-                reset_schema=self.args.force_restore)
+            if self.args.stream_restore:
+                digest = dbrestore.stream_restore(
+                    self.args.dump_url, host=host, port=port,
+                    dbname=creds["dbname"], user=creds["username"],
+                    password=creds["password"],
+                    network=self.args.restore_network,
+                    image=self.args.restore_image,
+                    sha256=self.args.dump_sha256,
+                    headers=self.args.dump_header,
+                    reset_schema=self.args.force_restore)
+            else:
+                dump, digest = dbrestore.fetch(
+                    self.args.dump_url, self.args.dump_cache_dir,
+                    sha256=self.args.dump_sha256, headers=self.args.dump_header)
+                dbrestore.restore(
+                    dump, host=host, port=port, dbname=creds["dbname"],
+                    user=creds["username"], password=creds["password"],
+                    mode=self.args.restore_mode, network=self.args.restore_network,
+                    image=self.args.restore_image, jobs=self.args.restore_jobs,
+                    has_create=self.args.dump_has_create,
+                    reset_schema=self.args.force_restore)
         # pg_restore leaves reltuples = -1 and no column statistics; everything
         # downstream plans blind until this runs.
         if not self.args.skip_analyze and self.args.schema_mode != "lambda":

@@ -31,13 +31,14 @@ class ProductionConfigTests(unittest.TestCase):
     def test_github_workflow_is_in_discoverable_directory(self):
         self.assertTrue((ROOT / ".github" / "workflows" / "deploy.yml").is_file())
 
-    def test_first_deploy_streams_from_legacy_container(self):
+    def test_first_deploy_streams_remote_dump(self):
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
-        copier = (ROOT / "infra" / "dbcopy.py").read_text()
-        self.assertIn("SOURCE_DB_CONTAINER: hcs-postgres", workflow)
-        self.assertIn("pg_dump", copier)
-        self.assertIn('"pg_restore"', copier)
-        self.assertNotIn("DUMP_URL:", workflow)
+        restore = (ROOT / "infra" / "dbrestore.py").read_text()
+        self.assertIn("inputs.wipe_docker", workflow)
+        self.assertIn("DUMP_URL: ${{ secrets.DUMP_URL }}", workflow)
+        self.assertIn("--stream-restore", workflow)
+        self.assertIn("def stream_restore", restore)
+        self.assertIn("hashlib.sha256()", restore)
 
     def test_frontend_port_and_admin_are_production_safe(self):
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()

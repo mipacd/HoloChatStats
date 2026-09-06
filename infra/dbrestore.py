@@ -79,6 +79,84 @@ def _digest(path):
         for buf in iter(lambda: f.read(CHUNK), b""):
             h.update(buf)
     return h.hexdigest()
+
+def stream_restore(url, *, host, port, dbname, user, password, network=None,
+                   image="pgvector/pgvector:pg18", sha256=None, headers=(),
+                   timeout=60, reset_schema=False):
+    """Stream a custom-format archive from HTTP(S) into pg_restore.
+
+    This keeps the archive off the destination disk. Integrity is calculated
+    while streaming; a mismatch fails the deployment before it is recorded as
+    restored. The next run cleans and retries the unmarked target.
+    """
+    if not shutil.which("docker"):
+        sys.exit("stream restore requires Docker on the runner")
+    if reset_schema:
+        # Reuse the normal restore helper's reset implementation without
+        # downloading or opening the archive.
+        _reset_schema(host, port, dbname, user, password, network, image)
+    req = urllib.request.Request(url)
+    for raw in headers:
+        key, sep, value = raw.partition(":")
+        if not sep:
+            sys.exit("invalid --dump-header; expected 'Name: value'")
+        req.add_header(key.strip(), value.strip())
+    env = {**os.environ, "PGPASSWORD": password}
+    cmd = ["docker", "run", "--rm", "-i"]
+    if network:
+        cmd += ["--network", network]
+    cmd += ["-e", "PGPASSWORD", image, "pg_restore",
+            "-h", host, "-p", str(port), "-U", user, "-d", dbname,
+            "--clean", "--if-exists", "--no-owner", "--no-privileges",
+            "--exit-on-error", "--verbose"]
+    print(f"  streaming remote dump into {host}:{port}/{dbname}")
+    # Inherit stdout/stderr so pg_restore's verbose output cannot fill a pipe
+    # and deadlock a large restore.
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, env=env)
+    digest = hashlib.sha256()
+    downloaded = 0
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            while True:
+                chunk = response.read(CHUNK)
+                if not chunk:
+                    break
+                digest.update(chunk)
+                downloaded += len(chunk)
+                proc.stdin.write(chunk)
+                if downloaded % (256 * CHUNK) < CHUNK:
+                    print(f"    streamed {downloaded / (1 << 30):.1f} GiB",
+                          flush=True)
+        proc.stdin.close()
+        proc.stdin = None
+        proc.wait()
+    except Exception:
+        proc.kill()
+        proc.wait()
+        raise
+    have = digest.hexdigest()
+    if proc.returncode:
+        _reset_schema(host, port, dbname, user, password, network, image)
+        sys.exit(f"streamed pg_restore failed (exit {proc.returncode}); "
+                 "partial target was cleared; see pg_restore output above")
+    if sha256 and have != sha256.lower():
+        _reset_schema(host, port, dbname, user, password, network, image)
+        sys.exit(f"streamed dump sha256 mismatch: expected {sha256.lower()}, "
+                 f"got {have}; partial target was cleared")
+    print(f"  streamed restore completed ({downloaded / (1 << 30):.1f} GiB, "
+          f"sha256={have[:16]}...)")
+    return have
+
+def _reset_schema(host, port, dbname, user, password, network, image):
+    env = {**os.environ, "PGPASSWORD": password}
+    cmd = ["docker", "run", "--rm"]
+    if network:
+        cmd += ["--network", network]
+    cmd += ["-e", "PGPASSWORD", image, "psql", "-X", "-v", "ON_ERROR_STOP=1",
+            "-h", host, "-p", str(port), "-U", user, "-d", dbname,
+            "-c", "DROP SCHEMA IF EXISTS public CASCADE",
+            "-c", "CREATE SCHEMA public"]
+    subprocess.run(cmd, env=env, check=True)
 def _filter_toc(raw_toc: str):
     keep, skipped = [], []
     for line in raw_toc.splitlines():

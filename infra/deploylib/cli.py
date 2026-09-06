@@ -67,9 +67,9 @@ def parse_args(doc=None):
     p.add_argument("--backlog-floor",
                    help="YYYY-MM-DD; months before this are never fetched")
     # ---- one-time restore ------------------------------------------------
-    p.add_argument("--dump-url",
+    p.add_argument("--dump-url", default=os.environ.get("DUMP_URL"),
                    help="HTTP(S) URL of a pg_dump -F c backup of youtube_data")
-    p.add_argument("--dump-sha256")
+    p.add_argument("--dump-sha256", default=os.environ.get("DUMP_SHA256"))
     p.add_argument("--dump-header", action="append", default=[],
                    help='extra request header, e.g. "Authorization: Bearer x"')
     p.add_argument("--dump-cache-dir", default=str(C.ROOT / ".cache" / "dumps"))
@@ -84,6 +84,9 @@ def parse_args(doc=None):
     p.add_argument("--force-restore", action="store_true")
     p.add_argument("--skip-restore", action="store_true")
     p.add_argument("--keep-migration-log", action="store_true")
+    p.add_argument("--stream-restore", action="store_true",
+                   help="stream --dump-url into pg_restore without storing it "
+                        "on the deployment host")
     p.add_argument("--source-db-container",
                    default=os.environ.get("SOURCE_DB_CONTAINER"),
                    help="one-time direct source container, e.g. hcs-postgres")
