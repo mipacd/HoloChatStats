@@ -106,7 +106,10 @@ jobs:
         run: |
           set -euo pipefail
           echo 'Docker storage:'
-          docker info --format 'root={{.DockerRootDir}} driver={{.Driver}} backing={{.BackingFilesystem}}'
+          docker info --format 'root={{.DockerRootDir}} driver={{.Driver}}'
+          # Backing Filesystem is reported in DriverStatus on some Docker
+          # releases and is not a portable top-level template property.
+          docker info --format 'driver-status={{json .DriverStatus}}'
           DOCKER_ROOT="$(docker info --format '{{.DockerRootDir}}')"
           df -h "$DOCKER_ROOT"
           df -i "$DOCKER_ROOT"
@@ -172,7 +175,12 @@ jobs:
           {
             echo '### HoloChatStats'
             echo '```'
-            python scripts/admin_url.py --endpoint http://localhost:4566 || true
+            if curl --fail --silent --max-time 2 -o /dev/null http://localhost:4566; then
+              python scripts/admin_url.py --endpoint http://localhost:4566 || \
+                echo 'Admin URL is not available yet.'
+            else
+              echo 'Floci is not reachable on localhost:4566.'
+            fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
