@@ -3,6 +3,7 @@ The frontend container reaches it on the VPC-internal address published to
 SSM at /{APP}/web/internal_url.
 """
 import base64
+import os
 from pathlib import Path
 import shutil
 import shlex
@@ -61,8 +62,14 @@ class WebApiMixin:
         if staging.exists():
             shutil.rmtree(staging)
         staging.mkdir(parents=True)
+        ownership_trap = ""
+        if hasattr(os, "getuid"):
+            owner = f"{os.getuid()}:{os.getgid()}"
+            ownership_trap = (f"trap 'chown -R {owner} /output "
+                              f"2>/dev/null || true' EXIT")
         script = rf"""
 set -ex
+{ownership_trap}
 dnf install -y --allowerasing {C.WEB_PYTHON} {C.WEB_PYTHON}-pip {C.WEB_PYTHON}-devel \
                gcc gcc-c++ postgresql-devel tar gzip findutils
 {C.WEB_PYTHON} -m venv /opt/web/venv

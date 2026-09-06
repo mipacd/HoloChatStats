@@ -156,6 +156,14 @@ class FrontendMixin:
         print("frontend: building ...")
         if self.args.build_in_docker:
             docker_env = [a for k, v in env.items() for a in ("-e", f"{k}={v}")]
+            build_command = ("(npm ci --prefer-offline --no-audit || npm install) "
+                             "&& npx vite build")
+            if hasattr(os, "getuid"):
+                owner = f"{os.getuid()}:{os.getgid()}"
+                build_command = (
+                    f"trap 'chown -R {owner} /app/dist 2>/dev/null || true; "
+                    f"chown {owner} /app/package-lock.json 2>/dev/null || true' "
+                    f"EXIT; {build_command}")
             subprocess.check_call([
                 "docker", "run", "--rm",
                 "-v", f"{src}:/app",
@@ -164,8 +172,7 @@ class FrontendMixin:
                 "-v", f"{C.APP}-frontend-node_modules:/app/node_modules",
                 "-w", "/app", *docker_env,
                 f"node:{self.args.node_version}-slim", "bash", "-lc",
-                "(npm ci --prefer-offline --no-audit || npm install) && "
-                "npx vite build"])
+                build_command])
         else:
             npm = "npm.cmd" if os.name == "nt" else "npm"
             shell_env = {**os.environ, **env}

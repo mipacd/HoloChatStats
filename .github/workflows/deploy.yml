@@ -30,7 +30,8 @@ jobs:
     # Target the repository's existing runner. A custom `holochatstats` label
     # is not required, so a freshly registered runner can accept the job.
     runs-on: [self-hosted]
-    timeout-minutes: 120
+    # A first-time streamed restore of the legacy database can take hours.
+    timeout-minutes: 360
     environment: production
     env:
       AWS_ACCESS_KEY_ID: test

@@ -1,4 +1,5 @@
 """Lambda packaging, role, and function lifecycle."""
+import os
 import shutil
 import subprocess
 import sys
@@ -22,11 +23,17 @@ class LambdaMixin:
         C.BUILD_DIR.mkdir(parents=True)
         if self.args.build_in_docker:
             print("pip-installing dependencies inside a linux container ...")
+            install = ("pip install -q --no-cache-dir "
+                       "-r /src/requirements.txt --target /src/build")
+            # Always return bind-mounted output to the runner, even on failure.
+            if hasattr(os, "getuid"):
+                owner = f"{os.getuid()}:{os.getgid()}"
+                install = (f"trap 'chown -R {owner} /src/build "
+                           f"2>/dev/null || true' EXIT; {install}")
             subprocess.check_call([
                 "docker", "run", "--rm", "-v", f"{C.ROOT.as_posix()}:/src",
                 "-w", "/src", f"python:{self.args.python_version}-slim",
-                "pip", "install", "-q", "--no-cache-dir",
-                "-r", "/src/requirements.txt", "--target", "/src/build"])
+                "sh", "-c", install])
         else:
             print("pip-installing dependencies with host pip ...")
             cmd = [sys.executable, "-m", "pip", "install", "-q",
