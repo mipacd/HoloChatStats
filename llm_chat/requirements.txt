@@ -9,3 +9,4 @@ langgraph
 sentence-transformers
 torch
 asyncpg
+boto3

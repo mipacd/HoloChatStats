@@ -1,7 +1,10 @@
 
 from flask import Blueprint, render_template, redirect, request, session, Response
 from flask_babel import _
-from utils import get_locale
+try:
+    from web.utils import get_locale
+except ImportError:
+    from utils import get_locale
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -14,6 +17,10 @@ def index():
         return render_template("index_pwa.html", _=_, get_locale=get_locale)
     else:
         return render_template("index.html", _=_, get_locale=get_locale)
+
+@routes_bp.route("/health")
+def health():
+    return {"status": "ok"}
 
 # Serve service worker from root
 @routes_bp.route('/service-worker.js')

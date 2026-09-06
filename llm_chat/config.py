@@ -1,15 +1,49 @@
-import os
-from pydantic_settings import BaseSettings
+import json, os
+from pydantic_settings import (BaseSettings, SettingsConfigDict,
+                               PydanticBaseSettingsSource)
+
+class _SecretsManagerSource(PydanticBaseSettingsSource):
+    """Best-effort: any failure (no AWS / absent secret / no creds) -> {}."""
+    def __init__(self, settings_cls):
+        super().__init__(settings_cls)
+        self._data = {}
+        sid = os.getenv("LLM_SECRET_ID")
+        if not sid:
+            return
+        try:
+            import boto3
+            raw = boto3.client(
+                "secretsmanager",
+                endpoint_url=os.getenv("AWS_ENDPOINT_URL") or None,
+                region_name=os.getenv("AWS_REGION", "us-east-1"),
+            ).get_secret_value(SecretId=sid)["SecretString"]
+            self._data = {k.lower(): v for k, v in json.loads(raw).items()}
+        except Exception:
+            self._data = {}
+    def get_field_value(self, field, field_name):
+        name = (field.alias or field_name).lower()
+        return self._data.get(name), name, False
+    def __call__(self):
+        out = {}
+        for name, field in self.settings_cls.model_fields.items():
+            v, _, _ = self.get_field_value(field, name)
+            if v is not None:
+                out[name] = v
+        return out
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=("../.env" if os.getenv("ENV") == "development" else ".env"),
+        extra="ignore")
+
     # API / LLM
     WEB_API_URL: str = "http://127.0.0.1:5000/"
     OPENROUTER_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_API_KEY: str = ""
-    OPENROUTER_MODEL: str = "tencent/hy3-preview:free"
+    OPENROUTER_MODEL: str = "openrouter/owl-alpha"
     WEB_API_USER_AGENT: str = "HoloChatStats-LLM/1.0"
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6380
+    REDIS_HOST: str = "floci"
+    REDIS_PORT: int = 6379
 
     # Database
     POSTGRES_HOST: str = "db"
@@ -18,10 +52,24 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = "youtube_data"
 
+    # Email
+    EMAIL_ALERTS_ENABLED: bool = True
+    ALERT_EMAIL_TO: str = ""           # e.g. "you@example.com"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""          # defaults to a fallback if blank
+    ALERT_DEGRADED_THRESHOLD_HOURS: float = 24.0
+
+    LLM_DB_PASSWORD: str = ""            # If empty, falls back to POSTGRES_PASSWORD
+    LLM_QUERY_TIMEOUT_SECONDS: float = 15.0
+    LLM_QUERY_MAX_ROWS: int = 200
+
     # Limits
     MAX_API_CALLS_PER_PROMPT: int = 3
     LLM_DAILY_LIMIT: int = 10
-    LLM_ADMIN_KEY: str = "SuperSecretAccesstoHCSChatBot"
+    LLM_ADMIN_KEY: str = ""
 
     # Persona / prompt hijacking
     SYSTEM_PERSONA: str = "You are the Eri, the HoloChatStats assistant. You have a kuudere, deadpan personality and you are an otaku." \
@@ -41,6 +89,28 @@ class Settings(BaseSettings):
     "If asked about how to support HoloChatStats, provide the following Ko-fi link: https://ko-fi.com/holochatstats and the following email " \
     "for any job opportunities: admin@holochatstats.com. If someone notices a site issue, tell them to notify @HoloChatStat on Twitter/X or open an issue on the GitHub repo at https://github.com/mipacd/HoloChatStats."
     PROMPT_SANITIZATION_ENABLED: bool = True
+    SYSTEM_PROMPT: str = '''
+Query Strategy Rules
+1. **Text analysis (games, topics, keywords)**
+   The database has no game or category column. To answer "which games":
+   → Use `run_sql_query` to fetch raw `videos.title` values
+   → Read the titles yourself and identify/count games in your response
+   → Never split or parse titles inside SQL — they contain mixed Japanese/English/emoji
+2. **All-channel comparisons**
+   Many API tools require a `group` parameter ('Hololive' or 'Indie').
+   If the user asks for a ranking across all channels:
+   → Option A: Call the group tool once for 'Hololive', once for 'Indie', merge results
+   → Option B: Use `run_sql_query` for a single query across all channels
+   Use whichever is simpler for the specific question.
+3. **One-to-all overlap queries**
+   "Which channels share the most users/members with X?" cannot be answered by
+   calling pairwise API tools in a loop. Use `run_sql_query` with a self-join on
+   `user_data` (or `mv_user_monthly_activity` for chatters).
+4. **Never hallucinate tables or tools**
+   Only use tables listed in the `run_sql_query` schema. Only call tools from your
+   tool list. If you're unsure whether a table exists, it probably doesn't — stick
+   to the documented schema.
+    '''
 
     PROMPT_DENYLIST_PATTERNS: list[str] = [
         r"(?i)\bignore\s*previous\b",
@@ -139,8 +209,12 @@ class Settings(BaseSettings):
     # Environment
     ENV: str = "production"  # "production" for deployment
 
-    class Config:
-        env_file = "../.env" if os.getenv("ENV") == "development" else ".env"
-        extra = "ignore"  # allow extra vars without raising errors
+    @classmethod
+    def settings_customise_sources(cls, settings_cls, init_settings,
+                                   env_settings, dotenv_settings,
+                                   file_secret_settings):
+        return (init_settings, env_settings, dotenv_settings,
+                _SecretsManagerSource(settings_cls), file_secret_settings)
+
 
 settings = Settings()

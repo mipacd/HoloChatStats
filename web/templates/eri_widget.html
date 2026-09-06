@@ -423,7 +423,7 @@
         transition: border-color 0.2s;
         font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
         resize: none;
-        overflow-y: auto;
+        overflow-y: hidden;
         min-height: 36px;
         max-height: 120px;
         line-height: 1.4;
@@ -580,7 +580,6 @@
         padding: 2px 8px;
         border-radius: 10px;
         background: rgba(0, 0, 0, 0.25);
-        margin-left: auto;
         margin-right: 8px;
         display: flex;
         align-items: center;
@@ -689,6 +688,98 @@
     .eri-widget-messages::-webkit-scrollbar-thumb:hover {
         background: rgba(255,255,255,0.3);
     }
+
+    /* ── Chart overlay (click-to-enlarge) ──────────────────────── */
+    .eri-chart-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.88);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        cursor: zoom-out;
+        animation: eri-overlay-fade-in 0.15s ease;
+    }
+
+    .eri-chart-overlay img {
+        max-width: 92vw;
+        max-height: 92vh;
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        user-select: none;
+        -webkit-user-drag: none;
+    }
+
+    .eri-widget-status-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    }
+    .eri-widget-status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #888;
+        box-shadow: 0 0 4px rgba(0,0,0,0.6);
+        transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        cursor: help;
+        flex-shrink: 0;
+    }
+    .eri-widget-status-dot.status-green {
+        background-color: #4ade80;
+        animation: eri-widget-pulse-green 3.2s ease-in-out infinite;
+    }
+    .eri-widget-status-dot.status-yellow {
+        background-color: #facc15;
+        animation: eri-widget-pulse-yellow 1.8s ease-in-out infinite;
+    }
+    .eri-widget-status-dot.status-red {
+        background-color: #f87171;
+        animation: eri-widget-pulse-red 2.6s ease-in-out infinite;
+    }
+    @keyframes eri-widget-pulse-green {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 3px 0 rgba(74, 222, 128, 0.5);
+            opacity: 0.95;
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 5px 1px rgba(74, 222, 128, 0.7);
+            opacity: 1;
+        }
+    }
+    @keyframes eri-widget-pulse-yellow {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 4px 0 rgba(250, 204, 21, 0.6);
+            opacity: 0.85;
+        }
+        50% {
+            transform: scale(1.15);
+            box-shadow: 0 0 9px 2px rgba(250, 204, 21, 0.9);
+            opacity: 1;
+        }
+    }
+    @keyframes eri-widget-pulse-red {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 3px 0 rgba(248, 113, 113, 0.6);
+            opacity: 0.9;
+        }
+        50% {
+            transform: scale(1.12);
+            box-shadow: 0 0 8px 2px rgba(248, 113, 113, 0.9);
+            opacity: 1;
+        }
+    }
+
+    @keyframes eri-overlay-fade-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
 </style>
 
 <!-- Load marked.js and DOMPurify if not already loaded -->
@@ -730,10 +821,13 @@ if (typeof DOMPurify === 'undefined') {
                 <span>{{ _("Chat with Eri") }}</span>
                 <span class="eri-admin-badge" id="eriWidgetAdminBadge" style="display:none;" title="Admin mode active">🛡️</span>
             </div>
-            <span class="eri-prompts-remaining" id="eriWidgetPromptsRemaining" style="display:none;" title="{{ _("Prompts remaining today") }}">
-                <i class="bi bi-chat-dots"></i>
-                <span id="eriWidgetPromptCount">--</span>
-            </span>
+            <div class="eri-widget-status-group">
+                <span id="eriWidgetStatusLight" class="eri-widget-status-dot" title="{{ _("Checking model status...") }}"></span>
+                <span class="eri-prompts-remaining" id="eriWidgetPromptsRemaining" style="display:none;" title="{{ _("Prompts remaining today") }}">
+                    <i class="bi bi-chat-dots"></i>
+                    <span id="eriWidgetPromptCount">--</span>
+                </span>
+            </div>
             <div class="eri-header-buttons">
                 <button class="eri-tts-btn" id="eriWidgetTtsBtn" title="{{ _("Read aloud") }}">
                     <i class="bi bi-volume-up-fill"></i>
@@ -819,7 +913,7 @@ window.EriWidgetContext = window.EriWidgetContext || {};
         widgetIsAdmin = true;
     }
 
-    const widgetBaseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8080' : 'https://llm.holochatstats.info';
+    const widgetBaseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8000' : 'https://llm.holochatstats.info';
 
     const widgetStatusMessages = {
         'status_connecting': {{ _("Let's see...") | tojson }},
@@ -1000,8 +1094,7 @@ window.EriWidgetContext = window.EriWidgetContext || {};
                 }
                 
                 textarea.value = finalTranscript + interimTranscript;
-                textarea.style.height = 'auto';
-                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+                autoSizeWidgetTextarea();
             };
             
             widgetRecognition.onerror = function(event) {
@@ -1080,34 +1173,48 @@ window.EriWidgetContext = window.EriWidgetContext || {};
         }, 100);
     }
 
-    function renderMarkdownWithImages(markdown) {
+    function renderMarkdownWithImages(markdown, chartBaseUrl) {
         const rawHtml = marked.parse(markdown || '');
         const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = DOMPurify.sanitize(rawHtml, { 
-            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
-                          'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img', 'hr', 
-                          'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-            ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'title', 'width', 'height']
+        tempDiv.innerHTML = DOMPurify.sanitize(rawHtml, {
+            ALLOWED_TAGS: [
+                'p','br','strong','em','u','h1','h2','h3','h4','h5','h6',
+                'ul','ol','li','blockquote','code','pre','a','img','hr',
+                'table','thead','tbody','tr','th','td'
+            ],
+            ALLOWED_ATTR: ['href','target','rel','src','alt','title','width','height']
         });
-        
+
+        // External links → new tab
         tempDiv.querySelectorAll('a').forEach(link => {
             link.setAttribute('target', '_blank');
             link.setAttribute('rel', 'noopener noreferrer');
         });
-        
+
         tempDiv.querySelectorAll('img').forEach(img => {
-            const src = img.getAttribute('src');
-            if (src) {
+            let src = img.getAttribute('src') || '';
+
+            // Rewrite relative /charts/ paths to the LLM server origin
+            if (src.startsWith('/charts/') && chartBaseUrl) {
+                src = chartBaseUrl + src;
+                img.setAttribute('src', src);
+            }
+
+            if (src.includes('/charts/')) {
+                // Chart images → overlay on click (handled by delegation)
+                img.setAttribute('data-eri-chart', 'true');
+            } else if (src) {
+                // All other images → open in new tab
                 const link = document.createElement('a');
                 link.href = src;
                 link.target = '_blank';
                 link.rel = 'noopener noreferrer';
-                const imgClone = img.cloneNode(true);
+                const clone = img.cloneNode(true);
                 img.parentNode.replaceChild(link, img);
-                link.appendChild(imgClone);
+                link.appendChild(clone);
             }
         });
-        
+
         return tempDiv.innerHTML;
     }
 
@@ -1287,13 +1394,69 @@ window.EriWidgetContext = window.EriWidgetContext || {};
         }
     }
 
+    const widgetStatusTooltips = {
+        'green': {{ _("Model online") | tojson }},
+        'yellow': {{ _("Model degraded") | tojson }},
+        'red': {{ _("Model unavailable") | tojson }}
+    };
+    async function fetchWidgetModelStatus() {
+        const dot = document.getElementById('eriWidgetStatusLight');
+        try {
+            const response = await fetch(`${widgetBaseUrl}/model-status`);
+            if (!response.ok) throw new Error('bad response');
+            const data = await response.json();
+            const status = data.status || 'red';
+            dot.classList.remove('status-green', 'status-yellow', 'status-red');
+            dot.classList.add(`status-${status}`);
+            dot.title = widgetStatusTooltips[status] || widgetStatusTooltips['red'];
+        } catch (err) {
+            console.error('Failed to fetch model status:', err);
+            dot.classList.remove('status-green', 'status-yellow', 'status-red');
+            dot.classList.add('status-red');
+            dot.title = widgetStatusTooltips['red'];
+        }
+    }
+
     // ==================== UI INTERACTIONS ====================
     
     const textarea = document.getElementById('eriWidgetInput');
     
-    textarea.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    function autoSizeWidgetTextarea() {
+        textarea.style.height = 'auto';
+        const newHeight = Math.min(textarea.scrollHeight, 120);
+        textarea.style.height = newHeight + 'px';
+        // Only show a scrollbar once content actually exceeds the max height
+        textarea.style.overflowY = textarea.scrollHeight > 120 ? 'auto' : 'hidden';
+    }
+    textarea.addEventListener('input', autoSizeWidgetTextarea);
+    // Run once on load so initial state is correct (no stray scrollbar)
+    autoSizeWidgetTextarea();
+
+    document.getElementById('eriWidgetMessages').addEventListener('click', function(e) {
+        const img = e.target.closest('img[data-eri-chart]');
+        if (!img) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'eri-chart-overlay';
+
+        const fullImg = document.createElement('img');
+        fullImg.src = img.src;
+        fullImg.alt = img.alt || 'Chart';
+        overlay.appendChild(fullImg);
+
+        // Click anywhere on the overlay (or press Escape) to close
+        overlay.addEventListener('click', function() { this.remove(); });
+        document.addEventListener('keydown', function handler(ev) {
+            if (ev.key === 'Escape') {
+                overlay.remove();
+                document.removeEventListener('keydown', handler);
+            }
+        });
+
+        document.body.appendChild(overlay);
     });
 
     const sideArrow = document.getElementById('eriSideArrow');
@@ -1362,32 +1525,41 @@ window.EriWidgetContext = window.EriWidgetContext || {};
         const bubble = document.createElement('div');
         bubble.className = `eri-widget-bubble ${sender === 'eri' ? 'eri' : 'user'}`;
         
-        if (sender === 'eri') {
+       if (sender === 'eri') {
             const senderSpan = document.createElement('span');
             senderSpan.className = 'sender';
             senderSpan.textContent = 'Eri';
             bubble.appendChild(senderSpan);
-            
+
             const msgSpan = document.createElement('span');
             msgSpan.className = 'msg';
-            
+
             if (isAssistantMarkdown) {
                 if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
                     msgSpan.textContent = text;
                     waitForLibraries(() => {
-                        try { msgSpan.innerHTML = renderMarkdownWithImages(text); } catch (err) { console.error('Markdown rendering error:', err); }
+                        try {
+                            msgSpan.innerHTML = renderMarkdownWithImages(text, widgetBaseUrl);
+                        } catch (err) {
+                            console.error('Markdown rendering error:', err);
+                        }
                     });
                 } else {
-                    try { msgSpan.innerHTML = renderMarkdownWithImages(text); } catch (err) { console.error('Markdown rendering error:', err); msgSpan.textContent = text; }
+                    try {
+                        msgSpan.innerHTML = renderMarkdownWithImages(text, widgetBaseUrl);
+                    } catch (err) {
+                        console.error('Markdown rendering error:', err);
+                        msgSpan.textContent = text;
+                    }
                 }
             } else {
                 msgSpan.textContent = text;
             }
             bubble.appendChild(msgSpan);
-            
-            // Store and speak if TTS enabled
-            widgetLastEriMessage = text;
-            if (widgetTtsEnabled) speakText(text);
+
+            // Strip image markdown so chart references aren't read aloud
+            widgetLastEriMessage = text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim();
+            if (widgetTtsEnabled) speakText(widgetLastEriMessage);
         } else {
             const msgSpan = document.createElement('span');
             msgSpan.className = 'msg';
@@ -1555,5 +1727,7 @@ window.EriWidgetContext = window.EriWidgetContext || {};
     }, 8000);
 
     fetchWidgetPromptsRemaining();
+    fetchWidgetModelStatus();
+    setInterval(fetchWidgetModelStatus, 60000);
 })();
 </script>

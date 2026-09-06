@@ -1,0 +1,15 @@
+psycopg2-binary
+# --- YouTube access ------------------------------------------------------
+# playlist enumeration + video duration fallback (pyyoutube)
+python-youtube
+# get_video_data(): end_time, duration, continuation_info
+chat-downloader
+# video_start_ts / duration resolution in common/youtube.py
+yt-dlp
+# HTTP for the innertube chat-replay calls
+requests
+urllib3
+# --- parsing -------------------------------------------------------------
+isodate
+emoji
+regex

@@ -1,22 +1,128 @@
-name: Deploy to Production
+name: deploy
 
 on:
   push:
-    branches:
-      - main
-
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
   workflow_dispatch:
+    inputs:
+      force_restore:
+        description: Re-run the database restore (destructive)
+        type: boolean
+        default: false
+      full_provision:
+        description: Re-run full provisioning
+        type: boolean
+        default: false
+
+concurrency:
+  group: holochatstats-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: self-hosted
-
+    # Floci and its persistent volume live on this host. Do not use an
+    # ephemeral GitHub-hosted runner for this deployment.
+    runs-on: [self-hosted, holochatstats]
+    timeout-minutes: 120
+    environment: production
+    env:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localhost:4566
+      PYTHONUNBUFFERED: '1'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Rebuild and deploy Docker container
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install tooling and test dependencies
+        run: python -m pip install --quiet -r requirements-dev.txt boto3 botocore
+
+      - name: Validate repository
         run: |
-          cd /web/HoloChatStats
-          git pull
-          docker compose up --build -d
+          python -m compileall -q common handlers infra llm_chat web
+          python -m unittest discover -s tests -v
+          docker compose -f infra/docker-compose.yml config --quiet
+
+      - name: Require production secrets
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+        run: |
+          test -n "$DB_PASSWORD" || { echo 'DB_PASSWORD is required'; exit 1; }
+          test -n "$YT_API_KEY" || { echo 'YT_API_KEY is required'; exit 1; }
+
+      - name: Start Floci
+        run: docker compose -f infra/docker-compose.yml up -d --remove-orphans
+
+      - name: Wait for the AWS edge
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf -o /dev/null http://localhost:4566; then
+              echo 'edge is up'; exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f infra/docker-compose.yml logs --tail 80 floci
+          exit 1
+
+      - name: Quiesce the legacy application for cutover
+        # Keep hcs-postgres running: the deploy streams from it. Stopping the
+        # writers makes that stream a consistent final snapshot and releases
+        # host port 80 for the replacement frontend.
+        run: |
+          docker stop hcs-frontend hcs-web hcs-llm-chat hcs-redis 2>/dev/null || true
+
+      - name: Deploy
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          LLM_SECRETS_JSON: ${{ secrets.LLM_SECRETS_JSON }}
+          SOURCE_DB_CONTAINER: hcs-postgres
+          SOURCE_DB_NAME: ${{ vars.LEGACY_DB_NAME }}
+          SOURCE_DB_USER: ${{ vars.LEGACY_DB_USER }}
+          SOURCE_DB_PASSWORD: ${{ secrets.LEGACY_DB_PASSWORD }}
+          FORCE_RESTORE: ${{ github.event.inputs.force_restore }}
+          FULL_PROVISION: ${{ github.event.inputs.full_provision }}
+        run: |
+          set -euo pipefail
+          EXTRA=()
+          [ "${FORCE_RESTORE:-false}" = true ] && EXTRA+=(--force-restore)
+          [ "${FULL_PROVISION:-false}" = true ] && EXTRA+=(--full)
+          python infra/deploy.py --auto "${EXTRA[@]}" \
+            --endpoint http://localhost:4566 \
+            --lambda-endpoint http://floci:4566 \
+            --create-rds \
+            --db-name youtube_data \
+            --db-internal-host floci \
+            --channels-file web/channel.json \
+            --backlog-floor 2026-07-01T00:00:00+00:00 \
+            --frontend-port 80 \
+            --frontend-host-port 80 \
+            --restore-mode docker \
+            --restore-network chat-ingest_default \
+            --build-in-docker
+
+      - name: Verify deployed schema and dependencies
+        run: |
+          python scripts/invoke.py migrate --action verify_schema
+          python scripts/invoke.py migrate --action ping
+
+      - name: Publish deployment summary
+        if: always()
+        run: |
+          {
+            echo '### HoloChatStats'
+            echo '```'
+            python scripts/admin_url.py --endpoint http://localhost:4566 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Emulator logs on failure
+        if: failure()
+        run: docker compose -f infra/docker-compose.yml logs --tail 200 floci

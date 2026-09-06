@@ -16,6 +16,120 @@ logger = logging.getLogger(__name__)
 # Define your capabilities
 CAPABILITIES = [
     {
+    "category": "capability",
+    "key": "text_content_analysis",
+    "content": (
+        "When users ask about games, stream topics, or content categories: "
+        "the database has NO game/category field — only video titles (mixed EN/JP/emoji). "
+        "Use `run_sql_query` to SELECT raw titles, then analyse the titles yourself "
+        "in your response to identify and count games or topics. "
+        "NEVER try to parse, split, or regex-match titles inside SQL."
+    ),
+    "metadata": {"can_do": True, "related_tools": ["run_sql_query"]}
+},
+{
+    "category": "capability",
+    "key": "cross_group_queries",
+    "content": (
+        "Several API tools (get_group_total_streaming_hours, get_group_avg_streaming_hours, "
+        "get_group_max_streaming_hours, get_user_changes, etc.) require a 'group' parameter. "
+        "The only groups are 'Hololive' and 'Indie'. "
+        "When a question asks for rankings across ALL channels without specifying a group: "
+        "EITHER call the tool twice (once per group) and merge results, "
+        "OR use `run_sql_query` to query all channels in a single SQL statement. "
+        "Never pass an empty or invented group name."
+    ),
+    "metadata": {"can_do": True, "related_tools": [
+        "get_group_total_streaming_hours", "run_sql_query"
+    ]}
+},
+{
+    "category": "capability",
+    "key": "sql_schema_boundaries",
+    "content": (
+        "The SQL database contains ONLY these tables: channels, users, videos, user_data, "
+        "streaming_forecasts, membership_data_summary; and these materialized views: "
+        "mv_user_monthly_activity, mv_user_activity, chat_language_stats_mv, "
+        "mv_user_language_per_month. "
+        "There are NO pre-computed tables for: common_users, common_members, "
+        "games, categories, tags, superchats, or schedules. "
+        "If you need overlap data, self-join user_data. "
+        "If you need game/topic data, fetch raw video titles and analyse them yourself."
+    ),
+    "metadata": {"can_do": True, "related_tools": ["run_sql_query"]}
+},
+    {
+        "category": "capability",
+        "key": "custom_sql_queries",
+        "content": (
+            "I CAN execute custom read-only SQL queries against the PostgreSQL database "
+            "using `run_sql_query` when no specialised API tool can answer the question. "
+            "This is ideal for: cross-table analysis, complex filtering, comparisons across "
+            "many channels at once, questions about video titles/content, or any question that "
+            "would otherwise require more than 3 API calls. "
+            "Available tables: channels, users, videos (title, end_time, duration), user_data, "
+            "streaming_forecasts, membership_data_summary. "
+            "Materialized views: mv_user_monthly_activity, mv_user_activity, "
+            "chat_language_stats_mv, mv_user_language_per_month. "
+            "Always JOIN with `channels` to resolve channel_id → channel_name, "
+            "and always include a LIMIT clause."
+        ),
+        "metadata": {"can_do": True, "related_tools": ["run_sql_query"]}
+    },
+    {
+    "category": "capability",
+    "key": "tool_routing_guidance",
+    "content": (
+        "TOOL SELECTION — follow in order: "
+        "(1) If a specialised API tool directly answers the question, use it. "
+        "(2) If the question spans all channels or would need >3 API calls, use `run_sql_query`. "
+        "(3) If the question is about stream content/games/topics, use `run_sql_query` to fetch "
+        "raw video titles, then analyse them yourself. "
+        "(4) If a group-specific API tool is needed but the user didn't specify a group, "
+        "call it once for 'Hololive' and once for 'Indie', then merge results. "
+        "(5) NEVER invent tool names. Only use tools from the available tool list. "
+        "(6) NEVER reference tables that aren't in the schema. "
+        "If nothing works, explain the limitation honestly."
+    ),
+    "metadata": {"can_do": True}
+},
+    {
+    "category": "capability",
+    "key": "no_game_categorization",
+    "content": (
+        "I CANNOT reliably categorize streams by game or content type. There is no "
+        "game/category field in the database. I can fetch video titles with SQL and "
+        "analyse them to identify games mentioned in titles, but results are best-effort "
+        "since titles are mixed-language and not consistently formatted. "
+        "I should explain this caveat to the user."
+    ),
+    "metadata": {"can_do": False}
+},
+{
+    "category": "capability",
+    "key": "reporting_data_completeness",
+    "content": (
+        "When telling the user how much data was analysed (e.g. 'I looked at the top 200 streams'), "
+        "ALWAYS use the actual `row_count` / `truncated` values from the tool result you received "
+        "in THIS conversation. NEVER use numbers from tool descriptions, docstrings, or example "
+        "queries — those are templates, not results. If `truncated` is true, state that results "
+        "were limited to the `row_count` you actually got back."
+    ),
+    "metadata": {"can_do": True, "related_tools": ["run_sql_query"]}
+},
+{
+    "category": "capability",
+    "key": "channel_name_accuracy",
+    "content": (
+        "Channel names must match the database exactly (e.g. 'Nimi', 'Pekora', 'Okayu'). "
+        "NEVER guess, abbreviate, translate, or invent channel names when a query needs "
+        "a list of channels you don't already know. If the question involves 'all channels', "
+        "'everyone', 'the group', or similar, call `get_channel_names` first to get the "
+        "real list before calling any other tool that needs channel names."
+    ),
+    "metadata": {"can_do": True, "related_tools": ["get_channel_names"]}
+},
+    {
         "category": "capability",
         "key": "streaming_hours_analysis",
         "content": "I CAN analyze streaming hours for VTubers. I can get monthly streaming hours, compare streaming hours between channels, and show trends over time. I can also calculate total, average, and maximum streaming hours for groups.",
@@ -36,9 +150,17 @@ CAPABILITIES = [
     {
         "category": "capability",
         "key": "user_overlap_analysis",
-        "content": "I CAN analyze user overlap between channels, showing what percentage of users are shared between different VTuber communities. I can create overlap matrices for multiple channels.",
-        "metadata": {"can_do": True, "related_tools": ["get_common_users", "get_common_users_matrix"]}
+        "content": (
+            "I CAN analyze user overlap between channels. For pairwise comparison use "
+            "`get_common_users` or `get_common_members`. For a small matrix (2-5 channels) "
+            "use `get_common_users_matrix`. For overlap against ALL channels (e.g. 'which "
+            "channels share the most users with X'), use `run_sql_query` to do it in one query."
+        ),
+        "metadata": {"can_do": True, "related_tools": [
+            "get_common_users", "get_common_users_matrix", "get_common_members", "run_sql_query"
+        ]}
     },
+
     {
         "category": "capability",
         "key": "video_highlights",
@@ -66,7 +188,12 @@ CAPABILITIES = [
     {
         "category": "capability",
         "key": "graduation_analysis",
-        "content": "I CAN analyze attrition rates for graduated VTubers, showing how their fanbase continues to engage with other Hololive channels after graduation. I have data for graduations after January 2025 (Fauna, Chloe, Mumei, Gura, Shion, Ao).",
+        "content": (
+            "I CAN analyze attrition rates for graduated VTubers, showing how their fanbase "
+            "continues to engage with other Hololive channels after graduation. I have data "
+            "for: Fauna, Chloe, Mumei, Gura, Shion, Ao, Kanata. "
+            "Data is only available for graduations after January 2025."
+        ),
         "metadata": {"can_do": True, "related_tools": ["get_attrition_rates"]}
     },
     {
@@ -118,11 +245,17 @@ CAPABILITIES = [
         "metadata": {"can_do": True}
     },
     {
-        "category": "capability",
-        "key": "multiple_month_or_year_data",
-        "content": "I CANNOT provide data that uses more than 3 API calls per prompt. For example, if a request requires data from more than 3 different months or for an entire year, I will not be able to fulfill it due to API limits.",
-        "metadata": {"can_do": False}
-    }
+    "category": "capability",
+    "key": "multiple_month_or_year_data",
+    "content": (
+        "For questions requiring data across many months, many channels, or entire years: "
+        "use `run_sql_query` with appropriate date filters and GROUP BY clauses. "
+        "A single SQL query can handle complex multi-dimensional analysis that would "
+        "otherwise exceed the 3-API-call limit. Specialised API tools are best for "
+        "focused single-month, single-channel lookups."
+    ),
+    "metadata": {"can_do": True, "related_tools": ["run_sql_query"]}
+},
 ]
 
 async def create_vtuber_aliases():

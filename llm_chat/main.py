@@ -7,11 +7,12 @@ import json
 import logging
 import re
 import sys
+from pathlib import Path
 from typing import List, Optional, TypedDict
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from langchain_core.messages import BaseMessage
 from langgraph.graph import END, StateGraph
 
@@ -19,8 +20,10 @@ from config import settings
 from llm.model import call_openrouter
 from llm.planner import plan_api_calls
 from rate_limit import is_rate_limited, get_remaining_prompts
-from tools import call_hcs_api, close_api_client, get_api_tools
+from tools import call_hcs_api, close_api_client, close_db_pool, get_api_tools
 from tool_store import tool_store
+from charts import generate_chart, CHARTS_DIR, cleanup_old_charts
+from status import get_status, status_poller_loop
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +40,7 @@ app.add_middleware(
     allow_origins=[
         "http://127.0.0.1:5000",
         "http://localhost:5000",
+        "http://localhost:5173",
         "https://holochatstats.info",
         "https://llm.holochatstats.info",
     ],
@@ -45,6 +49,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+CHART_INSTRUCTIONS = """
+## Chart Generation
+
+When the user explicitly asks for a chart, graph, plot, or visualization of data,
+you MUST include a fenced chart specification block in your response so the system
+can render it.  Use this EXACT format (the opening fence must be ```chart):
+
+```chart
+{
+  "type": "bar",
+  "title": "Top 5 Channels by Streaming Hours",
+  "labels": ["Channel A", "Channel B", "Channel C", "Channel D", "Channel E"],
+  "values": [120.5, 98.3, 87.1, 65.4, 42.0],
+  "x_label": "",
+  "y_label": "Hours"
+}
+```
+Supported "type" values: "bar", "horizontal_bar", "line", "pie".
+For multiple data series on bar or line charts use "datasets" instead of "values":
+"datasets": [{"label": "Series A", "values": [10, 20]}, {"label": "Series B", "values": [15, 25]}]
+
+Rules:
+Only generate a chart when the user explicitly asks for one.
+Populate labels and values from the actual tool results — never invent data.
+Choose an appropriate chart type for the data.
+Keep labels concise (truncate if needed).
+You may include explanatory text before and/or after the chart block.
+The JSON inside the block must be valid. """
 
 class AgentState(TypedDict):
     """Represents the state of the agent throughout the workflow.
@@ -202,81 +234,77 @@ async def execute_tools(state: AgentState) -> dict:
 
 
 async def generate_response(state: AgentState) -> dict:
-    """Generate the final response by synthesizing tool results.
-
-    Creates a response in the user's original language by combining
-    the tool results with the conversation history.
-
-    Args:
-        state: The current agent state with tool results and history.
-
-    Returns:
-        A dictionary with the 'response' key containing the final answer.
-    """
+    """Generate the final response, optionally including rendered charts."""
     logger.info("Generating final response")
     persona = settings.SYSTEM_PERSONA
     tool_results = state.get("tool_results")
-    
+
     # Get relevant knowledge for the response
     from tool_store import tool_store
     knowledge_items = await tool_store.search_knowledge(
-        state["input"],
-        top_k=3,
-        similarity_threshold=0.4
+        state["input"], top_k=3, similarity_threshold=0.4,
     )
-    
-    # Format knowledge context
+
     knowledge_context = ""
     if knowledge_items:
         knowledge_parts = [f"- {item.content}" for item in knowledge_items]
         knowledge_context = "\n".join(knowledge_parts)
 
-    # Start with the base persona and the full chat history
+    # ★ NEW — include chart instructions whenever tool data is present
+    chart_block = CHART_INSTRUCTIONS if tool_results else ""
+
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT + " " + persona},
+        {
+            "role": "system",
+            "content": f"{SYSTEM_PROMPT} {persona}\n\n{chart_block}",
+        },
         *state["chat_history"],
     ]
-    
-    # Add knowledge context if available
+
     if knowledge_context:
         messages.append({
             "role": "system",
-            "content": f"Relevant context:\n{knowledge_context}"
+            "content": f"Relevant context:\n{knowledge_context}",
         })
 
     if tool_results:
-        # Create a clear "tool" message block for tool output
         tool_context_message = {
             "role": "assistant",
             "content": (
-                f"Here is the data I found to answer your question:\n"
+                "Here is the data I found to answer your question:\n"
                 f"{json.dumps(tool_results, indent=2, ensure_ascii=False)}\n\n"
-                f"Based on this data, I will now formulate a response in "
+                "Based on this data, I will now formulate a response in "
                 f"{state['language']}."
             ),
         }
         messages.append(tool_context_message)
 
-        # Add a final prompt to ensure it responds correctly
         final_instruction = {
             "role": "user",
             "content": (
-                f"Great. Now, please provide your final, helpful answer in "
-                f"{state['language']}."
+                "Great. Now, please provide your final, helpful answer in "
+                f"{state['language']}. If I asked for a chart or visualization, "
+                "include a ```chart block with the data."
             ),
         }
         messages.append(final_instruction)
 
     final_response = await call_openrouter(messages, temperature=0.7)
-
     response_text = final_response.get("text", "")
 
-    logger.info(f"Final response generated: {response_text[:200]}...")
+    # ★ NEW — render any chart blocks into actual images
+    if "```chart" in response_text or "``` chart" in response_text:
+        loop = asyncio.get_event_loop()
+        response_text = await loop.run_in_executor(
+            None, process_chart_blocks, response_text,
+        )
+
+    logger.info("Final response generated: %s...", response_text[:200])
 
     return {
         "response": response_text
         or "I'm sorry, I encountered an issue and can't provide a response "
-        "right now."
+        "right now.",
     }
 
 
@@ -360,7 +388,56 @@ async def startup_event():
     logger.info("Initializing tool store...")
     await tool_store.initialize()
     logger.info("Tool store initialized successfully")
+    logger.info("Starting model status poller...")
+    asyncio.create_task(status_poller_loop(interval_seconds=300))
 
+def process_chart_blocks(response_text: str) -> str:
+    """Find ```chart … ``` blocks, render them to PNG, and replace with
+    Markdown image references that the frontend will display.
+
+    Args:
+        response_text: The raw LLM response that may contain chart blocks.
+
+    Returns:
+        The response with chart blocks replaced by ``![title](/charts/xx.png)`` images.
+    """
+    pattern = r"```\s*chart\s*\n(.*?)\n\s*```"
+
+    def _replace(match: re.Match) -> str:
+        spec_text = match.group(1).strip()
+        try:
+            spec = json.loads(spec_text)
+            filename = generate_chart(spec)
+            title = spec.get("title", "Chart")
+            return f"\n\n![{title}](/charts/{filename})\n\n"
+        except json.JSONDecodeError as exc:
+            logger.error("Invalid chart JSON: %s", exc)
+            return "\n\n*[Could not generate chart — invalid specification]*\n\n"
+        except Exception as exc:
+            logger.error("Chart generation failed: %s", exc, exc_info=True)
+            return "\n\n*[Chart generation failed]*\n\n"
+
+    return re.sub(pattern, _replace, response_text, flags=re.DOTALL)
+
+@app.get("/charts/{chart_id}")
+async def serve_chart(chart_id: str):
+    """Serve a previously generated chart image.
+
+    Args:
+        chart_id: The filename (e.g. ``abc123def456.png``).
+
+    Returns:
+        The PNG image as a FileResponse.
+
+    Raises:
+        HTTPException: If the chart does not exist (404).
+    """
+    # Prevent path-traversal
+    safe_name = Path(chart_id).name
+    filepath = CHARTS_DIR / safe_name
+    if not filepath.exists() or not filepath.suffix == ".png":
+        raise HTTPException(status_code=404, detail="Chart not found")
+    return FileResponse(filepath, media_type="image/png")
 
 @app.post("/chat")
 async def chat(request: Request):
@@ -398,7 +475,10 @@ async def chat(request: Request):
 
     message = sanitize_prompt(raw_message)
     chat_history = data.get("chat_history", [])
-    admin = data.get("admin_key") == settings.LLM_ADMIN_KEY
+    import secrets
+    supplied_admin_key = str(data.get("admin_key") or "")
+    admin = bool(settings.LLM_ADMIN_KEY and supplied_admin_key) and secrets.compare_digest(
+        supplied_admin_key, settings.LLM_ADMIN_KEY)
 
     if is_rate_limited(user_key, admin):
         raise HTTPException(
@@ -499,13 +579,26 @@ async def prompts_remaining(request: Request):
         "daily_limit": settings.LLM_DAILY_LIMIT
     }
 
+@app.get("/model-status")
+async def model_status():
+    """Return the current health status of the configured LLM model.
+    Returns:
+        JSON with 'status' ('green'|'yellow'|'red') and diagnostic info.
+    """
+    return await get_status()
+
+@app.get("/health")
+def health():
+    return {"ok": True}
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on application shutdown."""
     logger.info("Shutting down...")
     await close_api_client()
+    await close_db_pool()
     await tool_store.close()
+    cleanup_old_charts()
     logger.info("Cleanup complete")
 
 

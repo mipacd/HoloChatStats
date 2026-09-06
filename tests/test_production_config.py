@@ -1,0 +1,49 @@
+import pathlib
+import unittest
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+
+class ProductionConfigTests(unittest.TestCase):
+    def test_floci_owns_postgres_and_uses_pgvector(self):
+        compose = (ROOT / "infra" / "docker-compose.yml").read_text()
+        self.assertIn("FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: pgvector/pgvector", compose)
+        self.assertNotIn("\n  postgres:", compose)
+
+    def test_rds_and_restore_are_pg16(self):
+        config = (ROOT / "infra" / "deploylib" / "config.py").read_text()
+        self.assertIn('RDS_ENGINE_VERSION = "pg16"', config)
+        self.assertIn('POSTGRES_CLIENT_IMAGE = "pgvector/pgvector:pg16"', config)
+
+    def test_etl_floor_is_exact_utc_in_upgrade_migration(self):
+        migration = (ROOT / "migrations" / "007_production_ingest_floor.sql").read_text()
+        self.assertGreaterEqual(migration.count("2026-07-01T00:00:00+00:00"), 2)
+
+    def test_scan_does_not_bypass_month_dispatcher(self):
+        scan = (ROOT / "handlers" / "scan.py").read_text()
+        claim_block = scan.split("if _upsert_and_claim", 1)[1].split("except Exception", 1)[0]
+        self.assertNotIn("DOWNLOAD_QUEUE_URL", claim_block)
+
+    def test_github_workflow_is_in_discoverable_directory(self):
+        self.assertTrue((ROOT / ".github" / "workflows" / "deploy.yml").is_file())
+
+    def test_first_deploy_streams_from_legacy_container(self):
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+        copier = (ROOT / "infra" / "dbcopy.py").read_text()
+        self.assertIn("SOURCE_DB_CONTAINER: hcs-postgres", workflow)
+        self.assertIn("pg_dump", copier)
+        self.assertIn('"pg_restore"', copier)
+        self.assertNotIn("DUMP_URL:", workflow)
+
+    def test_frontend_port_and_admin_are_production_safe(self):
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+        frontend = (ROOT / "infra" / "deploylib" / "frontend.py").read_text()
+        self.assertIn("--frontend-host-port 80", workflow)
+        self.assertIn("location /admin/", frontend)
+        self.assertIn('$http_cf_connecting_ip != ""', frontend)
+        self.assertIn("allow 192.168.0.0/16", frontend)
+
+
+if __name__ == "__main__":
+    unittest.main()

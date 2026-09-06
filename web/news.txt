@@ -1,0 +1,2 @@
+April 1, 2025: Full release of HoloChatStats v2.
+March 24, 2025: Welcome to the HoloChatsStats v2 Beta! Now with more datasets and JP/KR support (mostly/MTL'd). Since this is a beta server, it may have issues or go offline at any time. Also, this site is currently hosted on a potato, so you might need to wait a bit for things to load. The data is manually updated right now, but it will update daily automatically once a stable release is ready.

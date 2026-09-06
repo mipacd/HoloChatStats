@@ -1,0 +1,26 @@
+name: chat-ingest          # => network "chat-ingest_default"
+services:
+  floci:
+    image: floci/floci:latest
+    container_name: floci
+    ports:
+      - "4566:4566"              # AWS API edge
+      - "7001-7099:7001-7099"    # RDS proxy
+      # ElastiCache stays on the compose network. Publishing 6379 would
+      # collide with the legacy hcs-redis during the first-deploy cutover.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - floci-data:/app/data
+    environment:
+      FLOCI_HOSTNAME: floci
+      FLOCI_SERVICES_DOCKER_NETWORK: chat-ingest_default
+      # RDS instances are spawned by Floci.  Keep this repository on the
+      # pgvector PG16 image in every environment so restores and Lambda SQL
+      # see the same extensions as production.
+      FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: pgvector/pgvector
+      # Windows can't resolve *.localhost; use localhost:5100/<acct>/<region>/<repo>
+      FLOCI_SERVICES_ECR_URI_STYLE: path
+      FLOCI_STORAGE_MODE: persistent
+      FLOCI_STORAGE_PERSISTENT_PATH: /app/data
+volumes:
+  floci-data:

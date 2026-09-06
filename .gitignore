@@ -1,17 +1,36 @@
-.log
-cache/
-config.ini
-*.pem
-*.mitm
-*.pyc
-youtube-cookies.txt
-data_ingestion/youtube_cookies.txt
-*.sql
-news.txt
-google-secret.json
-usage.db
-venv/
-resume_state.json
+# Secrets and local configuration
 .env
-configmap.yaml
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+web/config.ini
+web/google-secret.json
+**/*service-account*.json
+**/*credentials*.json
+DEPLOYMENT.md
+
+# Database dumps and runtime state
+.cache/
+*.dump
+*.backup
+*.db
+
+# Generated/build artifacts
+build/
+build.zip
+layers/
+frontend/node_modules/
+frontend/dist/
+llm_chat/generated_charts/
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+
+# Editors / OS
 .vscode/
+.idea/
+.DS_Store
+Thumbs.db

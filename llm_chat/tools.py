@@ -1,3 +1,14 @@
+import asyncio
+import re as _re
+from datetime import datetime as _dt, date as _date, timedelta as _td
+from decimal import Decimal as _Decimal
+
+try:
+    import asyncpg
+    import asyncpg.exceptions
+except ImportError:
+    asyncpg = None
+
 import httpx
 from langchain_core.tools import tool
 from config import settings
@@ -15,6 +26,380 @@ api_client = httpx.AsyncClient(
 async def close_api_client():
     await api_client.aclose()
 
+# ==================== SQL QUERY SUPPORT ====================
+
+_db_pool = None
+_db_pool_lock = asyncio.Lock()
+
+_FORBIDDEN_SQL_KEYWORDS = [
+    "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE",
+    "GRANT", "REVOKE", "REPLACE", "COPY", "EXECUTE", "VACUUM", "ANALYZE",
+    "CLUSTER", "REINDEX", "LOCK", "NOTIFY", "LISTEN", "UNLISTEN",
+    "IMPORT", "CALL", "DO",
+]
+
+_FORBIDDEN_SQL_FUNCTIONS = [
+    "pg_read_file", "pg_read_binary_file", "pg_ls_dir", "pg_stat_file",
+    "lo_import", "lo_export", "pg_terminate_backend", "pg_cancel_backend",
+    "pg_reload_conf", "pg_rotate_logfile", "set_config",
+    "dblink", "dblink_exec",
+]
+
+
+def _validate_sql(sql: str) -> tuple[bool, str]:
+    """Validate that *sql* is a safe, read-only SELECT statement.
+
+    Returns (True, "") on success or (False, reason) on rejection.
+    """
+    # ── Strip comments ───────────────────────────────────────────
+    cleaned = _re.sub(r"--.*$", "", sql, flags=_re.MULTILINE)
+    cleaned = _re.sub(r"/\*.*?\*/", "", cleaned, flags=_re.DOTALL)
+    cleaned = cleaned.strip().rstrip(";").strip()
+
+    if not cleaned:
+        return False, "Empty query"
+
+    normalised = cleaned.upper()
+
+    # ── Must begin with SELECT or WITH (CTE) ─────────────────────
+    if not (normalised.startswith("SELECT") or normalised.startswith("WITH")):
+        return False, "Only SELECT queries are allowed"
+
+    # ── Reject DML / DDL keywords ────────────────────────────────
+    for kw in _FORBIDDEN_SQL_KEYWORDS:
+        if _re.search(rf"\b{kw}\b", normalised):
+            return False, f"Forbidden keyword: {kw}"
+
+    # ── Reject dangerous functions ───────────────────────────────
+    for func in _FORBIDDEN_SQL_FUNCTIONS:
+        if _re.search(rf"\b{func.upper()}\b", normalised):
+            return False, f"Forbidden function: {func}"
+
+    # ── Block system-catalogue access ────────────────────────────
+    for cat in ("INFORMATION_SCHEMA", "PG_CATALOG"):
+        if cat in normalised:
+            return False, "System catalogue access is not allowed"
+
+    # ── Reject locking clauses ───────────────────────────────────
+    if _re.search(r"\bFOR\s+(UPDATE|SHARE|NO\s+KEY\s+UPDATE|KEY\s+SHARE)\b", normalised):
+        return False, "Locking clauses are not allowed"
+
+    # ── Reject multiple statements (outside string literals) ─────
+    no_strings = _re.sub(r"'[^']*'", "", cleaned)
+    no_strings = _re.sub(r'"[^"]*"', "", no_strings)
+    if ";" in no_strings:
+        return False, "Multiple statements are not allowed"
+
+    return True, ""
+
+
+def _serialise_value(val):
+    """Convert a single database value to a JSON-friendly Python type."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float, bool, str)):
+        return val
+    if isinstance(val, _dt):
+        return val.isoformat()
+    if isinstance(val, _date):
+        return val.isoformat()
+    if isinstance(val, _td):
+        # Intervals in this DB are streaming durations → return as hours
+        return round(val.total_seconds() / 3600, 2)
+    if isinstance(val, _Decimal):
+        return float(val)
+    if isinstance(val, (bytes, memoryview)):
+        return bytes(val).hex()
+    return str(val)
+
+
+def _serialise_row(record) -> dict:
+    """Convert an ``asyncpg.Record`` to a plain dict."""
+    return {key: _serialise_value(record[key]) for key in record.keys()}
+
+
+async def get_db_pool():
+    """Return (and lazily create) the asyncpg connection pool."""
+    global _db_pool
+    if _db_pool is not None:
+        return _db_pool
+
+    async with _db_pool_lock:
+        # Double-check after acquiring the lock
+        if _db_pool is not None:
+            return _db_pool
+
+        timeout_ms = str(int(settings.LLM_QUERY_TIMEOUT_SECONDS * 1000))
+        password = settings.LLM_DB_PASSWORD or settings.POSTGRES_PASSWORD
+
+        _db_pool = await asyncpg.create_pool(
+            host=settings.POSTGRES_HOST,
+            port=settings.POSTGRES_PORT,
+            user="llm_user",
+            password=password,
+            database=settings.POSTGRES_DB,
+            min_size=1,
+            max_size=3,
+            command_timeout=settings.LLM_QUERY_TIMEOUT_SECONDS,
+            server_settings={"statement_timeout": timeout_ms},
+        )
+        logger.info("Created asyncpg pool for LLM queries (llm_user@%s/%s)",
+                     settings.POSTGRES_HOST, settings.POSTGRES_DB)
+        return _db_pool
+
+
+async def close_db_pool():
+    """Shut down the asyncpg pool (called on app shutdown)."""
+    global _db_pool
+    if _db_pool is not None:
+        await _db_pool.close()
+        _db_pool = None
+        logger.info("Closed asyncpg LLM query pool")
+
+
+@tool
+async def run_sql_query(query: str) -> dict:
+    """Execute a read-only SQL SELECT query against the PostgreSQL database.
+    USE THIS TOOL when:
+    - No specialised API tool exists for the question (e.g. game/content analysis).
+    - The question involves comparing one channel against ALL others.
+    - Answering would otherwise require more than 3 separate API calls.
+    - The question needs JOINs, GROUP BYs, or aggregations the API tools don't cover.
+    IMPORTANT RULES:
+    - Only SELECT statements. Always include a LIMIT clause.
+    - Only reference tables and views listed below — never assume a table exists.
+    - Prefer materialized views over base tables when possible.
+    - Always JOIN with 'channels' to resolve channel_id → channel_name.
+    - Filter user_data with WHERE total_message_count > 0 to exclude gift-only events.
+    - Streaming hours = EXTRACT(EPOCH FROM duration)/3600.0
+    - Stream start time = end_time - duration.
+    - When analysing TEXT content (game names, topics, keywords in titles):
+      Do NOT parse or split titles in SQL. Titles mix EN, JP, and emoji.
+      Instead, SELECT the raw titles and analyse them yourself in your response.
+    TABLES:
+      channels(channel_id TEXT PK, channel_name TEXT, channel_group TEXT)
+      users(user_id TEXT PK, username TEXT)
+      videos(video_id TEXT PK, channel_id TEXT→channels, title TEXT,
+             end_time TIMESTAMPTZ, duration INTERVAL, processed_at TIMESTAMP,
+             has_chat_log BOOL, funniest_timestamp INT)
+      user_data(user_id TEXT, channel_id TEXT, last_message_at TIMESTAMPTZ,
+                video_id TEXT, membership_rank INT, jp_count INT, kr_count INT,
+                ru_count INT, emoji_count INT, es_en_id_count INT,
+                total_message_count INT, is_gift BOOL)
+                PK(user_id, channel_id, last_message_at, video_id)
+      streaming_forecasts(forecast_id SERIAL PK, channel_id TEXT→channels,
+                          forecast_month DATE, forecasted_hours NUMERIC,
+                          confidence_lower NUMERIC, confidence_upper NUMERIC,
+                          confidence_p25 NUMERIC, confidence_p75 NUMERIC,
+                          model_version VARCHAR, created_at TIMESTAMP)
+      membership_data_summary(channel_group TEXT, channel_name TEXT,
+                              observed_month DATE, membership_rank INT,
+                              membership_count BIGINT, percentage_total DECIMAL)
+                              PK(channel_name, observed_month, membership_rank)
+    MATERIALIZED VIEWS (preferred over base tables):
+      mv_user_monthly_activity(user_id, channel_id, observed_month DATE,
+                               monthly_message_count BIGINT)
+      mv_user_activity(user_id, activity_month DATE, channel_id, channel_group)
+      chat_language_stats_mv(channel_id, observed_month DATE, jp_count,
+                             kr_count, ru_count, emoji_count, es_en_id_count,
+                             total_messages)
+      mv_user_language_per_month(user_id, channel_id, month DATE,
+                                 total_jp_messages, total_non_emoji_messages)
+    KEY NOTES:
+      - membership_rank: -2 = unknown rank, -1 = non-member, 0 = new member,
+        1 = 1-month, 2 = 2-month, 3 = 6-month, 4 = 1-year, etc.
+        Use >= 0 when filtering for "members".
+      - channel_group values: 'Hololive', 'Indie' (only two groups).
+      - There is NO table for games, categories, or tags.
+        To answer "which games", fetch titles and analyse them yourself.
+      - There is NO pre-computed common_users or common_members table.
+        Compute overlaps by self-joining user_data.
+    EXAMPLE QUERIES:
+    -- Fetch stream titles for game/content analysis (then analyse titles yourself):
+    SELECT v.title, c.channel_name, v.end_time::date AS stream_date
+    FROM videos v
+    JOIN channels c ON v.channel_id = c.channel_id
+    WHERE c.channel_group = 'Hololive'
+      AND v.end_time >= '2025-06-01' AND v.end_time < '2025-07-01'
+    ORDER BY v.end_time DESC
+    LIMIT 200;
+    -- Channels with most members in common with a specific channel:
+    SELECT c_other.channel_name,
+           COUNT(DISTINCT ud_target.user_id) AS common_members
+    FROM user_data ud_target
+    JOIN channels c_target ON ud_target.channel_id = c_target.channel_id
+    JOIN user_data ud_other  ON ud_target.user_id = ud_other.user_id
+    JOIN channels c_other  ON ud_other.channel_id = c_other.channel_id
+    WHERE c_target.channel_name = 'Nimi'
+      AND c_other.channel_name != 'Nimi'
+      AND ud_target.membership_rank >= 0
+      AND ud_other.membership_rank  >= 0
+      AND DATE_TRUNC('month', ud_target.last_message_at) = '2025-06-01'
+      AND DATE_TRUNC('month', ud_other.last_message_at)  = '2025-06-01'
+      AND ud_target.total_message_count > 0
+      AND ud_other.total_message_count  > 0
+    GROUP BY c_other.channel_name
+    ORDER BY common_members DESC
+    LIMIT 20;
+    -- Top channels by total streaming hours in a month (across all groups):
+    SELECT c.channel_name, c.channel_group,
+           ROUND(SUM(EXTRACT(EPOCH FROM v.duration)/3600.0)::numeric, 2) AS total_hours
+    FROM videos v
+    JOIN channels c ON v.channel_id = c.channel_id
+    WHERE v.end_time >= '2025-12-01' AND v.end_time < '2026-01-01'
+    GROUP BY c.channel_name, c.channel_group
+    ORDER BY total_hours DESC
+    LIMIT 10;
+    -- Common chatters (not just members) between one channel and all others:
+    SELECT c_other.channel_name,
+           COUNT(DISTINCT uma_target.user_id) AS common_users
+    FROM mv_user_monthly_activity uma_target
+    JOIN channels c_target ON uma_target.channel_id = c_target.channel_id
+    JOIN mv_user_monthly_activity uma_other ON uma_target.user_id = uma_other.user_id
+      AND uma_target.observed_month = uma_other.observed_month
+    JOIN channels c_other ON uma_other.channel_id = c_other.channel_id
+    WHERE c_target.channel_name = 'Pekora'
+      AND c_other.channel_name != 'Pekora'
+      AND uma_target.observed_month = '2025-06-01'
+    GROUP BY c_other.channel_name
+    ORDER BY common_users DESC
+    LIMIT 20;
+    Args:
+        query (str): A SQL SELECT statement to execute.
+    Returns:
+        dict: On success: {
+            "success": true,
+            "columns": ["col1", "col2"],
+            "rows": [{"col1": val, "col2": val}, ...],
+            "row_count": int,   # ACTUAL number of rows returned by THIS query
+            "truncated": bool   # True if more rows exist beyond row_count
+        }
+        On error: {"error": true, "type": str, "message": str}
+    IMPORTANT — REPORTING RESULTS:
+    When describing how much data was returned, use the `row_count` and `truncated`
+    fields from THIS tool's response. Do NOT reuse numbers from the example queries
+    shown in this docstring (e.g. "LIMIT 200") — those are illustrative only and do
+    not reflect what you actually queried or received.
+    """
+    # ── Guard: asyncpg not installed ─────────────────────────────
+    if asyncpg is None:
+        return {
+            "error": True,
+            "type": "DEPENDENCY_ERROR",
+            "message": "Database query support is unavailable (asyncpg not installed).",
+        }
+
+    # ── Validate SQL ─────────────────────────────────────────────
+    is_valid, reason = _validate_sql(query)
+    if not is_valid:
+        logger.warning("SQL query rejected: %s — %s", reason, query[:300])
+        return {
+            "error": True,
+            "type": "VALIDATION_ERROR",
+            "message": f"Query rejected: {reason}",
+        }
+
+    logger.info("Executing LLM SQL query: %s", query[:500])
+
+    # ── Acquire pool ─────────────────────────────────────────────
+    try:
+        pool = await get_db_pool()
+    except Exception as exc:
+        logger.error("Failed to obtain database pool: %s", exc, exc_info=True)
+        return {
+            "error": True,
+            "type": "CONNECTION_ERROR",
+            "message": "Could not connect to the database.",
+        }
+
+    # ── Execute query ────────────────────────────────────────────
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                query,
+                timeout=settings.LLM_QUERY_TIMEOUT_SECONDS,
+            )
+
+            if not rows:
+                return {
+                    "success": True,
+                    "columns": [],
+                    "rows": [],
+                    "row_count": 0,
+                    "truncated": False,
+                }
+
+            columns = list(rows[0].keys())
+            max_rows = settings.LLM_QUERY_MAX_ROWS
+            truncated = len(rows) > max_rows
+            if truncated:
+                rows = rows[:max_rows]
+
+            serialised = [_serialise_row(r) for r in rows]
+
+            return {
+                "success": True,
+                "columns": columns,
+                "rows": serialised,
+                "row_count": len(serialised),
+                "truncated": truncated,
+            }
+
+    except (
+        asyncpg.QueryCanceledError
+        if asyncpg
+        else Exception
+    ):
+        return {
+            "error": True,
+            "type": "QUERY_TIMEOUT",
+            "message": (
+                f"Query was cancelled — it exceeded the "
+                f"{settings.LLM_QUERY_TIMEOUT_SECONDS}s time limit. "
+                "Please simplify your query: add stricter WHERE filters, "
+                "use materialized views, reduce JOINs, or lower the LIMIT."
+            ),
+        }
+    except asyncio.TimeoutError:
+        return {
+            "error": True,
+            "type": "QUERY_TIMEOUT",
+            "message": (
+                f"Query timed out after {settings.LLM_QUERY_TIMEOUT_SECONDS}s. "
+                "Please simplify your query."
+            ),
+        }
+    except asyncpg.InsufficientPrivilegeError:
+        return {
+            "error": True,
+            "type": "PERMISSION_ERROR",
+            "message": "The query tried to access a restricted resource.",
+        }
+    except asyncpg.PostgresSyntaxError as exc:
+        return {
+            "error": True,
+            "type": "SYNTAX_ERROR",
+            "message": f"SQL syntax error: {exc.message}",
+        }
+    except asyncpg.UndefinedTableError as exc:
+        return {
+            "error": True,
+            "type": "TABLE_ERROR",
+            "message": f"Table or view not found: {exc.message}",
+        }
+    except asyncpg.UndefinedColumnError as exc:
+        return {
+            "error": True,
+            "type": "COLUMN_ERROR",
+            "message": f"Column not found: {exc.message}",
+        }
+    except Exception as exc:
+        logger.error("SQL query execution error: %s", exc, exc_info=True)
+        return {
+            "error": True,
+            "type": "QUERY_ERROR",
+            "message": f"Query failed: {type(exc).__name__}",
+        }
 
 
 logger = logging.getLogger(__name__)
@@ -967,7 +1352,7 @@ def get_api_tools():
     Returns a list of all defined API tools for the agent to use.
     This function is called by the agent to get its capabilities.
     """
-    return [
+    tools = [
         get_recommendations,
         get_monthly_streaming_hours,
         get_group_total_streaming_hours,
@@ -996,5 +1381,11 @@ def get_api_tools():
         search_highlights,
         search_hololive_shop,
         get_channel_streams,
-        get_channel_metrics
+        get_channel_metrics,
     ]
+
+    # Only expose direct SQL when asyncpg is available
+    if asyncpg is not None:
+        tools.append(run_sql_query)
+
+    return tools
