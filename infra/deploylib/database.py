@@ -13,17 +13,36 @@ class DatabaseMixin:
     # ----------------------------------------------------------------- RDS ---
     def _find_db_instance(self, ident):
         """None if absent.  Handles real AWS (fault raised) and emulators
-        (200 with an empty list)."""
+        (200 with an empty filtered list even when the instance exists)."""
         try:
             resp = self.rds.describe_db_instances(DBInstanceIdentifier=ident)
         except self.rds.exceptions.DBInstanceNotFoundFault:
-            return None
+            resp = {}
+        except botocore.exceptions.ClientError as e:
+            if matches(e, "NotFound"):
+                resp = {}
+            else:
+                raise
+        instances = resp.get("DBInstances") or []
+        if instances:
+            return next((i for i in instances
+                         if i.get("DBInstanceIdentifier") == ident), instances[0])
+        # Some Floci releases do not apply DBInstanceIdentifier consistently.
+        # An unfiltered list is the authoritative fallback and also closes the
+        # create/describe race after an earlier interrupted deployment.
+        try:
+            instances = (self.rds.describe_db_instances()
+                         .get("DBInstances") or [])
         except botocore.exceptions.ClientError as e:
             if matches(e, "NotFound"):
                 return None
             raise
-        instances = resp.get("DBInstances") or []
-        return instances[0] if instances else None
+        return next((i for i in instances
+                     if i.get("DBInstanceIdentifier") == ident), None)
+
+    @staticmethod
+    def _already_exists(error):
+        return matches(error, "DBInstanceAlreadyExists", "AlreadyExists")
     def ensure_rds(self):
         ident = f"{C.APP}-pg"
         if self._find_db_instance(ident) is None:
@@ -38,9 +57,20 @@ class DatabaseMixin:
                     EngineVersion=C.RDS_ENGINE_VERSION, PubliclyAccessible=True,
                     BackupRetentionPeriod=0, **base)
             except botocore.exceptions.ClientError as e:
-                # Emulators reject params they do not model; retry minimal.
-                print(f"  full create rejected ({err_code(e)}), retrying minimal ...")
-                self.rds.create_db_instance(**base)
+                if self._already_exists(e):
+                    # Idempotent recovery after a prior run created RDS but
+                    # failed before writing the bootstrap marker.
+                    print(f"  RDS {ident} already exists; reusing it")
+                else:
+                    # Emulators reject params they do not model; retry minimal.
+                    print(f"  full create rejected ({err_code(e)}), "
+                          "retrying minimal ...")
+                    try:
+                        self.rds.create_db_instance(**base)
+                    except botocore.exceptions.ClientError as retry_error:
+                        if not self._already_exists(retry_error):
+                            raise
+                        print(f"  RDS {ident} appeared during create; reusing it")
         status = {"last": None}
         def ready():
             inst = self._find_db_instance(ident)

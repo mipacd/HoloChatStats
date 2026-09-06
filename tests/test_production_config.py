@@ -13,8 +13,11 @@ class ProductionConfigTests(unittest.TestCase):
 
     def test_rds_and_restore_are_pg16(self):
         config = (ROOT / "infra" / "deploylib" / "config.py").read_text()
+        database = (ROOT / "infra" / "deploylib" / "database.py").read_text()
         self.assertIn('RDS_ENGINE_VERSION = "pg16"', config)
         self.assertIn('POSTGRES_CLIENT_IMAGE = "pgvector/pgvector:pg16"', config)
+        self.assertIn("describe_db_instances()", database)
+        self.assertIn("_already_exists", database)
 
     def test_etl_floor_is_exact_utc_in_upgrade_migration(self):
         migration = (ROOT / "migrations" / "007_production_ingest_floor.sql").read_text()
