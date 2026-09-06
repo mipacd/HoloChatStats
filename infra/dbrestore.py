@@ -15,6 +15,8 @@ import re
 import tempfile
 from pathlib import Path
 CHUNK = 1 << 20
+RESTORE_RENDERER = "chat-ingest-restore-renderer"
+RESTORE_LOADER = "chat-ingest-restore-loader"
 
 # TOC entries we never want pg_restore to execute:
 #  - MATERIALIZED VIEW DATA: the legacy MVs get dropped and rebuilt by
@@ -106,12 +108,20 @@ def stream_restore(url, *, host, port, dbname, user, password, network=None,
             sys.exit("invalid --dump-header; expected 'Name: value'")
         req.add_header(key.strip(), value.strip())
     env = {**os.environ, "PGPASSWORD": password}
-    docker = ["docker", "run", "--rm", "-i"]
+    # A killed Actions runner can leave an attached `docker run --rm` process
+    # alive. Deterministic names let this run and the workflow reap only our
+    # own stale helpers before retrying.
+    subprocess.run(["docker", "rm", "-f", RESTORE_RENDERER, RESTORE_LOADER],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    docker = ["docker", "run", "--rm", "-i",
+              "--label", "com.holochatstats.role=db-restore"]
     if network:
         docker += ["--network", network]
-    render_cmd = [*docker, image, "pg_restore", "--clean", "--if-exists",
+    render_cmd = [*docker, "--name", RESTORE_RENDERER, image, "pg_restore",
+                  "--clean", "--if-exists",
                   "--no-owner", "--no-privileges", "--verbose", "--file=-"]
-    load_cmd = [*docker, "-e", "PGPASSWORD", image, "psql", "-X",
+    load_cmd = [*docker, "--name", RESTORE_LOADER, "-e", "PGPASSWORD",
+                image, "psql", "-X",
                 "--set", "ON_ERROR_STOP=1", "-h", host, "-p", str(port),
                 "-U", user, "-d", dbname]
     print(f"  streaming remote dump into {host}:{port}/{dbname}")
@@ -143,6 +153,21 @@ def stream_restore(url, *, host, port, dbname, user, password, network=None,
     digest = hashlib.sha256()
     downloaded = 0
     transfer_error = None
+    heartbeat_stop = threading.Event()
+
+    def heartbeat():
+        while not heartbeat_stop.wait(60):
+            # Download progress can remain unchanged for a long time while
+            # expanded COPY data drains through PostgreSQL. Keep the Actions
+            # log alive and make that backpressure visible.
+            print(f"    restore active: archive={downloaded / (1 << 30):.2f} "
+                  f"GiB renderer={renderer.poll()} loader={loader.poll()}",
+                  flush=True)
+
+    heartbeat_thread = threading.Thread(target=heartbeat,
+                                        name="pg-restore-heartbeat",
+                                        daemon=True)
+    heartbeat_thread.start()
     try:
         with urllib.request.urlopen(req, timeout=timeout) as response:
             while True:
@@ -165,6 +190,8 @@ def stream_restore(url, *, host, port, dbname, user, password, network=None,
     renderer_rc = renderer.wait()
     relay.join()
     loader_rc = loader.wait()
+    heartbeat_stop.set()
+    heartbeat_thread.join()
     have = digest.hexdigest()
     if transfer_error or relay_errors or renderer_rc or loader_rc:
         _reset_schema(host, port, dbname, user, password, network, image)

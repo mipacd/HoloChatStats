@@ -164,6 +164,13 @@ jobs:
             --restore-image pgvector/pgvector:pg18 \
             --build-in-docker
 
+      - name: Clean up database restore helpers
+        if: always()
+        run: |
+          docker rm --force \
+            chat-ingest-restore-renderer \
+            chat-ingest-restore-loader 2>/dev/null || true
+
       - name: Verify deployed schema and dependencies
         run: |
           python scripts/invoke.py migrate --action verify_schema
