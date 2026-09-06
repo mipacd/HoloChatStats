@@ -10,8 +10,9 @@ APP = "chat-ingest"
 PYTHON_RUNTIME = "python3.12"
 RDS_ENGINE_VERSION = "pg16"
 POSTGRES_CLIENT_IMAGE = "pgvector/pgvector:pg16"
-# A PG18 client is required to read the archive stream produced by the legacy
-# PG18 server. It can safely restore into the PG16 target.
+# A PG18 client is required to read the archive produced by the legacy PG18
+# server. dbrestore renders it to SQL and removes PG18-only session settings
+# before sending it to the PG16 target.
 LEGACY_POSTGRES_CLIENT_IMAGE = "pgvector/pgvector:pg18"
 METRIC_NAMESPACE = "ChatIngestion"
 DB_SECRET_ID = f"{APP}/db"

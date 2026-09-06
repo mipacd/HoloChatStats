@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import urllib.request
 import re
 import tempfile
@@ -83,11 +84,14 @@ def _digest(path):
 def stream_restore(url, *, host, port, dbname, user, password, network=None,
                    image="pgvector/pgvector:pg18", sha256=None, headers=(),
                    timeout=60, reset_schema=False):
-    """Stream a custom-format archive from HTTP(S) into pg_restore.
+    """Stream a custom-format archive through pg_restore and into psql.
 
     This keeps the archive off the destination disk. Integrity is calculated
     while streaming; a mismatch fails the deployment before it is recorded as
-    restored. The next run cleans and retries the unmarked target.
+    restored. A PG18 archive must be decoded by a PG18 pg_restore, but its SQL
+    prologue contains ``SET transaction_timeout`` which a PG16 server cannot
+    parse. Rendering first lets us discard exactly that compatibility setting
+    while streaming all other SQL unchanged into the target.
     """
     if not shutil.which("docker"):
         sys.exit("stream restore requires Docker on the runner")
@@ -102,19 +106,43 @@ def stream_restore(url, *, host, port, dbname, user, password, network=None,
             sys.exit("invalid --dump-header; expected 'Name: value'")
         req.add_header(key.strip(), value.strip())
     env = {**os.environ, "PGPASSWORD": password}
-    cmd = ["docker", "run", "--rm", "-i"]
+    docker = ["docker", "run", "--rm", "-i"]
     if network:
-        cmd += ["--network", network]
-    cmd += ["-e", "PGPASSWORD", image, "pg_restore",
-            "-h", host, "-p", str(port), "-U", user, "-d", dbname,
-            "--clean", "--if-exists", "--no-owner", "--no-privileges",
-            "--exit-on-error", "--verbose"]
+        docker += ["--network", network]
+    render_cmd = [*docker, image, "pg_restore", "--clean", "--if-exists",
+                  "--no-owner", "--no-privileges", "--verbose", "--file=-"]
+    load_cmd = [*docker, "-e", "PGPASSWORD", image, "psql", "-X",
+                "--set", "ON_ERROR_STOP=1", "-h", host, "-p", str(port),
+                "-U", user, "-d", dbname]
     print(f"  streaming remote dump into {host}:{port}/{dbname}")
-    # Inherit stdout/stderr so pg_restore's verbose output cannot fill a pipe
-    # and deadlock a large restore.
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, env=env)
+    renderer = subprocess.Popen(render_cmd, stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, env=env)
+    loader = subprocess.Popen(load_cmd, stdin=subprocess.PIPE, env=env)
+    relay_errors = []
+    filtered = {"transaction_timeout": 0}
+
+    def relay_sql():
+        try:
+            for line in iter(renderer.stdout.readline, b""):
+                if line.strip() == b"SET transaction_timeout = 0;":
+                    filtered["transaction_timeout"] += 1
+                    continue
+                loader.stdin.write(line)
+        except (BrokenPipeError, OSError) as error:
+            relay_errors.append(error)
+            renderer.kill()
+        finally:
+            try:
+                loader.stdin.close()
+            except (BrokenPipeError, OSError):
+                pass
+
+    relay = threading.Thread(target=relay_sql, name="pg-restore-sql-relay",
+                             daemon=True)
+    relay.start()
     digest = hashlib.sha256()
     downloaded = 0
+    transfer_error = None
     try:
         with urllib.request.urlopen(req, timeout=timeout) as response:
             while True:
@@ -123,28 +151,35 @@ def stream_restore(url, *, host, port, dbname, user, password, network=None,
                     break
                 digest.update(chunk)
                 downloaded += len(chunk)
-                proc.stdin.write(chunk)
+                renderer.stdin.write(chunk)
                 if downloaded % (256 * CHUNK) < CHUNK:
                     print(f"    streamed {downloaded / (1 << 30):.1f} GiB",
                           flush=True)
-        proc.stdin.close()
-        proc.stdin = None
-        proc.wait()
-    except Exception:
-        proc.kill()
-        proc.wait()
-        raise
+    except (BrokenPipeError, OSError) as error:
+        transfer_error = error
+    finally:
+        try:
+            renderer.stdin.close()
+        except (BrokenPipeError, OSError):
+            pass
+    renderer_rc = renderer.wait()
+    relay.join()
+    loader_rc = loader.wait()
     have = digest.hexdigest()
-    if proc.returncode:
+    if transfer_error or relay_errors or renderer_rc or loader_rc:
         _reset_schema(host, port, dbname, user, password, network, image)
-        sys.exit(f"streamed pg_restore failed (exit {proc.returncode}); "
-                 "partial target was cleared; see pg_restore output above")
+        details = (f"renderer={renderer_rc}, loader={loader_rc}, "
+                   f"transfer_error={transfer_error!r}, "
+                   f"relay_error={relay_errors[0] if relay_errors else None!r}")
+        sys.exit(f"streamed restore failed ({details}); partial target was "
+                 "cleared; see pg_restore/psql output above")
     if sha256 and have != sha256.lower():
         _reset_schema(host, port, dbname, user, password, network, image)
         sys.exit(f"streamed dump sha256 mismatch: expected {sha256.lower()}, "
                  f"got {have}; partial target was cleared")
     print(f"  streamed restore completed ({downloaded / (1 << 30):.1f} GiB, "
-          f"sha256={have[:16]}...)")
+          f"sha256={have[:16]}..., filtered "
+          f"transaction_timeout={filtered['transaction_timeout']})")
     return have
 
 def _reset_schema(host, port, dbname, user, password, network, image):
