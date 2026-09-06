@@ -102,6 +102,21 @@ jobs:
           docker system prune --all --volumes --force
           echo 'Docker containers, images, build cache, networks, and volumes removed.'
 
+      - name: Preflight Docker storage and RDS image
+        run: |
+          set -euo pipefail
+          echo 'Docker storage:'
+          docker info --format 'root={{.DockerRootDir}} driver={{.Driver}} backing={{.BackingFilesystem}}'
+          DOCKER_ROOT="$(docker info --format '{{.DockerRootDir}}')"
+          df -h "$DOCKER_ROOT"
+          df -i "$DOCKER_ROOT"
+          # Floci combines this repository with EngineVersion pg16. Pull it
+          # through the host daemon first so extraction errors are not hidden
+          # behind an RDS timeout.
+          docker pull pgvector/pgvector:pg16
+          docker image inspect pgvector/pgvector:pg16 \
+            --format 'RDS image ready: {{.Id}} ({{.Size}} bytes)'
+
       - name: Start Floci
         run: docker compose -f infra/docker-compose.yml up -d --remove-orphans
 
