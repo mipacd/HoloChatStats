@@ -8,7 +8,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 class ProductionConfigTests(unittest.TestCase):
     def test_floci_owns_postgres_and_uses_pgvector(self):
         compose = (ROOT / "infra" / "docker-compose.yml").read_text()
-        self.assertIn("FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: pgvector/pgvector", compose)
+        self.assertIn(
+            "FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: pgvector/pgvector:pg16",
+            compose)
+        self.assertNotIn(
+            "FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: pgvector/pgvector\n",
+            compose)
         self.assertNotIn("\n  postgres:", compose)
 
     def test_rds_and_restore_are_pg16(self):

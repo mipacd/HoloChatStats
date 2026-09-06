@@ -17,7 +17,9 @@ services:
       # RDS instances are spawned by Floci.  Keep this repository on the
       # pgvector PG16 image in every environment so restores and Lambda SQL
       # see the same extensions as production.
-      FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: pgvector/pgvector
+      # Floci treats this as a complete image reference; EngineVersion is RDS
+      # metadata and is not appended as a Docker tag.
+      FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: pgvector/pgvector:pg16
       # Windows can't resolve *.localhost; use localhost:5100/<acct>/<region>/<repo>
       FLOCI_SERVICES_ECR_URI_STYLE: path
       FLOCI_STORAGE_MODE: persistent
