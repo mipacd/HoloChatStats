@@ -109,12 +109,15 @@ class ApiMixin:
         except Exception:
             pass
         candidates = []
-        if http:
-            for stage in http.get("stages") or ["$default"]:
-                candidates.append(f"{base}/restapis/{http['id']}/{stage}/_user_request_/")
+        # Prefer the v1 REST API's literal `admin` stage. The HTTP API's
+        # `$default` stage works in a browser, but a raw `$` in proxy_pass is
+        # parsed by nginx as a variable and is unsuitable for its template.
         if rest:
             for stage in rest.get("stages") or ["admin"]:
                 candidates.append(f"{base}/restapis/{rest['id']}/{stage}/_user_request_/")
+        if http:
+            for stage in http.get("stages") or ["$default"]:
+                candidates.append(f"{base}/restapis/{http['id']}/{stage}/_user_request_/")
         for url in candidates:
             if http_ok(url, timeout=30):
                 return url

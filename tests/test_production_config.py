@@ -54,10 +54,13 @@ class ProductionConfigTests(unittest.TestCase):
     def test_frontend_port_and_admin_are_production_safe(self):
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
         frontend = (ROOT / "infra" / "deploylib" / "frontend.py").read_text()
+        apis = (ROOT / "infra" / "deploylib" / "apis.py").read_text()
         self.assertIn("--frontend-host-port 80", workflow)
         self.assertIn("location /admin/", frontend)
         self.assertIn('$http_cf_connecting_ip != ""', frontend)
         self.assertIn("allow 192.168.0.0/16", frontend)
+        self.assertIn("replacing cached $default admin URL", frontend)
+        self.assertLess(apis.index("if rest:"), apis.index("if http:"))
 
 
 if __name__ == "__main__":

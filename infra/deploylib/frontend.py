@@ -207,8 +207,20 @@ class FrontendMixin:
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
             sys.exit(f"frontend: invalid cached admin URL: {url!r}")
         if "$" in parsed.path:
-            sys.exit("frontend: admin URL contains an unsafe nginx variable; "
-                     "the REST API 'admin' stage must be available")
+            # Older deployments preferred API Gateway v2's `$default` stage.
+            # Repair that cached SSM value from the already-provisioned v1 API
+            # so code-only deploys also recover without a manual parameter edit.
+            print("frontend: replacing cached $default admin URL with REST "
+                  "API stage 'admin' ...")
+            api = next((a for a in self.apigw_v1.get_rest_apis().get("items", [])
+                        if a.get("name") == f"{C.APP}-admin-rest"), None)
+            if api:
+                url = self.resolve_admin_url(
+                    {"id": api["id"], "stages": ["admin"]}, None)
+                parsed = urlparse(url or "")
+            if not url or "$" in parsed.path or not parsed.hostname:
+                sys.exit("frontend: could not resolve the REST API 'admin' "
+                         "stage to an nginx-safe URL")
         host = C.DOCKER_HOST_ALIAS if self.emulated else parsed.hostname
         port = parsed.port or (443 if parsed.scheme == "https" else 80)
         path = parsed.path.rstrip("/") + "/"
