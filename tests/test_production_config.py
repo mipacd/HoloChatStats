@@ -44,6 +44,8 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("--stream-restore", workflow)
         self.assertIn("def stream_restore", restore)
         self.assertIn("hashlib.sha256()", restore)
+        self.assertIn('startswith(b"REFRESH MATERIALIZED VIEW ")', restore)
+        self.assertIn("timeout-minutes: 360", workflow)
 
     def test_frontend_port_and_admin_are_production_safe(self):
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()

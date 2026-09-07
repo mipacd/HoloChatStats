@@ -129,13 +129,19 @@ def stream_restore(url, *, host, port, dbname, user, password, network=None,
                                 stdout=subprocess.PIPE, env=env)
     loader = subprocess.Popen(load_cmd, stdin=subprocess.PIPE, env=env)
     relay_errors = []
-    filtered = {"transaction_timeout": 0}
+    filtered = {"transaction_timeout": 0, "materialized_view_refresh": 0}
 
     def relay_sql():
         try:
             for line in iter(renderer.stdout.readline, b""):
                 if line.strip() == b"SET transaction_timeout = 0;":
                     filtered["transaction_timeout"] += 1
+                    continue
+                # Materialized-view contents from the legacy database are
+                # derived data. Loading them here is extremely expensive and
+                # migrations rebuild/populate the current definitions later.
+                if line.lstrip().startswith(b"REFRESH MATERIALIZED VIEW "):
+                    filtered["materialized_view_refresh"] += 1
                     continue
                 loader.stdin.write(line)
         except (BrokenPipeError, OSError) as error:
@@ -206,7 +212,9 @@ def stream_restore(url, *, host, port, dbname, user, password, network=None,
                  f"got {have}; partial target was cleared")
     print(f"  streamed restore completed ({downloaded / (1 << 30):.1f} GiB, "
           f"sha256={have[:16]}..., filtered "
-          f"transaction_timeout={filtered['transaction_timeout']})")
+          f"transaction_timeout={filtered['transaction_timeout']}, "
+          f"materialized_view_refresh="
+          f"{filtered['materialized_view_refresh']})")
     return have
 
 def _reset_schema(host, port, dbname, user, password, network, image):
