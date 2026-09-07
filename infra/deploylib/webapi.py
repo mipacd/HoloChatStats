@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import shlex
 import subprocess
+import sys
 import tarfile
 import time
 import re
@@ -280,25 +281,27 @@ fi
         inst = wait_for(running, timeout=150,
                         report=lambda: print(f"  waiting: state={state['name']}"))
         if not inst:
-            print("  WARNING: instance never reached running state")
-            return
+            sys.exit("web instance never reached running state; refusing to "
+                     "deploy the frontend with a stale backend address")
         private_ip = inst.get("PrivateIpAddress")
         public_ip = inst.get("PublicIpAddress")
         print(f"  public_ip={public_ip}  private_ip={private_ip}")
         # Real AWS: the public IP is routable.  Emulator: 127.0.0.1 plus a
         # random published host port.
-        if public_ip in (None, "", "127.0.0.1", "localhost"):
+        # Floci may report a bridge address as PublicIpAddress. It is not a
+        # host-published endpoint and ECS tasks on docker0 cannot route to the
+        # EC2 container's compose bridge. Emulator mode must always discover
+        # the socat-forwarded host port, regardless of the reported address.
+        if self.emulated:
             host_port = self.discover_forwarded_port(before, probe="/health",
                                                      timeout=90)
             if not host_port:
-                host_port = self.get_param(f"/{C.APP}/web/host_port")
-                if host_port:
-                    print(f"  WARNING: port discovery failed; reusing the "
-                          f"previously published port {host_port}")
-                else:
-                    print("  ERROR: no forwarded port found; check floci logs")
-                    return
+                self._print_instance_log(instance_id)
+                sys.exit("web API has no healthy host-forwarded port; refusing "
+                         "to publish a frontend with a stale backend address")
             external_host = "localhost"
+        elif public_ip in (None, "", "127.0.0.1", "localhost"):
+            sys.exit("web instance has no routable public address")
         else:
             external_host, host_port = public_ip, self.web_port
         llm_host_port = None
@@ -311,7 +314,9 @@ fi
                 llm_host_port = self.args.llm_port
         external_url = f"http://{external_host}:{host_port}"
         internal_url = f"http://{private_ip}:{self.web_port}"
-        self._health_check(f"{external_url}/health", instance_id)
+        if not self._health_check(f"{external_url}/health", instance_id):
+            sys.exit("web API health check failed; refusing to update its SSM "
+                     "endpoint or deploy the frontend")
         params = {
             f"/{C.APP}/web/url": external_url,
             f"/{C.APP}/web/internal_url": internal_url,
@@ -331,13 +336,15 @@ fi
         print(f"  waiting for web service at {url} ...")
         for attempt in range(60):
             if http_ok(url):
-                return print("  health check passed")
+                print("  health check passed")
+                return True
             if attempt in (15, 30, 45):
                 print("  checking init log ...")
                 self._print_instance_log(instance_id)
             time.sleep(3)
         print(f"  WARNING: health check never passed at {url}")
         self._print_instance_log(instance_id)
+        return False
     def _print_instance_log(self, instance_id):
         """Best-effort: console output (real AWS), then SSM RunCommand."""
         _SENSITIVE = re.compile(r"(PASSWORD|SECRET|TOKEN|API_?KEY|AWS_\w*KEY)", re.I)

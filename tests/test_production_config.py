@@ -62,6 +62,14 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("replacing cached $default admin URL", frontend)
         self.assertLess(apis.index("if rest:"), apis.index("if http:"))
 
+    def test_emulated_web_uses_discovered_host_port(self):
+        webapi = (ROOT / "infra" / "deploylib" / "webapi.py").read_text()
+        branch = webapi.split("if self.emulated:", 1)[1].split(
+            "elif public_ip", 1)[0]
+        self.assertIn("discover_forwarded_port", branch)
+        self.assertNotIn("reusing the previously published port", webapi)
+        self.assertIn("refusing to update its SSM", webapi)
+
 
 if __name__ == "__main__":
     unittest.main()
