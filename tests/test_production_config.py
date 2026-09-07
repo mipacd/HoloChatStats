@@ -185,6 +185,29 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("is_public_page(page)", utils)
         self.assertIn("scan_iter", utils)
 
+    def test_month_finalize_invalidates_only_aggregate_web_caches(self):
+        invalidation = (ROOT / "common" /
+                        "cache_invalidation.py").read_text(encoding="utf-8")
+        merge = (ROOT / "handlers" / "merge.py").read_text(encoding="utf-8")
+        requirements = (ROOT / "requirements.txt").read_text()
+        for pattern in (
+            "channel_recommendations:*", "monthly_streaming_hours_*",
+            "exclusive_chat_users_*", "message_type_percents_*",
+            "jp_user_percent_*", "stream_frequency_*", "stream_calendar_*",
+            "channel_names", "date_ranges", "number_of_chat_logs",
+            "num_messages",
+        ):
+            self.assertIn(f'"{pattern}"', invalidation)
+        for protected in ("rate:*", "v2:*", "cache_hits:*", "cache_misses:*"):
+            self.assertNotIn(f'"{protected}"', invalidation)
+        self.assertIn("scan_iter", invalidation)
+        self.assertNotIn("flushdb", invalidation.lower())
+        self.assertIn("cache_finalized_month", merge)
+        self.assertIn("if dry_run else _sync_cache_invalidation", merge)
+        self.assertLess(merge.index("invalidate_finalized_month_caches()"),
+                        merge.index('("cache_finalized_month", str(latest))'))
+        self.assertIn("redis", requirements.splitlines())
+
 
 if __name__ == "__main__":
     unittest.main()

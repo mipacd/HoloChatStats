@@ -22,6 +22,7 @@ from common.config import settings
 from common.db import get_conn
 from common.logging_utils import get_logger
 from common.metrics import emit, COUNT, SECONDS
+from common.cache_invalidation import invalidate_finalized_month_caches
 log = get_logger("merge")
 def handler(event, context):
     event = event or {}
@@ -51,11 +52,15 @@ def handler(event, context):
         log.info("month merged into user_data",
                  extra={"month": str(month), "rows_merged": rows,
                         "forced": force})
+    cache_invalidation = ({"needed": False, "skipped": "dry_run"}
+                          if dry_run else _sync_cache_invalidation(conn))
     emit({"MonthsMerged": (len([m for m in merged if not m.get("dry_run")]), COUNT),
           "MonthsPending": (len(skipped), COUNT),
           "RowsMerged": (rows_total, COUNT),
+          "CacheKeysInvalidated": (cache_invalidation.get("keys_removed", 0), COUNT),
           "MergeSeconds": (time.time() - t0, SECONDS)})
-    return {"merged": merged, "skipped": skipped, "rows_merged": rows_total}
+    return {"merged": merged, "skipped": skipped, "rows_merged": rows_total,
+            "cache_invalidation": cache_invalidation}
 # --------------------------------------------------------------------------- #
 def _as_month(value):
     if isinstance(value, date):
@@ -122,3 +127,29 @@ def _merge_month(conn, month):
         cur.execute("CALL refresh_membership_data_for_month(%s::date)", (month,))
     conn.commit()
     return rows
+
+def _sync_cache_invalidation(conn):
+    """Invalidate once per newest published month, retrying until successful."""
+    with conn.cursor() as cur:
+        cur.execute("""SELECT MAX(observed_month) FROM monthly_merge_state
+                       WHERE status = 'merged'""")
+        latest = cur.fetchone()[0]
+        cur.execute("SELECT value FROM service_config WHERE key = %s",
+                    ("cache_finalized_month",))
+        row = cur.fetchone()
+    conn.rollback()
+    recorded = _as_month(row[0]) if row and row[0] else None
+    if latest is None or (recorded is not None and recorded >= latest):
+        return {"needed": False, "month": str(latest) if latest else None,
+                "keys_removed": 0}
+    removed = invalidate_finalized_month_caches()
+    with conn.cursor() as cur:
+        cur.execute("""INSERT INTO service_config (key, value, updated_at)
+                       VALUES (%s, %s, NOW())
+                       ON CONFLICT (key) DO UPDATE
+                         SET value = EXCLUDED.value, updated_at = NOW()""",
+                    ("cache_finalized_month", str(latest)))
+    conn.commit()
+    log.info("aggregate web caches invalidated after month publication",
+             extra={"month": str(latest), "keys_removed": removed})
+    return {"needed": True, "month": str(latest), "keys_removed": removed}
