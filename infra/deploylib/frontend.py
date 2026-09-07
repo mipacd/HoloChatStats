@@ -60,6 +60,29 @@ server {
         proxy_connect_timeout 5s;
         proxy_read_timeout    120s;
     }
+    # Socket.IO is hosted by the web API. Without this priority route the SPA
+    # fallback returns index.html (HTTP 200) instead of upgrading the socket.
+    location ^~ /socket.io/ {
+        # Cloudflared supplies the browser-facing scheme. Direct LAN requests
+        # have no such header and use nginx's own scheme instead.
+        set $socket_scheme $scheme;
+        if ($http_x_forwarded_proto != "") { set $socket_scheme $http_x_forwarded_proto; }
+        # No URI suffix here: Socket.IO must receive the /socket.io/ path even
+        # when frontend_strip_api_prefix is enabled for ordinary /api calls.
+        proxy_pass            http://${API_BACKEND};
+        proxy_http_version    1.1;
+        proxy_set_header      Host $host;
+        proxy_set_header      X-Real-IP $remote_addr;
+        proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header      X-Forwarded-Proto $socket_scheme;
+        proxy_set_header      Upgrade $http_upgrade;
+        proxy_set_header      Connection "upgrade";
+        proxy_buffering       off;
+        proxy_cache           off;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout    3600s;
+        proxy_send_timeout    3600s;
+    }
     # ETL administration is deliberately LAN-only. cloudflared supplies these
     # headers even though its origin connection comes from localhost, so it is
     # rejected before the RFC1918 allow-list is evaluated.

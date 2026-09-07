@@ -81,6 +81,11 @@ export function Navbar() {
     { code: "ja", label: "日本語", flag: "fi-jp" },
     { code: "ko", label: "한국어", flag: "fi-kr" },
   ]
+  const detectedLanguage = (i18n.resolvedLanguage || i18n.language || "en")
+    .toLowerCase().split("-")[0]
+  const activeLanguage = languages.some((l) => l.code === detectedLanguage)
+    ? detectedLanguage
+    : "en"
   const renderItem = (item: LinkItem) =>
     item.external ? (
       <a href={item.to} target="_blank" rel="noreferrer" className="w-full">
@@ -163,7 +168,7 @@ export function Navbar() {
               </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Select value={i18n.language} onValueChange={(l) => i18n.changeLanguage(l)}>
+          <Select value={activeLanguage} onValueChange={(l) => i18n.changeLanguage(l)}>
             <SelectTrigger className="w-[140px] bg-card">
               <SelectValue />
             </SelectTrigger>
@@ -213,7 +218,7 @@ export function Navbar() {
                   )
                 )}
               </div>
-              <Select value={i18n.language} onValueChange={(l) => i18n.changeLanguage(l)}>
+              <Select value={activeLanguage} onValueChange={(l) => i18n.changeLanguage(l)}>
                 <SelectTrigger className="mt-4"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {languages.map((l) => (

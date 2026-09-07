@@ -3,6 +3,7 @@ flask
 flask-babel
 flask-cors
 Flask-SocketIO
+simple-websocket
 flask-compress
 flask-sqlalchemy
 sqlalchemy
@@ -24,10 +25,8 @@ sentence-transformers
 requests
 apig-wsgi
 plotly
-gevent
 pytest
 pytest-cov
-eventlet
 torch
 google-api-python-client>=2.0.0
 matplotlib

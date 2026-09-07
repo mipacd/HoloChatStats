@@ -215,8 +215,8 @@ cd /opt/web/app
 nohup /opt/web/venv/bin/gunicorn \\
     --bind 0.0.0.0:{self.web_port} \\
     --timeout 120 \\
-    --workers {self.args.web_workers} \\
-    --threads 4 \\
+    --workers 1 \\
+    --threads 16 \\
     --access-logfile /var/log/web-api-access.log \\
     --error-logfile /var/log/web-api-error.log \\
     server:app &

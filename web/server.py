@@ -25,7 +25,10 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "https://holochatstats.info"]}})
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="http://localhost:5173")
+# Threading + simple-websocket is compatible with current Python/Gunicorn and
+# avoids Eventlet, which is no longer actively maintained. Engine.IO's default
+# same-origin checks remain enabled.
+socketio = SocketIO(app, async_mode='threading')
 
 # Setup session key, babel and OpenRouter configuration
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
@@ -143,15 +146,32 @@ def teardown_request(exception):
         g.sqlite_conn.close()
 
 
+_metrics_task = None
+
+
+def metrics_updates():
+    """Run one broadcaster per web process, independent of reconnects."""
+    while True:
+        try:
+            with app.app_context():
+                socketio.emit("metrics_update", json.dumps(get_metrics()))
+        except Exception:
+            app.logger.exception("Unable to publish site metrics update")
+        socketio.sleep(5)
+
+
+@socketio.on('connect')
+def start_metrics_updates():
+    global _metrics_task
+    if _metrics_task is None:
+        _metrics_task = socketio.start_background_task(metrics_updates)
+
+
 @socketio.on('request_update')
 def send_update():
+    """Send an immediate snapshot only to the requesting socket."""
     with app.app_context():
-        socketio.emit("metrics_update", json.dumps(get_metrics()))
-    while True:
-        with app.app_context():
-            metrics = get_metrics()
-            socketio.emit("metrics_update", json.dumps(metrics))
-        socketio.sleep(5)
+        socketio.emit("metrics_update", json.dumps(get_metrics()), to=request.sid)
 
 
 if __name__ == '__main__':

@@ -142,6 +142,32 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn('Key="news.txt"', webapi)
         self.assertIn("stack.ensure_news_seed()", deploy)
 
+    def test_locale_default_and_site_metrics_websocket(self):
+        navbar = (ROOT / "frontend" / "src" / "components" /
+                  "Navbar.tsx").read_text(encoding="utf-8")
+        nginx = (ROOT / "infra" / "deploylib" / "frontend.py").read_text()
+        webapi = (ROOT / "infra" / "deploylib" / "webapi.py").read_text()
+        server = (ROOT / "web" / "server.py").read_text(encoding="utf-8")
+        self.assertIn("i18n.resolvedLanguage", navbar)
+        self.assertIn("const activeLanguage", navbar)
+        self.assertEqual(navbar.count("value={activeLanguage}"), 2)
+        self.assertIn("location ^~ /socket.io/", nginx)
+        self.assertIn('Connection "upgrade"', nginx)
+        socket_block = nginx.split("location ^~ /socket.io/", 1)[1].split(
+            "location", 1)[0]
+        self.assertIn('proxy_pass            http://${API_BACKEND};',
+                      socket_block)
+        self.assertNotIn("__UPSTREAM__", socket_block)
+        self.assertIn("--workers 1", webapi)
+        self.assertIn("--threads 16", webapi)
+        self.assertIn("$http_x_forwarded_proto", socket_block)
+        self.assertIn("async_mode='threading'", server)
+        requirements = (ROOT / "web" / "requirements.txt").read_text()
+        self.assertIn("simple-websocket", requirements)
+        self.assertNotIn("eventlet", requirements)
+        self.assertIn("socketio.start_background_task(metrics_updates)", server)
+        self.assertIn("to=request.sid", server)
+
 
 if __name__ == "__main__":
     unittest.main()
