@@ -142,7 +142,7 @@ def _sync_cache_invalidation(conn):
     if latest is None or (recorded is not None and recorded >= latest):
         return {"needed": False, "month": str(latest) if latest else None,
                 "keys_removed": 0}
-    removed = invalidate_finalized_month_caches()
+    removed = invalidate_finalized_month_caches(finalized_month=latest)
     with conn.cursor() as cur:
         cur.execute("""INSERT INTO service_config (key, value, updated_at)
                        VALUES (%s, %s, NOW())

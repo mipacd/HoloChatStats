@@ -204,9 +204,20 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertNotIn("flushdb", invalidation.lower())
         self.assertIn("cache_finalized_month", merge)
         self.assertIn("if dry_run else _sync_cache_invalidation", merge)
-        self.assertLess(merge.index("invalidate_finalized_month_caches()"),
+        self.assertLess(merge.index("invalidate_finalized_month_caches("),
                         merge.index('("cache_finalized_month", str(latest))'))
         self.assertIn("redis", requirements.splitlines())
+
+    def test_expensive_bounded_endpoints_are_warmed_in_background(self):
+        warmer = (ROOT / "web" / "cache_warmer.py").read_text(
+            encoding="utf-8")
+        server = (ROOT / "web" / "server.py").read_text(encoding="utf-8")
+        self.assertIn("/api/get_exclusive_chat_users", warmer)
+        self.assertIn("WHERE active", warmer)
+        self.assertIn("CACHE_WARM_INTERVAL_SECONDS", warmer)
+        self.assertNotIn("/api/get_user_info", warmer)
+        self.assertIn("HoloChatStats-cache-warmer/1.0", server)
+        self.assertIn("if not is_cache_warmer", server)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,8 @@ from models import db
 from flask_cors import CORS
 from flask_compress import Compress
 import redis
+import threading
+from cache_warmer import run as run_cache_warmer
 
 
 load_dotenv()
@@ -72,6 +74,7 @@ babel.init_app(app, locale_selector=get_locale)
 
 @app.before_request
 def before_request():
+    _ensure_cache_warmer()
     # ── Health endpoint — always allow ──
     if request.path == "/health":
         return
@@ -83,6 +86,11 @@ def before_request():
         or request.remote_addr.startswith("10.")
         or request.remote_addr == "127.0.0.1"
         or "amazonaws.com" in request.headers.get("User-Agent", "")
+    )
+    is_cache_warmer = (
+        request.remote_addr == "127.0.0.1"
+        and request.headers.get("User-Agent")
+        == "HoloChatStats-cache-warmer/1.0"
     )
     real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
     hostname = resolve_hostname(real_ip)
@@ -108,27 +116,28 @@ def before_request():
                 f"({hostname})")
             return Response("Access denied", status=403)
     # Rate limiting (using Redis)
-    try:
-        redis_conn = get_redis_connection()
-        key = f"rate:{real_ip}"
-        now = int(time.time())
-        rate_limit_window = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
-        max_requests = int(os.getenv("MAX_REQUESTS_PER_WINDOW", "120"))
-        with redis_conn.pipeline() as pipe:
-            pipe.zremrangebyscore(key, 0, now - rate_limit_window)
-            pipe.zadd(key, {str(now): now})
-            pipe.zcard(key)
-            pipe.expire(key, rate_limit_window)
-            _, _, req_count, _ = pipe.execute()
-        if req_count > max_requests:
-            app.logger.warning(
-                f"Rate limit exceeded for {real_ip} ({hostname}) - "
-                f"{req_count} reqs/{rate_limit_window}s")
-            return Response("Too Many Requests", status=429)
-    except redis.exceptions.ConnectionError as e:
-        app.logger.warning(f"Redis unavailable for rate limiting: {e}")
-    except Exception as e:
-        app.logger.warning(f"Rate limiting error: {e}")
+    if not is_cache_warmer:
+        try:
+            redis_conn = get_redis_connection()
+            key = f"rate:{real_ip}"
+            now = int(time.time())
+            rate_limit_window = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
+            max_requests = int(os.getenv("MAX_REQUESTS_PER_WINDOW", "120"))
+            with redis_conn.pipeline() as pipe:
+                pipe.zremrangebyscore(key, 0, now - rate_limit_window)
+                pipe.zadd(key, {str(now): now})
+                pipe.zcard(key)
+                pipe.expire(key, rate_limit_window)
+                _, _, req_count, _ = pipe.execute()
+            if req_count > max_requests:
+                app.logger.warning(
+                    f"Rate limit exceeded for {real_ip} ({hostname}) - "
+                    f"{req_count} reqs/{rate_limit_window}s")
+                return Response("Too Many Requests", status=429)
+        except redis.exceptions.ConnectionError as e:
+            app.logger.warning(f"Redis unavailable for rate limiting: {e}")
+        except Exception as e:
+            app.logger.warning(f"Rate limiting error: {e}")
     app.logger.info(
         f"Request from {real_ip} ({hostname}) to {request.path}{query_str}")
     if 'language' not in session:
@@ -140,6 +149,24 @@ def before_request():
         get_sqlite_connection()
     except Exception:
         pass
+
+
+_cache_warmer_thread = None
+_cache_warmer_lock = threading.Lock()
+
+
+def _ensure_cache_warmer():
+    """Start exactly one daemon warmer in this single Gunicorn worker."""
+    global _cache_warmer_thread
+    if _cache_warmer_thread and _cache_warmer_thread.is_alive():
+        return
+    with _cache_warmer_lock:
+        if _cache_warmer_thread and _cache_warmer_thread.is_alive():
+            return
+        _cache_warmer_thread = threading.Thread(
+            target=run_cache_warmer, args=(app,), daemon=True,
+            name="web-cache-warmer")
+        _cache_warmer_thread.start()
 
 
 @app.after_request

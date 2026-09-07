@@ -9,6 +9,7 @@ class FakeRedis:
     def __init__(self, keys):
         self.keys = set(keys)
         self.deleted = []
+        self.values = {}
 
     def scan_iter(self, match, count):
         del count
@@ -22,6 +23,10 @@ class FakeRedis:
                 self.deleted.append(key)
                 removed += 1
         return removed
+
+    def set(self, key, value):
+        self.values[key] = str(value)
+        return True
 
 
 class CacheInvalidationTests(unittest.TestCase):
@@ -50,6 +55,17 @@ class CacheInvalidationTests(unittest.TestCase):
         self.assertEqual(removed, len(aggregate))
         self.assertEqual(set(fake.deleted), aggregate)
         self.assertEqual(fake.keys, protected)
+
+    def test_finalized_month_requests_a_warm_pass(self):
+        fake = FakeRedis(set())
+        with mock.patch.dict("os.environ", {"REDIS_HOST": "redis"},
+                             clear=False), mock.patch.object(
+                                 cache_invalidation.redis, "Redis",
+                                 return_value=fake):
+            cache_invalidation.invalidate_finalized_month_caches(
+                finalized_month="2026-07-01")
+        self.assertEqual(fake.values["cache_warm:requested_month"],
+                         "2026-07-01")
 
 
 if __name__ == "__main__":
