@@ -11,6 +11,7 @@ from common.logging_utils import get_logger
 from common.metrics import emit, COUNT
 from common.control import paused, requeue_all
 from common.channels import is_active, cancel_job
+from common.month_order import work_months
 
 
 log = get_logger("ingest")
@@ -76,6 +77,22 @@ def _ingest(msg):
         emit({"JobsCancelled": (1, COUNT)}, {"Stage": "ingest"}, video_id=video_id)
         return
     conn, s3 = get_conn(), client("s3")
+    video_month, active_month = work_months(conn, video_id)
+    if video_month and active_month and video_month > active_month:
+        # Keep the completed raw parts and retry ingestion later. This closes
+        # the second route by which a stale future-month queue message could
+        # become visible before the active month is published.
+        client("sqs").send_message(
+            QueueUrl=os.environ["INGEST_QUEUE_URL"],
+            MessageBody=json.dumps(msg), DelaySeconds=900)
+        log.warning("future-month ingest deferred",
+                    extra={"video_id": video_id,
+                           "video_month": str(video_month),
+                           "active_month": str(active_month)})
+        emit({"IngestDeferredByMonth": (1, COUNT)}, {"Stage": "ingest"},
+             video_id=video_id, active_month=str(active_month))
+        conn.close()
+        return
     with conn.cursor() as cur:
         cur.execute("""UPDATE ingest_jobs SET status='ingesting', updated_at=NOW()
                        WHERE video_id=%s AND status IN ('downloaded','failed')

@@ -90,6 +90,16 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertGreater(index_at, uvicorn_at)
         self.assertIn("llm indexing started in background", webapi)
 
+    def test_download_rechecks_month_order_at_execution(self):
+        download = (ROOT / "handlers" / "download.py").read_text()
+        ingest = (ROOT / "handlers" / "ingest.py").read_text()
+        ordering = (ROOT / "common" / "month_order.py").read_text()
+        self.assertIn("_defer_future_month(msg)", download)
+        self.assertIn("dispatched_at=NULL", download)
+        self.assertIn("user_data_current", ordering)
+        self.assertIn("monthly_merge_state", ordering)
+        self.assertIn("future-month ingest deferred", ingest)
+
 
 if __name__ == "__main__":
     unittest.main()

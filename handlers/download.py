@@ -7,6 +7,7 @@ from common.logging_utils import get_logger
 from common.metrics import emit, COUNT, SECONDS
 from common.youtube import ChatReplay
 from common.channels import is_active, cancel_job
+from common.month_order import work_months
 
 
 log = get_logger("download")
@@ -58,6 +59,8 @@ def handler(event, context):
                      extra={"video_id": msg.get("video_id")})
             continue
         try:
+            if _defer_future_month(msg):
+                continue
             try:
                 _process(msg, context)
             except LeaseLost:
@@ -73,6 +76,37 @@ def handler(event, context):
                             (DOWNLOAD_LOCK_KEY,))
             lock_conn.close()
     return {"ok": True}
+
+def _defer_future_month(msg):
+    """Undo stale queue dispatches that are newer than the active month."""
+    conn = get_conn()
+    video_month, active_month = work_months(conn, msg.get("video_id"))
+    if not video_month or not active_month or video_month <= active_month:
+        conn.close()
+        return False
+    with conn.cursor() as cur:
+        # Preserve durable S3 continuation/part checkpoints. When this month
+        # becomes active the dispatcher can safely resume rather than restart.
+        cur.execute("""
+            UPDATE ingest_jobs
+            SET status='pending', dispatched_at=NULL, lease_id=NULL,
+                updated_at=NOW(),
+                last_error='deferred: waiting for month ' || %s::text
+            WHERE video_id=%s
+              AND status IN ('pending', 'downloading')
+        """, (active_month, msg.get("video_id")))
+        deferred = cur.rowcount > 0
+    conn.commit()
+    conn.close()
+    if deferred:
+        log.warning("future-month download returned to dispatcher",
+                    extra={"video_id": msg.get("video_id"),
+                           "video_month": str(video_month),
+                           "active_month": str(active_month)})
+        emit({"DownloadsDeferredByMonth": (1, COUNT)}, {"Stage": "download"},
+             video_id=msg.get("video_id"), active_month=str(active_month))
+    return deferred
+
 def _process(msg, context):
     video_id, channel_id = msg["video_id"], msg["channel_id"]
     conn, sqs, s3 = get_conn(), client("sqs"), client("s3")
