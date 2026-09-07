@@ -94,6 +94,8 @@ def handler(event, context):
         return set_config(event["key"], str(event["value"]))
     if action == "retry_cookie_failures":
         return retry_cookie_failures()
+    if action == "drain_retry_queue":
+        return drain_retry_queue()
     if action == "retire_backlog":
         return retire_backlog(event)
     if action == "dispatch":        
@@ -288,14 +290,47 @@ def retry_cookie_failures():
         rows = cur.fetchall()
     conn.commit()
     sqs = client("sqs")
-    queue = (os.environ.get("DOWNLOAD_RETRY_QUEUE_URL")
-             or os.environ["DOWNLOAD_QUEUE_URL"])
+    queue = os.environ["DOWNLOAD_QUEUE_URL"]
     for video_id, channel_id in rows:
         sqs.send_message(QueueUrl=queue, MessageBody=json.dumps({
             "video_id": video_id, "channel_id": channel_id,
             "attempt": 0, "source": "retry"}))
     log.info("cookie-related failures requeued", extra={"count": len(rows)})
     return {"requeued": len(rows)}
+
+def drain_retry_queue(limit=10_000):
+    """Move messages left by the former two-lane design to the main queue.
+
+    Floci can let the main ESM monopolize a function with reserved concurrency
+    one, permanently starving the retry ESM. This operation is idempotent at
+    the job layer: duplicate messages are rejected by the row-state claim.
+    """
+    source = os.environ.get("DOWNLOAD_RETRY_QUEUE_URL")
+    target = os.environ["DOWNLOAD_QUEUE_URL"]
+    if not source or source == target:
+        return {"moved": 0}
+    sqs, moved, empty_polls = client("sqs"), 0, 0
+    while moved < limit and empty_polls < 3:
+        response = sqs.receive_message(QueueUrl=source, MaxNumberOfMessages=10,
+                                       WaitTimeSeconds=0,
+                                       VisibilityTimeout=60)
+        messages = response.get("Messages", [])
+        if not messages:
+            empty_polls += 1
+            time.sleep(.2)
+            continue
+        empty_polls = 0
+        for message in messages:
+            body = json.loads(message["Body"])
+            body["source"] = "retry"
+            sqs.send_message(QueueUrl=target, MessageBody=json.dumps(body))
+            sqs.delete_message(QueueUrl=source,
+                               ReceiptHandle=message["ReceiptHandle"])
+            moved += 1
+            if moved >= limit:
+                break
+    log.info("legacy retry queue drained", extra={"moved": moved})
+    return {"moved": moved}
 
 def verify_schema():
     """

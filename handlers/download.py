@@ -13,7 +13,6 @@ log = get_logger("download")
 RESERVE_MS = 60_000          # leave headroom to flush + checkpoint
 PAGES_PER_PART = 400         # ~one S3 object per 400 pages
 HEARTBEAT_SECONDS = 5        # progress write cadence (drives stall detection)
-MAX_DEFERRALS = 20           # don't yield to the retry queue forever
 DOWNLOAD_LOCK_KEY = 744_211_988
 BUCKET = os.environ["RAW_BUCKET"]
 RETRY_QUEUE = os.environ.get("DOWNLOAD_RETRY_QUEUE_URL")
@@ -22,22 +21,6 @@ PERMANENT = ("members", "not available", "removed", "private", "no chat replay",
 class LeaseLost(Exception):
     """Our row was reassigned (reaper decided we were dead). Stop immediately:
     anything we write from here on would corrupt the new owner's checkpoint."""
-_retry_depth = {"at": 0.0, "n": 0}
-def _retry_backlog(sqs):
-    """Depth of the recovery queue, cached briefly -- this runs per message."""
-    if not RETRY_QUEUE:
-        return 0
-    now = time.time()
-    if now - _retry_depth["at"] < 10:
-        return _retry_depth["n"]
-    a = sqs.get_queue_attributes(
-        QueueUrl=RETRY_QUEUE,
-        AttributeNames=["ApproximateNumberOfMessages",
-                        "ApproximateNumberOfMessagesNotVisible"])["Attributes"]
-    _retry_depth["n"] = (int(a.get("ApproximateNumberOfMessages", 0))
-                         + int(a.get("ApproximateNumberOfMessagesNotVisible", 0)))
-    _retry_depth["at"] = now
-    return _retry_depth["n"]
 def handler(event, context):
     if paused():
         requeue_all("DOWNLOAD_QUEUE_URL", event["Records"])
@@ -46,7 +29,8 @@ def handler(event, context):
     sqs = client("sqs")
     for record in event["Records"]:
         msg = json.loads(record["body"])
-        if msg.get("src") not in ("dispatch", "retry", "resume", "manual"):
+        source = msg.get("source") or msg.get("src")
+        if source not in (None, "dispatch", "retry", "resume", "manual"):
             log.warning("download message from an unknown producer -- month ordering "
                 "is not being honoured", extra={"video_id": msg.get("video_id"),
                                                 "msg": msg})
@@ -60,21 +44,6 @@ def handler(event, context):
             emit({"JobsCancelled": (1, COUNT)}, {"Stage": "download"},
                  video_id=msg.get("video_id"))
             continue
-        if msg.get("source") != "retry" and _retry_backlog(sqs) > 0:
-            deferrals = msg.get("deferrals", 0)
-            if deferrals < MAX_DEFERRALS:
-                sqs.send_message(
-                    QueueUrl=os.environ["DOWNLOAD_QUEUE_URL"],
-                    MessageBody=json.dumps({**msg, "deferrals": deferrals + 1}),
-                    DelaySeconds=30)
-                emit({"DownloadsDeferred": (1, COUNT)}, {"Stage": "download"},
-                     video_id=msg.get("video_id"))
-                log.info("yielding to recovery queue",
-                         extra={"video_id": msg.get("video_id"),
-                                "deferrals": deferrals + 1})
-                continue
-            log.warning("retry queue still busy after max deferrals; proceeding",
-                        extra={"video_id": msg.get("video_id")})
         lock_conn = get_conn()
         with lock_conn.cursor() as cur:
             cur.execute("SELECT pg_try_advisory_lock(%s)",
@@ -82,9 +51,8 @@ def handler(event, context):
             have_lock = cur.fetchone()[0]
         if not have_lock:
             lock_conn.close()
-            queue = (RETRY_QUEUE if msg.get("source") == "retry"
-                     else os.environ["DOWNLOAD_QUEUE_URL"])
-            sqs.send_message(QueueUrl=queue, MessageBody=json.dumps(msg),
+            sqs.send_message(QueueUrl=os.environ["DOWNLOAD_QUEUE_URL"],
+                             MessageBody=json.dumps(msg),
                              DelaySeconds=15)
             log.info("another chat download is active; deferred",
                      extra={"video_id": msg.get("video_id")})
@@ -282,8 +250,7 @@ def _handle_error(conn, sqs, video_id, channel_id, msg, exc):
                     (text[:1000], video_id))
     conn.commit()
     # Keep the message on whichever lane it arrived on.
-    queue = (RETRY_QUEUE if msg.get("source") == "retry"
-             else os.environ["DOWNLOAD_QUEUE_URL"])
+    queue = os.environ["DOWNLOAD_QUEUE_URL"]
     sqs.send_message(QueueUrl=queue,
                      MessageBody=json.dumps({**msg, "attempt": attempt}),
                      DelaySeconds=delay)

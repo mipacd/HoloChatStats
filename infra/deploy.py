@@ -56,6 +56,8 @@ def deploy_code(stack, args):
         stack.ensure_frontend_service()
     apply_schema(stack, args)
     stack.run_migrate("retry_cookie_failures")
+    stack.run_migrate("drain_retry_queue")
+    stack.ensure_esms()
     admin = stack.get_param(f"/{C.APP}/admin/url")     # resolved on full deploy
     if admin:
         stack.summary.append(("Admin page", admin))
@@ -90,6 +92,7 @@ def provision(stack, args):
     # directly, so there is no 900 s ceiling to hit.
     stack.run_schema_migrations()
     stack.run_migrate("retry_cookie_failures")
+    stack.run_migrate("drain_retry_queue")
     # Cheap, but they need S3 + the Lambda env, so they stay in Lambda -- as
     # separate invocations, not bundled into {"action": "all"}.
     if args.migrate_action in ("seed_channels", "all"):

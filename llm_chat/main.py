@@ -35,6 +35,11 @@ logging.basicConfig(
 
 app = FastAPI(title="HoloChatStats LLM")
 
+@app.get("/healthz/llm")
+async def llm_health():
+    """Deployment-specific probe used to identify the LLM forwarded port."""
+    return {"ok": True, "service": "holochatstats-llm"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[

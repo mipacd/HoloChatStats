@@ -78,7 +78,12 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("YOUTUBE_COOKIES_B64", workflow)
         self.assertIn('"download": {"handler": "handlers.download.handler", "timeout": 900, "memory": 1024, "rc": 1}', config)
         self.assertIn("pg_try_advisory_lock", download)
+        self.assertNotIn("yielding to recovery queue", download)
         self.assertIn("retry_cookie_failures", migrate)
+        self.assertIn("drain_retry_queue", migrate)
+        self.assertIn('@app.get("/healthz/llm")',
+                      (ROOT / "llm_chat" / "main.py").read_text())
+        self.assertIn('LLM_HEALTH_PATH = "/healthz/llm"', config)
 
 
 if __name__ == "__main__":

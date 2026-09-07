@@ -143,7 +143,7 @@ class Base:
                     if http_ok(f"http://localhost:{port}{probe}"):
                         return port
             time.sleep(3)
-        if candidates:
+        if candidates and probe is None:
             return candidates[0]
         print(f"  (no port in {C.PORT_SCAN_RANGE} answered "
               f"{probe or 'a TCP connect'}; listening: "

@@ -2,9 +2,8 @@
 Recovers jobs whose worker vanished: container restart, OOM kill, lost SQS
 message, DLQ'd message. Detection is purely "the heartbeat stopped", which is
 only meaningful because handlers/download.py writes progress every few seconds.
-Recovered downloads go to DOWNLOAD_RETRY_QUEUE_URL, oldest first, and the main
-download consumer yields while that queue is non-empty -- so a resumed job
-always finishes before a new one starts.
+Recovered downloads rejoin the main download queue. The database advisory lock
+serializes work without relying on two competing Floci event-source mappings.
 Resume is cheap and exact: `continuation` is only ever advanced immediately
 after a part lands in S3, so a reaped job replays from the last durable part.
 Manual use:
@@ -99,7 +98,10 @@ def _reap_downloads(cfg, limit, dry):
     conn.commit()
     rows.sort(key=lambda r: r[5])          # oldest first onto the wire
     sqs = client("sqs")
-    queue = RETRY_QUEUE or os.environ["DOWNLOAD_QUEUE_URL"]
+    # One queue plus the database advisory lock guarantees one downloader.
+    # A second event-source mapping can starve under reserved concurrency in
+    # Floci, so recovered work rejoins the main FIFO-like lane.
+    queue = os.environ["DOWNLOAD_QUEUE_URL"]
     recovered = []
     for video_id, channel_id, parts, reaps, resumable, _, offset in rows:
         sqs.send_message(QueueUrl=queue, MessageBody=json.dumps({

@@ -59,7 +59,6 @@ FUNCTIONS = {
 EVENT_SOURCE_MAPPINGS = {
     "scan-q":           ("scan",     1, 3),
     "download-q":       ("download", 1, 2),  # AWS ESM minimum; function rc=1
-    "download-retry-q": ("download", 1, 2),   # dedicated slots for recoveries
     "ingest-q":         ("ingest",   1, 4),
 }
 SCHEDULES = {
@@ -79,7 +78,7 @@ WEB_VENV_KEY = "web/web-venv.tar.gz"       # large, rebuilt only on dep changes
 WEB_CODE_KEY = "web/web-code.tar.gz"       # small, rebuilt every deploy
 # LLM chatbot (FastAPI) -- same instance, same venv, second port
 LLM_PORT = 8000
-LLM_HEALTH_PATH = "/health"                # add a trivial GET /health to llm_chat/main.py
+LLM_HEALTH_PATH = "/healthz/llm"
 LLM_CODE_KEY = "web/llm-code.tar.gz"
 LLM_DIR_NAME = "llm_chat"
 # ---------------------------------------------------- frontend (ECS) --------

@@ -50,6 +50,18 @@ class MessagingMixin:
             # Persist the UUID so the runtime concurrency knob
             # (infra/apply_concurrency.py / discover) can find it.
             self.put_param(f"/{C.APP}/esm/{queue}", uuid)
+        # Retire the old second download mapping. Two mappings competing for a
+        # function with reserved concurrency one can starve either lane in
+        # Floci; recovered jobs now rejoin download-q.
+        retry_arn = self.queue_arns.get("download-retry-q")
+        if retry_arn and "download-retry-q" not in C.EVENT_SOURCE_MAPPINGS:
+            mappings = self.lam.list_event_source_mappings(
+                FunctionName=f"{C.APP}-download",
+                EventSourceArn=retry_arn).get("EventSourceMappings", [])
+            for mapping in mappings:
+                self.lam.update_event_source_mapping(
+                    UUID=mapping["UUID"], Enabled=False)
+                print("disabled retired download-retry-q event source mapping")
     def ensure_schedules(self):
         for func, expr in C.SCHEDULES.items():
             fn, rule = f"{C.APP}-{func}", f"{C.APP}-{func}-schedule"
