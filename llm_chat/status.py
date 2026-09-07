@@ -18,6 +18,7 @@ from config import settings
 logger = logging.getLogger(__name__)
 _CALL_WINDOW_SECONDS = 15 * 60
 _call_history: Deque[Tuple[float, bool]] = deque(maxlen=50)
+_last_call_error: Optional[str] = None
 # Whether the last *confirmed* /models listing check found the configured
 # model. None = not yet confirmed either way (e.g. only network errors so far).
 _model_listed: Optional[bool] = None
@@ -33,9 +34,11 @@ _lock = asyncio.Lock()
 DEGRADED_ALERT_THRESHOLD_SECONDS = (
     getattr(settings, "ALERT_DEGRADED_THRESHOLD_HOURS", 24.0) * 3600
 )
-def record_call_result(success: bool) -> None:
+def record_call_result(success: bool, error: Optional[str] = None) -> None:
     """Record the outcome of a real call_openrouter invocation."""
+    global _last_call_error
     _call_history.append((time.time(), success))
+    _last_call_error = None if success else (error or "provider_request_failed")[:500]
 def _recent_results(now: float) -> list:
     return [s for (t, s) in _call_history if now - t <= _CALL_WINDOW_SECONDS]
 async def check_model_availability() -> Optional[bool]:
@@ -100,6 +103,7 @@ async def get_status() -> dict:
         "reason": "recent_calls",
         "success_ratio": ratio,
         "samples": len(recent),
+        "last_error": _last_call_error if status != "green" else None,
         "last_checked": last_check,
     }
 def _send_email_sync(subject: str, body: str) -> None:

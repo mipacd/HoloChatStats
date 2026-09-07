@@ -442,6 +442,29 @@ class FrontendMixin:
     def _stale_tasks(self, task_arn):
         return [t for t in self._describe(self._tasks())
                 if t.get("taskDefinitionArn") != task_arn]
+
+    def _stop_orphaned_emulator_frontends(self):
+        """Stop only Floci ECS web containers publishing our fixed host port.
+
+        Some Floci releases lose a task from list_tasks while its Docker
+        container remains alive. ECS can no longer stop that orphan, but it
+        still owns :80 and makes every reconciliation attempt fail.
+        """
+        result = subprocess.run(
+            ["docker", "ps", "--filter",
+             f"publish={self.frontend_host_port}",
+             "--format", "{{.ID}}\t{{.Names}}"],
+            text=True, capture_output=True, check=False)
+        targets = []
+        for line in result.stdout.splitlines():
+            parts = line.split("\t", 1)
+            if len(parts) == 2 and parts[1].startswith("floci-ecs-") \
+                    and parts[1].endswith(f"-{C.FRONTEND_CONTAINER}"):
+                targets.append(parts[0])
+        if targets:
+            subprocess.run(["docker", "stop", *targets], check=True)
+            print(f"frontend: stopped {len(targets)} orphaned Floci "
+                  "container(s) holding the static host port")
     
     def _replace_tasks(self, task_arn):
         """floci records the new task definition but never recycles the
@@ -546,18 +569,36 @@ class FrontendMixin:
     def _ensure_service(self, task_arn, plan, target_group):
         count = self.args.frontend_count
         if self._find_service():
+            if self.emulated and plan["network_mode"] == "bridge":
+                # A fixed host port cannot support ECS rolling replacement.
+                # Scale the old revision to zero first; otherwise Floci keeps
+                # creating doomed tasks forever while the healthy old task
+                # still owns :80.
+                self._api_call(self.ecs.update_service,
+                               cluster=C.ECS_CLUSTER,
+                               service=C.FRONTEND_NAME,
+                               desiredCount=0)
+                for t in self._describe(self._tasks()):
+                    ignore(self.ecs.stop_task, cluster=C.ECS_CLUSTER,
+                           task=t["taskArn"], reason="deploy: free static hostPort")
+                wait_for(lambda: not _port_open(
+                    "127.0.0.1", self.frontend_host_port),
+                    timeout=30, interval=2)
+                if _port_open("127.0.0.1", self.frontend_host_port):
+                    self._stop_orphaned_emulator_frontends()
+                    wait_for(lambda: not _port_open(
+                        "127.0.0.1", self.frontend_host_port),
+                        timeout=30, interval=2)
+                if _port_open("127.0.0.1", self.frontend_host_port):
+                    sys.exit(f"frontend: host port {self.frontend_host_port} "
+                             "is still occupied after scaling the old service "
+                             "to zero")
+                time.sleep(2)
             kwargs = dict(cluster=C.ECS_CLUSTER, service=C.FRONTEND_NAME,
                           taskDefinition=task_arn, desiredCount=count,
                           forceNewDeployment=True)
             if plan["network_config"]:
                 kwargs["networkConfiguration"] = plan["network_config"]
-            if self.emulated and plan["network_mode"] == "bridge":
-                for t in self._describe(self._tasks()):
-                    ignore(self.ecs.stop_task, cluster=C.ECS_CLUSTER,
-                        task=t["taskArn"], reason="deploy: free static hostPort")
-                wait_for(lambda: not _port_open("127.0.0.1", self.frontend_host_port),
-                        timeout=30, interval=2)
-                time.sleep(2)
             try:
                 self._api_call(self.ecs.update_service, **kwargs)
 

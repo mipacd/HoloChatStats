@@ -1,7 +1,10 @@
+import json
+import logging
 import httpx
 from config import settings
 from status import record_call_result
 DEFAULT_TIMEOUT = 120
+logger = logging.getLogger(__name__)
 async def call_openrouter(messages, model=None, max_tokens=2048, reasoning=None, temperature=0.7):
     model = model or settings.OPENROUTER_MODEL
     url = f"{settings.OPENROUTER_URL}/chat/completions"
@@ -12,7 +15,9 @@ async def call_openrouter(messages, model=None, max_tokens=2048, reasoning=None,
         "max_tokens": max_tokens,
         "stream": False,
         "temperature": temperature,
-        "extra_body": {"reasoning": reasoning or {"effort": "medium", "exclude": True}},
+        # This is a raw HTTP request. ``extra_body`` is an OpenAI SDK keyword,
+        # not part of OpenRouter's wire format; reasoning belongs at top level.
+        "reasoning": reasoning or {"effort": "medium", "exclude": True},
     }
     try:
         async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
@@ -31,6 +36,19 @@ async def call_openrouter(messages, model=None, max_tokens=2048, reasoning=None,
             )
             record_call_result(True)
             return {"text": text.strip(), "raw": data}
-    except Exception:
-        record_call_result(False)
+    except httpx.HTTPStatusError as exc:
+        # OpenRouter errors do not contain the submitted prompt. Log only a
+        # bounded error envelope and never headers/API credentials.
+        try:
+            detail = json.dumps(exc.response.json(), ensure_ascii=True)[:1000]
+        except Exception:
+            detail = exc.response.text[:1000]
+        logger.error("OpenRouter rejected request: status=%s model=%s body=%s",
+                     exc.response.status_code, model, detail)
+        record_call_result(False, f"HTTP {exc.response.status_code}: {detail}")
+        raise
+    except Exception as exc:
+        logger.error("OpenRouter request failed: model=%s error=%s",
+                     model, str(exc)[:500])
+        record_call_result(False, str(exc))
         raise

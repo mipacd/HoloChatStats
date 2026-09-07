@@ -89,6 +89,17 @@ class ProductionConfigTests(unittest.TestCase):
         index_at = webapi.index("python init_tool_store.py", uvicorn_at)
         self.assertGreater(index_at, uvicorn_at)
         self.assertIn("llm indexing started in background", webapi)
+        model = (ROOT / "llm_chat" / "llm" / "model.py").read_text()
+        self.assertIn('"reasoning": reasoning', model)
+        self.assertNotIn('"extra_body"', model)
+        self.assertIn("HTTP {exc.response.status_code}", model)
+        self.assertIn("/proc/1/fd/1", webapi)
+        frontend = (ROOT / "infra" / "deploylib" / "frontend.py").read_text()
+        zero = frontend.index("desiredCount=0")
+        update = frontend.index("self._api_call(self.ecs.update_service, **kwargs)")
+        self.assertLess(zero, update)
+        self.assertIn("_stop_orphaned_emulator_frontends", frontend)
+        self.assertIn('startswith("floci-ecs-")', frontend)
 
     def test_download_rechecks_month_order_at_execution(self):
         download = (ROOT / "handlers" / "download.py").read_text()

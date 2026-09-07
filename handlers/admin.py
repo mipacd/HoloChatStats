@@ -209,6 +209,19 @@ def snapshot():
         cur.execute("SELECT status, COUNT(*) FROM ingest_jobs GROUP BY status")
         out["jobs"] = dict(cur.fetchall())
         cur.execute("""
+            SELECT LEAST(
+              (SELECT MIN(date_trunc('month', v.end_time)::date)
+                 FROM ingest_jobs j JOIN videos v USING (video_id)
+                WHERE j.status NOT IN ('done','skipped')),
+              (SELECT MIN(u.observed_month) FROM user_data_current u
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM monthly_merge_state s
+                   WHERE s.observed_month=u.observed_month
+                     AND s.status='merged')))
+        """)
+        active_month = cur.fetchone()[0]
+        out["active_month"] = str(active_month) if active_month else None
+        cur.execute("""
             SELECT j.video_id, j.channel_id,
                    COALESCE(c.channel_name, j.channel_id)        AS channel_name,
                    j.status, j.attempts,
@@ -240,9 +253,12 @@ def snapshot():
             "pct": (round(min(100.0, 100.0 * float(r[5]) / float(r[6])), 1)
                     if r[3] == "downloading" and r[6] else
                     (100.0 if r[3] in ("downloaded", "ingesting") else None)),
-            "phase": {"downloading": "downloading",
-                      "downloaded": "queued for ingest",
-                      "ingesting": "ingesting"}[r[3]],
+            "phase": (f"held until {active_month} is published"
+                      if r[3] == "downloaded" and active_month and r[12]
+                      and r[12].date().replace(day=1) > active_month
+                      else {"downloading": "downloading",
+                            "downloaded": "queued for ingest",
+                            "ingesting": "ingesting"}[r[3]]),
             "stalled": r[3] == "downloading" and (r[9] or 0) > stale_after,
         } for r in cur.fetchall()]
         cur.execute("""

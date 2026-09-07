@@ -471,12 +471,9 @@ async def chat(request: Request):
     raw_message = data.get("message", "")
     page_context, prompt_text = parse_page_context(raw_message)
 
-    if page_context:
-        logger.info(f"User {user_key} page context: {page_context}")
-
-    # Log prompt on separate line, showing truncated version if too long
-    prompt_preview = prompt_text[:500] if len(prompt_text) > 500 else prompt_text
-    logger.info(f"User {user_key} prompt: {prompt_preview}")
+    # Do not write prompt content or page context to production logs.
+    logger.info("Chat request user=%s prompt_chars=%s has_page_context=%s",
+                user_key, len(prompt_text), bool(page_context))
 
     message = sanitize_prompt(raw_message)
     chat_history = data.get("chat_history", [])

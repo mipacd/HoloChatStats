@@ -228,7 +228,8 @@ export LLM_PORT='{self.args.llm_port}'
 mkdir -p generated_charts
 nohup /opt/web/venv/bin/uvicorn main:app \\
     --host 0.0.0.0 --port {self.args.llm_port} \\
-    --log-level info > /var/log/llm-server.log 2>&1 &
+    --log-level info \\
+    > >(tee -a /var/log/llm-server.log /proc/1/fd/1) 2>&1 &
 LLM_PID=$!
 sleep 3
 if kill -0 $LLM_PID 2>/dev/null; then
