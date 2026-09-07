@@ -13,12 +13,20 @@ _CFG = Config(
     connect_timeout=3,
     read_timeout=10,
 )
+_S3_CFG = Config(
+    retries={"max_attempts": 5, "mode": "standard"},
+    connect_timeout=3,
+    # Floci serves S3 from the same modest host as RDS and Lambda. Ten seconds
+    # is too aggressive while a compressed chat part is being read or written.
+    read_timeout=int(os.environ.get("S3_READ_TIMEOUT_SECONDS", "120")),
+    tcp_keepalive=True,
+)
 _cache = {}
 def endpoint():
     return _ENDPOINT
 def client(service: str):
     if service not in _cache:
-        kwargs = {"config": _CFG}
+        kwargs = {"config": _S3_CFG if service == "s3" else _CFG}
         if _ENDPOINT:
             kwargs["endpoint_url"] = _ENDPOINT
         _cache[service] = boto3.client(service, **kwargs)

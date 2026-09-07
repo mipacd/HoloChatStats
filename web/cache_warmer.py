@@ -55,14 +55,10 @@ def build_tasks(channels, groups, finalized_month):
         for channel in channels
         for path in ("/api/get_stream_frequency", "/api/get_stream_calendar")
     )
-    tasks.extend([
-        ("/api/channel_clustering",
-         {"month": month, "percentile": "95", "type": "2d"}),
-        ("/api/content_clustering",
-         {"month": month, "percentile": "95", "type": "2d"}),
-        ("/api/community_graph",
-         {"month": month, "include_edges": "true", "channel_group": "all"}),
-    ])
+    # Clustering and the community graph are intentionally not warmed here.
+    # Their large in-process NumPy/graph workloads contend with Gunicorn's
+    # request threads for the Python interpreter and can make the site appear
+    # offline even when run one at a time.
     # The initial page load omits the optional group selector, producing a
     # different cache key from each named group.
     for path in (
@@ -116,15 +112,48 @@ def _database_inputs(app):
     return latest, channels, groups
 
 
+def _etl_active(app):
+    """Avoid competing with chat workers using S3 and PostgreSQL."""
+    from models import db
+
+    with app.app_context():
+        active = db.session.execute(text(
+            "SELECT EXISTS (SELECT 1 FROM ingest_jobs "
+            "WHERE status IN ('downloading', 'ingesting'))"
+        )).scalar()
+        db.session.remove()
+    return bool(active)
+
+
+def _wait_for_capacity(app):
+    """Wait for quiet traffic, host headroom, and an idle ingest stage."""
+    quiet_seconds = float(os.environ.get("CACHE_WARM_QUIET_SECONDS", "60"))
+    max_load = float(os.environ.get("CACHE_WARM_MAX_LOAD_PER_CPU", "0.50"))
+    check_seconds = float(os.environ.get("CACHE_WARM_CAPACITY_POLL_SECONDS", "15"))
+    while True:
+        last_foreground = app.extensions.get(
+            "cache_warmer_last_foreground", 0.0)
+        foreground_busy = time.monotonic() - last_foreground < quiet_seconds
+        try:
+            load_busy = os.getloadavg()[0] / max(1, os.cpu_count() or 1) > max_load
+        except (AttributeError, OSError):
+            load_busy = False
+        etl_busy = False if foreground_busy or load_busy else _etl_active(app)
+        if not foreground_busy and not load_busy and not etl_busy:
+            return
+        time.sleep(max(1.0, check_seconds))
+
+
 def warm_once(app, finalized_month):
     """Warm one month sequentially; cached successes make retries inexpensive."""
     _latest, channels, groups = _database_inputs(app)
     tasks = build_tasks(channels, groups, finalized_month)
-    delay = float(os.environ.get("CACHE_WARM_DELAY_SECONDS", "0.25"))
+    delay = float(os.environ.get("CACHE_WARM_DELAY_SECONDS", "30"))
     failures = []
     started = time.monotonic()
     with app.test_client() as client:
         for index, (path, query) in enumerate(tasks, 1):
+            _wait_for_capacity(app)
             try:
                 response = client.get(path, query_string=query,
                                       headers={"User-Agent": "HoloChatStats-cache-warmer/1.0"})
@@ -166,6 +195,9 @@ def run(app):
     poll_seconds = int(os.environ.get("CACHE_WARM_POLL_SECONDS", "30"))
     retry_seconds = int(os.environ.get("CACHE_WARM_RETRY_SECONDS", "300"))
     interval_seconds = int(os.environ.get("CACHE_WARM_INTERVAL_SECONDS", "86400"))
+    start_delay = int(os.environ.get("CACHE_WARM_START_DELAY_SECONDS", "300"))
+    if start_delay > 0:
+        time.sleep(start_delay)
     while True:
         try:
             requested = store.get(REQUESTED_KEY)

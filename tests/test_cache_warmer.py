@@ -21,6 +21,9 @@ class CacheWarmerTaskTests(unittest.TestCase):
         self.assertNotIn("/api/get_common_users", paths)
         self.assertNotIn("/api/get_common_users_matrix", paths)
         self.assertNotIn("/api/community_graph/find_user", paths)
+        self.assertNotIn("/api/community_graph", paths)
+        self.assertNotIn("/api/channel_clustering", paths)
+        self.assertNotIn("/api/content_clustering", paths)
         self.assertTrue(all("identifier" not in query for _path, query in tasks))
 
     def test_default_and_named_group_cache_keys_are_covered(self):

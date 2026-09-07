@@ -92,6 +92,10 @@ def before_request():
         and request.headers.get("User-Agent")
         == "HoloChatStats-cache-warmer/1.0"
     )
+    if not is_cache_warmer:
+        # The low-priority warmer waits until foreground traffic has been
+        # quiet before starting another expensive calculation.
+        app.extensions["cache_warmer_last_foreground"] = time.monotonic()
     real_ip = request.headers.get("CF-Connecting-IP", request.remote_addr)
     hostname = resolve_hostname(real_ip)
     query = request.query_string.decode()

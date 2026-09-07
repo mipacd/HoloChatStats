@@ -215,9 +215,22 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("/api/get_exclusive_chat_users", warmer)
         self.assertIn("WHERE active", warmer)
         self.assertIn("CACHE_WARM_INTERVAL_SECONDS", warmer)
+        self.assertIn("CACHE_WARM_QUIET_SECONDS", warmer)
+        self.assertIn("CACHE_WARM_MAX_LOAD_PER_CPU", warmer)
+        self.assertIn("CACHE_WARM_DELAY_SECONDS", warmer)
         self.assertNotIn("/api/get_user_info", warmer)
         self.assertIn("HoloChatStats-cache-warmer/1.0", server)
         self.assertIn("if not is_cache_warmer", server)
+
+    def test_modest_host_limits_ingest_and_allows_slow_s3_reads(self):
+        config = (ROOT / "infra" / "deploylib" / "config.py").read_text()
+        aws = (ROOT / "common" / "aws.py").read_text()
+        self.assertIn(
+            '"ingest":   {"handler": "handlers.ingest.handler",   '
+            '"timeout": 900, "memory": 1024, "rc": 1}', config)
+        self.assertIn('"ingest-q":         ("ingest",   1, 2)', config)
+        self.assertIn('S3_READ_TIMEOUT_SECONDS", "120"', aws)
+        self.assertIn('service == "s3"', aws)
 
 
 if __name__ == "__main__":
