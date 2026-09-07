@@ -27,7 +27,7 @@ from common.channels import cancel_channel_jobs
 log = get_logger("admin")
 APP = os.environ.get("APP_NAME", "chat-ingest")
 DISCOVER_RULE = os.environ.get("DISCOVER_RULE", f"{APP}-discover-schedule")
-MANAGED_ESMS = ("scan-q", "download-q", "ingest-q")
+MANAGED_ESMS = ("scan-q", "download-q", "download-retry-q", "ingest-q")
 REFRESH_SECONDS = int(os.environ.get("ADMIN_REFRESH_SECONDS", "5"))
 CHANNEL_ID_RE = re.compile(r"^UC[A-Za-z0-9_-]{22}$")
 # --------------------------------------------------------------------------- #

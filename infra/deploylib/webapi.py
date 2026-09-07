@@ -34,9 +34,10 @@ class WebApiMixin:
         self._api_call(self.ec2.terminate_instances,
                        InstanceIds=[old["InstanceId"]])
         wait_for(lambda: self._find_web_instance() is None, timeout=60)
-        old_port = self.get_param(f"/{C.APP}/web/host_port")
-        if old_port:
-            wait_for(lambda: int(old_port) not in
+        old_ports = [self.get_param(f"/{C.APP}/{service}/host_port")
+                     for service in ("web", "llm")]
+        for old_port in filter(None, old_ports):
+            wait_for(lambda p=int(old_port): p not in
                      scan_local_ports(*C.PORT_SCAN_RANGE), timeout=30)
         time.sleep(2)
     # ------------------------------------------------------------ artifacts ---
@@ -308,7 +309,7 @@ fi
         if not self.args.skip_llm:
             if external_host == "localhost":
                 llm_host_port = self.discover_forwarded_port(
-                    before, probe=C.LLM_HEALTH_PATH, timeout=240,
+                    before, probe=C.LLM_HEALTH_PATH, timeout=600,
                     exclude=[host_port])          # model load is slow
             else:
                 llm_host_port = self.args.llm_port
@@ -323,6 +324,10 @@ fi
             f"/{C.APP}/web/instance_id": instance_id,
             f"/{C.APP}/web/host_port": host_port,
         }
+        if not self.args.skip_llm and not llm_host_port:
+            self._print_instance_log(instance_id)
+            sys.exit("LLM server has no healthy host-forwarded port; refusing "
+                     "to retain or publish a stale LLM endpoint")
         if llm_host_port:
             llm_url = f"http://{external_host}:{llm_host_port}"
             params.update({
@@ -369,7 +374,9 @@ fi
                 DocumentName="AWS-RunShellScript",
                 Parameters={"commands": [
                     "cat /var/log/web-api-init.log 2>/dev/null; echo '---'; "
-                    "cat /var/log/web-api-error.log 2>/dev/null"]})
+                    "cat /var/log/web-api-error.log 2>/dev/null; echo '---'; "
+                    "cat /var/log/llm-init.log 2>/dev/null; echo '---'; "
+                    "cat /var/log/llm-server.log 2>/dev/null"]})
             time.sleep(3)
             out = self._api_call(
                 self.ssm.get_command_invocation,

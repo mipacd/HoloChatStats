@@ -37,7 +37,16 @@ def apply_schema(stack, args):
         dbmigrate.populate_matviews(**target)
 def deploy_code(stack, args):
     """--code-only: push new code everywhere, no infra changes."""
-    stack.update_all_function_code()
+    # Hydrate endpoints and rotate explicitly supplied secrets before building
+    # Lambda environments. A bootstrap marker must not make secret rotation a
+    # no-op or leave queue URLs empty.
+    check_db_config(stack, args)
+    stack.ensure_secrets()
+    stack.ensure_queues()
+    stack.ensure_elasticache()
+    # Reapply function configuration as well as code so concurrency and newly
+    # added environment variables take effect on ordinary pushes.
+    stack.ensure_functions(stack.ensure_lambda_role())
     if not args.skip_web:
         stack.ensure_web_secret()
         stack.sync_llm_secret()
@@ -46,6 +55,7 @@ def deploy_code(stack, args):
     if not args.skip_frontend and stack.build_frontend():
         stack.ensure_frontend_service()
     apply_schema(stack, args)
+    stack.run_migrate("retry_cookie_failures")
     admin = stack.get_param(f"/{C.APP}/admin/url")     # resolved on full deploy
     if admin:
         stack.summary.append(("Admin page", admin))
@@ -79,6 +89,7 @@ def provision(stack, args):
     # Heavy DDL (primary keys, 15 indexes, 4 matviews) runs against Postgres
     # directly, so there is no 900 s ceiling to hit.
     stack.run_schema_migrations()
+    stack.run_migrate("retry_cookie_failures")
     # Cheap, but they need S3 + the Lambda env, so they stay in Lambda -- as
     # separate invocations, not bundled into {"action": "all"}.
     if args.migrate_action in ("seed_channels", "all"):

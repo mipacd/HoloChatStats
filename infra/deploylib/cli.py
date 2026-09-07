@@ -17,6 +17,13 @@ def parse_args(doc=None):
     # ---- config / secrets ------------------------------------------------
     p.add_argument("--channels-file", help="local channels.json to upload")
     p.add_argument("--youtube-api-key", default=os.environ.get("YT_API_KEY"))
+    p.add_argument("--youtube-cookies-b64",
+                   default=os.environ.get("YOUTUBE_COOKIES_B64"),
+                   help="base64-encoded Netscape cookies.txt stored in CI; "
+                        "never pass raw cookies on the command line")
+    p.add_argument("--youtube-user-agent",
+                   default=os.environ.get("YOUTUBE_USER_AGENT"),
+                   help="browser User-Agent associated with the cookie export")
     p.add_argument("--llm-secrets-json", default=os.environ.get("LLM_SECRETS_JSON"),
                    help="JSON object for the LLM secret (prefer a CI secret; "
                         "never commit a .env file)")

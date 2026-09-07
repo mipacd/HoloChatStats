@@ -70,6 +70,16 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertNotIn("reusing the previously published port", webapi)
         self.assertIn("refusing to update its SSM", webapi)
 
+    def test_cookie_secret_single_download_and_retry(self):
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+        config = (ROOT / "infra" / "deploylib" / "config.py").read_text()
+        download = (ROOT / "handlers" / "download.py").read_text()
+        migrate = (ROOT / "handlers" / "migrate.py").read_text()
+        self.assertIn("YOUTUBE_COOKIES_B64", workflow)
+        self.assertIn('"download": {"handler": "handlers.download.handler", "timeout": 900, "memory": 1024, "rc": 1}', config)
+        self.assertIn("pg_try_advisory_lock", download)
+        self.assertIn("retry_cookie_failures", migrate)
+
 
 if __name__ == "__main__":
     unittest.main()

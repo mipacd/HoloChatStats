@@ -1,4 +1,6 @@
 """S3 buckets and Secrets Manager."""
+import base64
+import binascii
 import json
 import secrets
 import sys
@@ -79,7 +81,25 @@ class StorageMixin:
             self._ensure_secret(C.DB_SECRET_ID, db, self.args.update_secrets)
         yt = ({"api_key": self.args.youtube_api_key}
               if self.args.youtube_api_key else None)
-        self._ensure_secret(C.YT_SECRET_ID, yt, self.args.update_secrets)
+        if self.args.youtube_cookies_b64:
+            try:
+                raw = base64.b64decode(self.args.youtube_cookies_b64,
+                                       validate=True)
+                first = raw.decode("utf-8-sig").splitlines()[0]
+            except (binascii.Error, UnicodeDecodeError, IndexError) as exc:
+                sys.exit(f"YOUTUBE_COOKIES_B64 is not a valid UTF-8 base64 "
+                         f"cookie file: {exc}")
+            if first not in ("# HTTP Cookie File", "# Netscape HTTP Cookie File"):
+                sys.exit("YouTube cookie secret must be a Netscape cookies.txt "
+                         "file with its required header")
+            yt = {**(yt or {}), "cookies_b64": self.args.youtube_cookies_b64}
+            if self.args.youtube_user_agent:
+                yt["user_agent"] = self.args.youtube_user_agent
+        # Supplying cookies is an explicit rotation and must update an existing
+        # API-key-only secret during an ordinary code deployment.
+        self._ensure_secret(C.YT_SECRET_ID, yt,
+                            self.args.update_secrets or
+                            bool(self.args.youtube_cookies_b64))
         self.ensure_web_secret()
     def ensure_web_secret(self):
         try:

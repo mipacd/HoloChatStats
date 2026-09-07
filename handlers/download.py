@@ -14,6 +14,7 @@ RESERVE_MS = 60_000          # leave headroom to flush + checkpoint
 PAGES_PER_PART = 400         # ~one S3 object per 400 pages
 HEARTBEAT_SECONDS = 5        # progress write cadence (drives stall detection)
 MAX_DEFERRALS = 20           # don't yield to the retry queue forever
+DOWNLOAD_LOCK_KEY = 744_211_988
 BUCKET = os.environ["RAW_BUCKET"]
 RETRY_QUEUE = os.environ.get("DOWNLOAD_RETRY_QUEUE_URL")
 PERMANENT = ("members", "not available", "removed", "private", "no chat replay",
@@ -74,15 +75,35 @@ def handler(event, context):
                 continue
             log.warning("retry queue still busy after max deferrals; proceeding",
                         extra={"video_id": msg.get("video_id")})
+        lock_conn = get_conn()
+        with lock_conn.cursor() as cur:
+            cur.execute("SELECT pg_try_advisory_lock(%s)",
+                        (DOWNLOAD_LOCK_KEY,))
+            have_lock = cur.fetchone()[0]
+        if not have_lock:
+            lock_conn.close()
+            queue = (RETRY_QUEUE if msg.get("source") == "retry"
+                     else os.environ["DOWNLOAD_QUEUE_URL"])
+            sqs.send_message(QueueUrl=queue, MessageBody=json.dumps(msg),
+                             DelaySeconds=15)
+            log.info("another chat download is active; deferred",
+                     extra={"video_id": msg.get("video_id")})
+            continue
         try:
-            _process(msg, context)
-        except LeaseLost:
-            # The reaper already re-enqueued this job. Returning normally
-            # deletes our (now duplicate) message.
-            log.warning("lease revoked; abandoning",
-                        extra={"video_id": msg.get("video_id")})
-            emit({"DownloadLeaseLost": (1, COUNT)}, {"Stage": "download"},
-                 video_id=msg.get("video_id"))
+            try:
+                _process(msg, context)
+            except LeaseLost:
+                # The reaper already re-enqueued this job. Returning normally
+                # deletes our (now duplicate) message.
+                log.warning("lease revoked; abandoning",
+                            extra={"video_id": msg.get("video_id")})
+                emit({"DownloadLeaseLost": (1, COUNT)}, {"Stage": "download"},
+                     video_id=msg.get("video_id"))
+        finally:
+            with lock_conn.cursor() as cur:
+                cur.execute("SELECT pg_advisory_unlock(%s)",
+                            (DOWNLOAD_LOCK_KEY,))
+            lock_conn.close()
     return {"ok": True}
 def _process(msg, context):
     video_id, channel_id = msg["video_id"], msg["channel_id"]

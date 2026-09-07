@@ -70,9 +70,14 @@ jobs:
         env:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          YOUTUBE_COOKIES_B64: ${{ secrets.YOUTUBE_COOKIES_B64 }}
         run: |
           test -n "$DB_PASSWORD" || { echo 'DB_PASSWORD is required'; exit 1; }
           test -n "$YT_API_KEY" || { echo 'YT_API_KEY is required'; exit 1; }
+          if [ -n "$YOUTUBE_COOKIES_B64" ]; then
+            python -c "import base64,os; d=base64.b64decode(os.environ['YOUTUBE_COOKIES_B64'], validate=True); assert d.decode('utf-8-sig').splitlines()[0] in ('# HTTP Cookie File','# Netscape HTTP Cookie File')"
+            echo 'YouTube Netscape cookie secret is valid.'
+          fi
 
       - name: Validate destructive bootstrap
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.wipe_docker }}
@@ -138,6 +143,8 @@ jobs:
         env:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          YOUTUBE_COOKIES_B64: ${{ secrets.YOUTUBE_COOKIES_B64 }}
+          YOUTUBE_USER_AGENT: ${{ secrets.YOUTUBE_USER_AGENT }}
           LLM_SECRETS_JSON: ${{ secrets.LLM_SECRETS_JSON }}
           DUMP_URL: ${{ secrets.DUMP_URL }}
           DUMP_SHA256: ${{ secrets.DUMP_SHA256 }}

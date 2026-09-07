@@ -1,11 +1,52 @@
+import base64
+import http.cookiejar
+import os
 import re
 import json
 import time
 import sys
 import requests
 from yt_dlp import YoutubeDL
+from common.config import secret
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+_AUTH = None
+
+def _auth():
+    """Materialize the Secrets Manager cookie only in Lambda's private /tmp."""
+    global _AUTH
+    if _AUTH is not None:
+        return _AUTH
+    data = secret(os.environ["YT_SECRET_ID"])
+    user_agent = data.get("user_agent") or USER_AGENT
+    cookie_path = None
+    session = requests.Session()
+    session.headers.update({"User-Agent": user_agent})
+    encoded = data.get("cookies_b64")
+    if encoded:
+        raw = base64.b64decode(encoded, validate=True)
+        text = raw.decode("utf-8-sig").replace("\r\n", "\n")
+        if not text.startswith(("# HTTP Cookie File\n",
+                                "# Netscape HTTP Cookie File\n")):
+            raise RuntimeError("YouTube cookie secret is not Netscape format")
+        cookie_path = "/tmp/youtube-cookies.txt"
+        with open(cookie_path, "w", encoding="utf-8", newline="\n") as out:
+            out.write(text)
+        os.chmod(cookie_path, 0o600)
+        jar = http.cookiejar.MozillaCookieJar(cookie_path)
+        jar.load(ignore_discard=True, ignore_expires=True)
+        session.cookies.update(jar)
+    _AUTH = {"cookiefile": cookie_path, "user_agent": user_agent,
+             "session": session}
+    return _AUTH
+
+def _ydl_options():
+    auth = _auth()
+    opts = {"quiet": True, "noprogress": True,
+            "user_agent": auth["user_agent"]}
+    if auth["cookiefile"]:
+        opts["cookiefile"] = auth["cookiefile"]
+    return opts
 
 def _fetch_html(url):
     """
@@ -24,8 +65,7 @@ def _fetch_html(url):
         requests.exceptions.Timeout: If request exceeds 20 seconds
         requests.exceptions.RequestException: For other network errors
     """
-    headers = {"User-Agent": USER_AGENT}
-    r = requests.get(url, headers=headers, timeout=20)
+    r = _auth()["session"].get(url, timeout=20)
     r.raise_for_status()
     return r.text
 
@@ -144,8 +184,9 @@ def _fetch_chat(api_key, version, continuation):
         "context": {"client": {"clientName": "WEB", "clientVersion": version}},
         "continuation": continuation,
     }
-    headers = {"User-Agent": USER_AGENT, "Content-Type": "application/json"}
-    r = requests.post(url, headers=headers, json=data, timeout=60)
+    r = _auth()["session"].post(
+        url, headers={"Content-Type": "application/json"}, json=data,
+        timeout=60)
     r.raise_for_status()
     return r.json()
 
@@ -331,7 +372,7 @@ def iter_youtube_chat(video_id):
         yt_dlp.utils.DownloadError: If video info extraction fails
     """
     url = f"https://www.youtube.com/watch?v={video_id}"
-    with YoutubeDL() as ydl:
+    with YoutubeDL(_ydl_options()) as ydl:
         info = ydl.extract_info(url, download=False)
         duration = info.get("duration", 0)
         video_start_ts = info.get("release_timestamp") or info.get("timestamp") or 0
@@ -438,7 +479,7 @@ class ChatReplay:
         self.video_id = video_id
         url = f"https://www.youtube.com/watch?v={video_id}"
         if video_start_ts is None or continuation is None:
-            with YoutubeDL({"quiet": True, "noprogress": True}) as ydl:
+            with YoutubeDL(_ydl_options()) as ydl:
                 info = ydl.extract_info(url, download=False)
             self.duration = info.get("duration") or 0
             self.video_start_ts = (info.get("release_timestamp")

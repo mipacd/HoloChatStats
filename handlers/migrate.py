@@ -92,6 +92,8 @@ def handler(event, context):
         return reset_migration_log()
     if action == "set_config":
         return set_config(event["key"], str(event["value"]))
+    if action == "retry_cookie_failures":
+        return retry_cookie_failures()
     if action == "retire_backlog":
         return retire_backlog(event)
     if action == "dispatch":        
@@ -269,6 +271,31 @@ def set_config(key, value):
                     (key, value))
     conn.commit()
     return {key: value}
+
+def retry_cookie_failures():
+    """Requeue terminal downloads that a refreshed YouTube cookie can fix."""
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE ingest_jobs
+            SET status='pending', attempts=0, last_error=NULL,
+                completed_at=NULL, lease_id=NULL, updated_at=NOW()
+            WHERE status='failed'
+              AND (last_error ILIKE '%%sign in to confirm%%not a bot%%'
+                   OR last_error ILIKE '%%cookie%%')
+            RETURNING video_id, channel_id
+        """)
+        rows = cur.fetchall()
+    conn.commit()
+    sqs = client("sqs")
+    queue = (os.environ.get("DOWNLOAD_RETRY_QUEUE_URL")
+             or os.environ["DOWNLOAD_QUEUE_URL"])
+    for video_id, channel_id in rows:
+        sqs.send_message(QueueUrl=queue, MessageBody=json.dumps({
+            "video_id": video_id, "channel_id": channel_id,
+            "attempt": 0, "source": "retry"}))
+    log.info("cookie-related failures requeued", extra={"count": len(rows)})
+    return {"requeued": len(rows)}
 
 def verify_schema():
     """

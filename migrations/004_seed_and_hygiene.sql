@@ -14,7 +14,7 @@ INSERT INTO service_config (key, value) VALUES
     ('discovery_queue_threshold', '50'),         -- backpressure
     ('scan_page_delay_ms',        '250'),
     -- concurrency
-    ('max_concurrent_downloads',  '4'),
+    ('max_concurrent_downloads',  '1'),
     ('max_concurrent_scans',      '3'),
     ('max_retries',               '5'),
     -- monthly staging / merge

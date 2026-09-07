@@ -47,7 +47,7 @@ FUNCTIONS = {
     "migrate":  {"handler": "handlers.migrate.handler",  "timeout": 900, "memory": 512,  "rc": None},
     "discover": {"handler": "handlers.discover.handler", "timeout": 120, "memory": 256,  "rc": None},
     "scan":     {"handler": "handlers.scan.handler",     "timeout": 900, "memory": 512,  "rc": 3},
-    "download": {"handler": "handlers.download.handler", "timeout": 900, "memory": 1024, "rc": 4},
+    "download": {"handler": "handlers.download.handler", "timeout": 900, "memory": 1024, "rc": 1},
     "ingest":   {"handler": "handlers.ingest.handler",   "timeout": 900, "memory": 1024, "rc": 4},
     "refresh":  {"handler": "handlers.refresh.handler",  "timeout": 900, "memory": 512,  "rc": 1},
     "merge":    {"handler": "handlers.merge.handler",    "timeout": 900, "memory": 512,  "rc": 1},
@@ -58,7 +58,7 @@ FUNCTIONS = {
 # queue -> (function, batch_size, max_concurrency)   max_concurrency min is 2 on AWS
 EVENT_SOURCE_MAPPINGS = {
     "scan-q":           ("scan",     1, 3),
-    "download-q":       ("download", 1, 4),
+    "download-q":       ("download", 1, 2),  # AWS ESM minimum; function rc=1
     "download-retry-q": ("download", 1, 2),   # dedicated slots for recoveries
     "ingest-q":         ("ingest",   1, 4),
 }

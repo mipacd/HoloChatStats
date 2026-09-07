@@ -172,6 +172,8 @@ def _apply_concurrency(cfg):
     ssm, lam = client("ssm"), client("lambda")
     app = os.environ.get("APP_NAME", "chat-ingest")
     wanted = {
+        # AWS requires ESM MaximumConcurrency >= 2. Reserved concurrency and
+        # the database advisory lock enforce the configured single downloader.
         "download-q": max(2, int(cfg["max_concurrent_downloads"])),
         "scan-q": max(2, int(cfg["max_concurrent_scans"])),
     }
