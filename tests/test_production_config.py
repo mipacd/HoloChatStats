@@ -1,3 +1,4 @@
+import ast
 import pathlib
 import unittest
 
@@ -225,10 +226,18 @@ class ProductionConfigTests(unittest.TestCase):
     def test_modest_host_limits_ingest_and_allows_slow_s3_reads(self):
         config = (ROOT / "infra" / "deploylib" / "config.py").read_text()
         aws = (ROOT / "common" / "aws.py").read_text()
-        self.assertIn(
-            '"ingest":   {"handler": "handlers.ingest.handler",   '
-            '"timeout": 900, "memory": 1024, "rc": 1}', config)
-        self.assertIn('"ingest-q":         ("ingest",   1, 2)', config)
+        assignments = {}
+        for node in ast.parse(config).body:
+            if (isinstance(node, ast.Assign)
+                    and len(node.targets) == 1
+                    and isinstance(node.targets[0], ast.Name)
+                    and node.targets[0].id in {
+                        "FUNCTIONS", "EVENT_SOURCE_MAPPINGS"
+                    }):
+                assignments[node.targets[0].id] = ast.literal_eval(node.value)
+        self.assertEqual(assignments["FUNCTIONS"]["ingest"]["rc"], 1)
+        self.assertEqual(assignments["EVENT_SOURCE_MAPPINGS"]["ingest-q"],
+                         ("ingest", 1, 2))
         self.assertIn('S3_READ_TIMEOUT_SECONDS", "120"', aws)
         self.assertIn('service == "s3"', aws)
 
