@@ -38,7 +38,7 @@ def is_rate_limited(user_key: str, admin: bool = False) -> bool:
     # Return True if the user is over their limit
     return int(current_usage) > settings.LLM_DAILY_LIMIT
 
-def get_remaining_prompts(user_key: str) -> int:
+def get_remaining_prompts(user_key: str, exempt: bool = False) -> int:
     """
     Gets the number of remaining prompts for a user today.
 
@@ -48,6 +48,8 @@ def get_remaining_prompts(user_key: str) -> int:
     Returns:
         int: Number of prompts remaining (minimum 0).
     """
+    if exempt:
+        return settings.LLM_DAILY_LIMIT
     today = datetime.utcnow().strftime("%Y-%m-%d")
     redis_key = f"llm_usage:{user_key}:{today}"
     

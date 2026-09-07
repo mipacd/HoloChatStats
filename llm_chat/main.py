@@ -3,6 +3,7 @@
 import asyncio
 import datetime
 import hashlib
+import ipaddress
 import json
 import logging
 import re
@@ -53,6 +54,33 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_LOCAL_NETWORKS = tuple(ipaddress.ip_network(c) for c in (
+    "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "::1/128"))
+
+def request_client_ip(request: Request) -> str:
+    """Return the original client set by our trusted frontend proxy.
+
+    Cloudflare overwrites CF-Connecting-IP. For direct LAN access nginx
+    overwrites X-Real-IP, so an internet client cannot forge a private address
+    merely by supplying its own incoming X-Real-IP header.
+    """
+    proxy_ip = (request.headers.get("X-Real-IP")
+                or (request.client.host if request.client else None)
+                or "unknown")
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    # Trust the Cloudflare header only when the immediate nginx peer is local
+    # (cloudflared). A direct public client cannot spoof a private CF address.
+    if cf_ip and is_local_client(proxy_ip):
+        return cf_ip
+    return proxy_ip
+
+def is_local_client(value: str) -> bool:
+    try:
+        address = ipaddress.ip_address(value.strip())
+        return any(address in network for network in _LOCAL_NETWORKS)
+    except ValueError:
+        return False
 
 CHART_INSTRUCTIONS = """
 ## Chart Generation
@@ -246,9 +274,16 @@ async def generate_response(state: AgentState) -> dict:
 
     # Get relevant knowledge for the response
     from tool_store import tool_store
-    knowledge_items = await tool_store.search_knowledge(
-        state["input"], top_k=3, similarity_threshold=0.4,
-    )
+    try:
+        knowledge_items = await tool_store.search_knowledge(
+            state["input"], top_k=3, similarity_threshold=0.4,
+        )
+    except Exception as exc:
+        # Embedding enrichment is useful but not required to answer. During a
+        # fresh deploy the background indexer may still be creating its data.
+        logger.warning("Knowledge lookup unavailable; continuing: %s",
+                       str(exc)[:300])
+        knowledge_items = []
 
     knowledge_context = ""
     if knowledge_items:
@@ -461,11 +496,8 @@ async def chat(request: Request):
         HTTPException: If the user has exceeded their rate limit (429).
     """
     data = await request.json()
-    client_ip = (
-        request.headers.get("CF-Connecting-IP")
-        or request.client.host
-        or "unknown"
-    )
+    client_ip = request_client_ip(request)
+    local_client = is_local_client(client_ip)
     user_key = hashlib.sha256(client_ip.encode()).hexdigest()[:16]
 
     raw_message = data.get("message", "")
@@ -482,7 +514,7 @@ async def chat(request: Request):
     admin = bool(settings.LLM_ADMIN_KEY and supplied_admin_key) and secrets.compare_digest(
         supplied_admin_key, settings.LLM_ADMIN_KEY)
 
-    if is_rate_limited(user_key, admin):
+    if is_rate_limited(user_key, admin or local_client):
         raise HTTPException(
             status_code=429,
             detail={
@@ -547,11 +579,17 @@ async def chat(request: Request):
                 yield f"data: {json.dumps(error_data)}\n\n"
 
         except Exception as e:
-            logger.error(f"Error during graph stream: {e}", exc_info=True)
+            error_id = hashlib.sha256(
+                f"{type(e).__name__}:{e}".encode()).hexdigest()[:10]
+            logger.error("Graph stream failed error_id=%s type=%s error=%s",
+                         error_id, type(e).__name__, str(e)[:500], exc_info=True)
             if not final_answer_sent:
                 error_data = {
                     "type": "error",
-                    "message": "Internal error occurred.",
+                    "message": (f"Internal error occurred. [{error_id}] "
+                                f"{type(e).__name__}: {str(e)[:300]}"
+                                if (admin or local_client) else
+                                f"Internal error occurred. Reference: {error_id}"),
                 }
                 yield f"data: {json.dumps(error_data)}\n\n"
 
@@ -567,18 +605,16 @@ async def prompts_remaining(request: Request):
     Returns:
         JSON with prompts_remaining count and daily_limit.
     """
-    client_ip = (
-        request.headers.get("CF-Connecting-IP")
-        or request.client.host
-        or "unknown"
-    )
+    client_ip = request_client_ip(request)
+    local_client = is_local_client(client_ip)
     user_key = hashlib.sha256(client_ip.encode()).hexdigest()[:16]
     
-    remaining = get_remaining_prompts(user_key)
+    remaining = get_remaining_prompts(user_key, exempt=local_client)
     
     return {
         "prompts_remaining": remaining,
-        "daily_limit": settings.LLM_DAILY_LIMIT
+        "daily_limit": settings.LLM_DAILY_LIMIT,
+        "quota_exempt": local_client,
     }
 
 @app.get("/model-status")

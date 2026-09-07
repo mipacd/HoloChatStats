@@ -1,8 +1,10 @@
 import json
+import logging
 import re
 from typing import Optional
 from llm.model import call_openrouter
 from tool_store import tool_store
+logger = logging.getLogger(__name__)
 
 async def get_relevant_context(query: str) -> str:
     """
@@ -111,8 +113,18 @@ async def plan_api_calls(
     Ask the model to plan API calls using only relevant tools and knowledge.
     """
     # Get relevant tools and knowledge
-    relevant_tools = await get_relevant_tools_description(message)
-    relevant_knowledge = await get_relevant_context(message)
+    try:
+        relevant_tools = await get_relevant_tools_description(message)
+    except Exception as exc:
+        logger.warning("Vector tool lookup unavailable; using static tools: %s",
+                       str(exc)[:300])
+        relevant_tools = tools_description or ""
+    try:
+        relevant_knowledge = await get_relevant_context(message)
+    except Exception as exc:
+        logger.warning("Vector knowledge lookup unavailable; continuing: %s",
+                       str(exc)[:300])
+        relevant_knowledge = ""
     
     # Build the context section
     context_section = ""

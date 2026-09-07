@@ -111,6 +111,19 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("monthly_merge_state", ordering)
         self.assertIn("future-month ingest deferred", ingest)
 
+    def test_lan_llm_requests_are_quota_exempt_and_diagnostic(self):
+        main = (ROOT / "llm_chat" / "main.py").read_text()
+        limiter = (ROOT / "llm_chat" / "rate_limit.py").read_text()
+        admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
+        self.assertIn('request.headers.get("X-Real-IP")', main)
+        self.assertIn("if cf_ip and is_local_client(proxy_ip)", main)
+        self.assertIn("admin or local_client", main)
+        self.assertIn('"quota_exempt": local_client', main)
+        self.assertIn("exempt: bool = False", limiter)
+        self.assertIn('cfg.get("backlog_floor", "")', admin)
+        planner = (ROOT / "llm_chat" / "llm" / "planner.py").read_text()
+        self.assertIn('relevant_tools = tools_description or ""', planner)
+
 
 if __name__ == "__main__":
     unittest.main()
