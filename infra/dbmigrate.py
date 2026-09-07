@@ -77,7 +77,16 @@ class _Psql:
     def run(self, extra):
         """Streams psql's stdout/stderr, so long index builds show NOTICEs live."""
         cmd, env = self._cmd(extra)
-        proc = subprocess.run(cmd, env=env)
+        proc = subprocess.Popen(cmd, env=env)
+        elapsed = 0
+        while True:
+            try:
+                proc.wait(timeout=60)
+                break
+            except subprocess.TimeoutExpired:
+                elapsed += 60
+                print(f"    schema operation still active ({elapsed}s, "
+                      f"pid={proc.pid})", flush=True)
         if proc.returncode != 0:
             sys.exit(f"psql failed (exit {proc.returncode}): {' '.join(extra)}")
     def rows(self, sql):

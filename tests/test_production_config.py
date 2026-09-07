@@ -33,6 +33,10 @@ class ProductionConfigTests(unittest.TestCase):
         claim_block = scan.split("if _upsert_and_claim", 1)[1].split("except Exception", 1)[0]
         self.assertNotIn("DOWNLOAD_QUEUE_URL", claim_block)
 
+    def test_long_schema_operations_emit_heartbeats(self):
+        migrate = (ROOT / "infra" / "dbmigrate.py").read_text()
+        self.assertIn("schema operation still active", migrate)
+
     def test_github_workflow_is_in_discoverable_directory(self):
         self.assertTrue((ROOT / ".github" / "workflows" / "deploy.yml").is_file())
 

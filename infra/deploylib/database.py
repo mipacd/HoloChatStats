@@ -232,12 +232,11 @@ class DatabaseMixin:
               f"({self.args.restore_mode} mode)")
         # If the pipeline is already live (a forced re-restore), stop the workers
         # first: they honour service_config.paused and re-queue their messages.
-        paused_here = False
         if self.args.force_restore and state.get("restored"):
-            paused_here = bool(self._invoke_migrate(
+            paused = self._invoke_migrate(
                 {"action": "set_config", "key": "paused", "value": "true"},
-                fatal=False))
-            if paused_here:
+                fatal=False)
+            if paused:
                 print("  pipeline paused for the duration of the restore")
         if self.args.source_db_container:
             source = f"docker://{self.args.source_db_container}"
@@ -289,7 +288,7 @@ class DatabaseMixin:
                                     "sha256": digest,
                                     "dbname": creds["dbname"]})
         print(f"  restored row counts: {rec['row_counts']}")
-        if paused_here:
-            self._invoke_migrate({"action": "set_config", "key": "paused",
-                                  "value": "false"}, fatal=False)
-            print("  pipeline un-paused")
+        # Do not unpause here: a forced restore drops service_config along with
+        # the rest of public, so doing so before migrations produces an
+        # UndefinedTable error. Migration 004 recreates the row with paused=false
+        # before event-source mappings and schedules are enabled.
