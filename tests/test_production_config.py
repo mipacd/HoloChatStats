@@ -84,6 +84,11 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn('@app.get("/healthz/llm")',
                       (ROOT / "llm_chat" / "main.py").read_text())
         self.assertIn('LLM_HEALTH_PATH = "/healthz/llm"', config)
+        webapi = (ROOT / "infra" / "deploylib" / "webapi.py").read_text()
+        uvicorn_at = webapi.index("nohup /opt/web/venv/bin/uvicorn")
+        index_at = webapi.index("python init_tool_store.py", uvicorn_at)
+        self.assertGreater(index_at, uvicorn_at)
+        self.assertIn("llm indexing started in background", webapi)
 
 
 if __name__ == "__main__":

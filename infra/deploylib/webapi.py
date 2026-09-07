@@ -226,8 +226,6 @@ export WEB_API_URL='http://127.0.0.1:{self.web_port}/'
 export LLM_PORT='{self.args.llm_port}'
 {llm_exports}cd /opt/web/llm
 mkdir -p generated_charts
-python init_tool_store.py  >> /var/log/llm-init.log 2>&1
-python init_knowledge.py   >> /var/log/llm-init.log 2>&1
 nohup /opt/web/venv/bin/uvicorn main:app \\
     --host 0.0.0.0 --port {self.args.llm_port} \\
     --log-level info > /var/log/llm-server.log 2>&1 &
@@ -235,6 +233,13 @@ LLM_PID=$!
 sleep 3
 if kill -0 $LLM_PID 2>/dev/null; then
     echo "=== llm server running (PID $LLM_PID) ==="
+    # Indexing can take many minutes on the production host. It is idempotent
+    # and must not hold Floci's EC2 UserData/port-forwarding lifecycle open.
+    # Start it after Uvicorn owns the service port so readiness is independent.
+    nohup bash -c '
+      python init_tool_store.py && python init_knowledge.py
+    ' >> /var/log/llm-init.log 2>&1 &
+    echo "=== llm indexing started in background (PID $!) ==="
 else
     echo "=== FATAL: llm server exited immediately ==="
     tail -50 /var/log/llm-init.log /var/log/llm-server.log || true
@@ -295,7 +300,7 @@ fi
         # the socat-forwarded host port, regardless of the reported address.
         if self.emulated:
             host_port = self.discover_forwarded_port(before, probe="/health",
-                                                     timeout=90)
+                                                     timeout=300)
             if not host_port:
                 self._print_instance_log(instance_id)
                 sys.exit("web API has no healthy host-forwarded port; refusing "
