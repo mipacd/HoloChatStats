@@ -1,4 +1,5 @@
-import { BrowserRouter, Navigate, Routes, Route, Outlet } from "react-router-dom"
+import { useEffect } from "react"
+import { BrowserRouter, Navigate, Routes, Route, Outlet, useLocation } from "react-router-dom"
 import { Navbar } from "@/components/Navbar"
 import { EriWidget } from "@/components/eri/EriWidget"
 import Home from "@/pages/Home"
@@ -39,9 +40,23 @@ function PaddedLayout() {
   )
 }
 
+function PageViewTracker() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    void fetch("/api/metrics/page-view", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: pathname }),
+      keepalive: true,
+    }).catch(() => undefined)
+  }, [pathname])
+  return null
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <PageViewTracker />
       <Navbar />
         <Routes>
           <Route element={<PaddedLayout />}>

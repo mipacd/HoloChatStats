@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from utils import (
     setup_logging, resolve_hostname, get_sqlite_connection,
     get_redis_connection, get_locale, track_metrics, get_metrics,
+    record_page_view,
     SUSPICIOUS_PATHS, get_database_uri, SQLALCHEMY_ENGINE_OPTIONS
 )
 from api import api_bp
@@ -54,6 +55,15 @@ app.register_blueprint(api_bp)
 app.register_blueprint(routes_bp)
 
 db.init_app(app)
+
+
+@app.post('/api/metrics/page-view')
+def page_view_metric():
+    """Receive same-origin SPA navigation events; retain no raw client IP."""
+    body = request.get_json(silent=True) or {}
+    if not record_page_view(body.get("path")):
+        return {"ok": False, "error": "invalid page path"}, 400
+    return {"ok": True}, 202
 
 # Initialize Babel
 babel = Babel(app)

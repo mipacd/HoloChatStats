@@ -158,30 +158,53 @@ def inc_cache_miss_count():
         redis_conn.incr(f"cache_misses:{today}")
     except Exception:
         pass
-def track_metrics(response):
-    if response.status_code != 200:
-        return response
+METRICS_NAMESPACE = "v2"
+_INTERNAL_PATH_PREFIXES = (
+    "/api/", "/static/", "/socket.io/", "/admin/", "/set_language/", "/_",
+)
+_INTERNAL_PATHS = {"/health", "/favicon.ico", "/set_language"}
+def is_public_page(path):
+    """Only browser-visible SPA routes belong in site analytics."""
+    if not isinstance(path, str):
+        return False
+    path = path.split("?", 1)[0].split("#", 1)[0].strip()
+    if not path.startswith("/") or len(path) > 200:
+        return False
+    if path in _INTERNAL_PATHS or path.startswith(_INTERNAL_PATH_PREFIXES):
+        return False
+    return "." not in path.rsplit("/", 1)[-1]
+def record_page_view(page):
+    """Record one validated public page view and its visitor dimensions."""
+    if not is_public_page(page):
+        return False
+    page = page.split("?", 1)[0].split("#", 1)[0].strip()
     country = request.headers.get("CF-IPCountry", "Unknown")
-    page = request.path
-    if any(path in page for path in ["/api/", "/static/", "/favicon.ico", "/set_language/"]):
-        return response
+    source_ip = (request.headers.get("CF-Connecting-IP")
+                 or request.headers.get("X-Real-IP")
+                 or request.remote_addr
+                 or "unknown")
     today = datetime.now(pytz.utc).strftime("%Y-%m-%d")
-    visitor_ip = hashlib.sha256(
-        request.headers.get("CF-Connecting-IP", request.remote_addr).encode()
-    ).hexdigest()
+    visitor_ip = hashlib.sha256(source_ip.encode()).hexdigest()
     try:
         redis_conn = get_redis_connection()
         expiry_time = 2592000
+        prefix = METRICS_NAMESPACE
         pipe = redis_conn.pipeline()
-        pipe.sadd(f"unique_visitors_country:{country}:{today}", visitor_ip)
-        pipe.expire(f"unique_visitors_country:{country}:{today}", expiry_time)
-        pipe.sadd(f"unique_visitors:{today}", visitor_ip)
-        pipe.expire(f"unique_visitors:{today}", expiry_time)
-        pipe.hincrby(f"page_views:{today}", page, 1)
-        pipe.expire(f"page_views:{today}", expiry_time)
+        pipe.sadd(f"{prefix}:unique_visitors_country:{country}:{today}", visitor_ip)
+        pipe.expire(f"{prefix}:unique_visitors_country:{country}:{today}", expiry_time)
+        pipe.sadd(f"{prefix}:unique_visitors:{today}", visitor_ip)
+        pipe.expire(f"{prefix}:unique_visitors:{today}", expiry_time)
+        pipe.hincrby(f"{prefix}:page_views:{today}", page, 1)
+        pipe.expire(f"{prefix}:page_views:{today}", expiry_time)
         pipe.execute()
+        return True
     except Exception:
-        pass
+        logging.exception("Unable to record page-view metric")
+        return False
+def track_metrics(response):
+    if response.status_code != 200:
+        return response
+    record_page_view(request.path)
     return response
 def get_metrics():
     redis_conn = redis.StrictRedis(
@@ -194,16 +217,22 @@ def get_metrics():
     metrics = {}
     page_totals = {}
     for d in dates:
-        for page, count in redis_conn.hgetall(f"page_views:{d}").items():
-            page_totals[page] = page_totals.get(page, 0) + int(count)
+        for page, count in redis_conn.hgetall(
+                f"{METRICS_NAMESPACE}:page_views:{d}").items():
+            if is_public_page(page):
+                page_totals[page] = page_totals.get(page, 0) + int(count)
     metrics["page_views"] = page_totals
     country_counts = {}
     for d in dates:
-        for key in redis_conn.keys(f"unique_visitors_country:*:{d}"):
-            cc = key.split(":")[1]
+        pattern = f"{METRICS_NAMESPACE}:unique_visitors_country:*:{d}"
+        for key in redis_conn.scan_iter(match=pattern, count=100):
+            cc = key.split(":")[2]
             country_counts[cc] = country_counts.get(cc, 0) + redis_conn.scard(key)
     metrics["country_visits"] = dict(sorted(country_counts.items(), key=lambda x: x[1], reverse=True))
-    metrics["unique_visitors"] = {d: redis_conn.scard(f"unique_visitors:{d}") for d in dates}
+    metrics["unique_visitors"] = {
+        d: redis_conn.scard(f"{METRICS_NAMESPACE}:unique_visitors:{d}")
+        for d in dates
+    }
     metrics["cache_data"] = {
         d: {
             "cache_hits": int(redis_conn.get(f"cache_hits:{d}") or 0),

@@ -168,6 +168,23 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("socketio.start_background_task(metrics_updates)", server)
         self.assertIn("to=request.sid", server)
 
+    def test_spa_page_views_exclude_internal_traffic(self):
+        app = (ROOT / "frontend" / "src" / "App.tsx").read_text(
+            encoding="utf-8")
+        server = (ROOT / "web" / "server.py").read_text(encoding="utf-8")
+        utils = (ROOT / "web" / "utils.py").read_text(encoding="utf-8")
+        self.assertIn("function PageViewTracker()", app)
+        self.assertIn('fetch("/api/metrics/page-view"', app)
+        self.assertIn("[pathname]", app)
+        self.assertIn("def page_view_metric", server)
+        self.assertIn("record_page_view(body.get", server)
+        self.assertIn('METRICS_NAMESPACE = "v2"', utils)
+        for internal in ("/api/", "/static/", "/socket.io/", "/admin/",
+                         "/health", "/favicon.ico"):
+            self.assertIn(internal, utils)
+        self.assertIn("is_public_page(page)", utils)
+        self.assertIn("scan_iter", utils)
+
 
 if __name__ == "__main__":
     unittest.main()
