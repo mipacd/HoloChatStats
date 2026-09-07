@@ -439,7 +439,8 @@ def process_chart_blocks(response_text: str) -> str:
         response_text: The raw LLM response that may contain chart blocks.
 
     Returns:
-        The response with chart blocks replaced by ``![title](/charts/xx.png)`` images.
+        The response with chart blocks replaced by a URL routed through the
+        production frontend's LLM reverse proxy.
     """
     pattern = r"```\s*chart\s*\n(.*?)\n\s*```"
 
@@ -449,7 +450,7 @@ def process_chart_blocks(response_text: str) -> str:
             spec = json.loads(spec_text)
             filename = generate_chart(spec)
             title = spec.get("title", "Chart")
-            return f"\n\n![{title}](/charts/{filename})\n\n"
+            return f"\n\n![{title}](/llm/charts/{filename})\n\n"
         except json.JSONDecodeError as exc:
             logger.error("Invalid chart JSON: %s", exc)
             return "\n\n*[Could not generate chart — invalid specification]*\n\n"

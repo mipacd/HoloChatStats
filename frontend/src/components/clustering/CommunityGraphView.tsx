@@ -258,8 +258,6 @@ const DIM_USER_OPACITY: Record<"user" | "channel", number> = {
 /** In channel mode the community colour is noise — membership is the signal. */
 const DIM_USER_COLOR: RGBA = [118, 124, 140, 255]
 
-const AUDIENCE_BOOST = 0.2   // lighten the audience toward white
-
 /** Alpha levels applied to *non-selected* channels, per mode. */
 interface DimStyle { fill: number; ring: number; label: number; labelBg: number }
 const DIM_STYLE: Record<"user" | "channel", DimStyle> = {
@@ -386,7 +384,6 @@ export function CommunityGraphView({ data, width, height, month, channelGroup }:
       positions[k * 3] = users.x[u]
       positions[k * 3 + 1] = users.y[u]
       const [r, g, b] = palette[users.community[u]] ?? [128, 128, 128]
-      const [br, bg, bb] = lighten([r, g, b], AUDIENCE_BOOST)
       colors[k * 4] = r
       colors[k * 4 + 1] = g
       colors[k * 4 + 2] = b

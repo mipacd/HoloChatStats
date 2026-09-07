@@ -190,10 +190,13 @@ export function Navbar() {
             <div className="flex flex-col gap-2 mt-8">
               <Link to="/" className="py-2 font-medium">{t("Home")}</Link>
               {groups.map((group) => (
-                <div className="border-t border-border pt-2">
-                  <p className="text-sm font-semibold text-muted-foreground mb-1">{t("Demos")}</p>
-                  <Link to="/highlights" className="block py-1.5 pl-2 text-sm">{t("AI Summarized Highlights")}</Link>
-                  <Link to="/highlight_search" className="block py-1.5 pl-2 text-sm">{t("Search AI Highlights")}</Link>
+                <div key={group.label} className="border-t border-border pt-2">
+                  <p className="text-sm font-semibold text-muted-foreground mb-1">{group.label}</p>
+                  {group.items.map((item) => (
+                    <Link key={item.to} to={item.to} className="block py-1.5 pl-2 text-sm">
+                      {item.label}
+                    </Link>
+                  ))}
                 </div>
               ))}
               <Link to="/eri" className="py-2 border-t border-border">{t("Ask Eri")}</Link>

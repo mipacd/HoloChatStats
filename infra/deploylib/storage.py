@@ -42,6 +42,20 @@ class StorageMixin:
                 ContentType="application/json")
             print(f"uploaded {self.args.channels_file} -> "
                   f"s3://{C.BUCKETS['config']}/channels.json")
+        self.ensure_news_seed()
+    def ensure_news_seed(self):
+        """Create the editable news object once; never overwrite admin edits."""
+        key = "news.txt"
+        try:
+            self.s3.head_object(Bucket=C.BUCKETS["config"], Key=key)
+            return
+        except botocore.exceptions.ClientError:
+            pass
+        source = C.ROOT / "web" / "news.txt"
+        body = source.read_bytes() if source.exists() else b""
+        self.s3.put_object(Bucket=C.BUCKETS["config"], Key=key, Body=body,
+                           ContentType="text/plain; charset=utf-8")
+        print(f"seeded s3://{C.BUCKETS['config']}/{key} for admin editing")
     def make_bucket_public(self, bucket):
         """Anonymous GET.  Only used for the frontend tarball in bootstrap mode;
         real AWS deployments should use ECR mode instead."""

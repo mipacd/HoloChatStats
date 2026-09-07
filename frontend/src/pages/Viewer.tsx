@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input"
 import { api } from "@/lib/api"
 import { registerEriContext } from "@/components/eri/eri-context"
 import "./viewer.css"
-const USD_TO_JPY = 150
 const MEMBERSHIP_PRICE_USD = 4.99
 const MEMBERSHIP_PRICE_JPY = 750
 const MAX_GRAPH_POINTS = 200

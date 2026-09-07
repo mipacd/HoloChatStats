@@ -722,7 +722,7 @@ function CalendarView({
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [year, setYear] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [capturing, setCapturing] = useState(false)
+  const [, setCapturing] = useState(false)
   /* ── measure container → derive cell size ────────────────── */
   const measureRef = useRef<HTMLDivElement>(null)
   const [cell, setCell] = useState(18)

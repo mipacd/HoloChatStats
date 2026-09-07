@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import urllib.parse
 from datetime import datetime, timezone, timedelta
@@ -12,6 +13,7 @@ import leidenalg as la
 import igraph as ig
 import numpy as np
 import requests
+import boto3
 import time
 import math
 import logging
@@ -2202,15 +2204,28 @@ def get_latest_updates():
     """
     try:
         news_list = []
-        with open("news.txt", "r") as file:
-            for line in file:
-                if ": " in line:
-                    date, message = line.split(": ", 1)
-                    news_list.append({"date": date.strip(), "message": message.strip()})
+        text = None
+        bucket = os.getenv("CONFIG_BUCKET")
+        if bucket:
+            try:
+                s3 = boto3.client(
+                    "s3", endpoint_url=os.getenv("AWS_ENDPOINT_URL") or None,
+                    region_name=os.getenv("AWS_REGION", "us-east-1"))
+                text = s3.get_object(Bucket=bucket, Key="news.txt")["Body"].read().decode("utf-8")
+            except Exception as exc:
+                logger.warning("Could not load managed news from S3: %s", exc)
+        if text is None:
+            try:
+                with open("news.txt", "r", encoding="utf-8") as file:
+                    text = file.read()
+            except FileNotFoundError:
+                text = ""
+        for line in text.splitlines():
+            if ": " in line:
+                date, message = line.split(": ", 1)
+                news_list.append({"date": date.strip(), "message": message.strip()})
 
         return jsonify(news_list)
-    except FileNotFoundError:
-        return jsonify([])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

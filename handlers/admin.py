@@ -4,6 +4,7 @@ Routes (served to the admin gateway / API Gateway):
     GET  /                -> HTML dashboard ("HoloChatStats Admin Page")
     GET  /api/status      -> JSON snapshot (jobs, queues, channels, run state)
     POST /api/control     -> {"action": "start" | "stop" | "scan_now" | "retry_failed"}
+    GET/POST /api/news    -> edit the homepage news.txt stored in config S3
 "stop" does three things, belt-and-braces, because an emulator may not
 implement all of them:
     1. service_config.paused = true      (every worker checks this)
@@ -30,6 +31,8 @@ DISCOVER_RULE = os.environ.get("DISCOVER_RULE", f"{APP}-discover-schedule")
 MANAGED_ESMS = ("scan-q", "download-q", "download-retry-q", "ingest-q")
 REFRESH_SECONDS = int(os.environ.get("ADMIN_REFRESH_SECONDS", "5"))
 CHANNEL_ID_RE = re.compile(r"^UC[A-Za-z0-9_-]{22}$")
+NEWS_KEY = "news.txt"
+MAX_NEWS_BYTES = 20_000
 # --------------------------------------------------------------------------- #
 # dispatch
 # --------------------------------------------------------------------------- #
@@ -45,6 +48,10 @@ def handler(event, context):
             return _page()            # any other GET is the dashboard
         if method == "POST" and path == "/api/channels":
             return _json(200, channels_op(_body(event)))
+        if method in ("GET", "HEAD") and path == "/api/news":
+            return _json(200, get_news())
+        if method == "POST" and path == "/api/news":
+            return _json(200, save_news(_body(event)))
         return _json(404, {"error": "not found", "path": path, "method": method})
     except Exception as e:
         log.exception("admin request failed", extra={"path": path})
@@ -62,6 +69,35 @@ def channels_op(body):
     except ValueError as e:
         return {"ok": False, "error": str(e)}
     return {"ok": False, "error": f"unknown op {op!r}"}
+
+def get_news():
+    try:
+        raw = client("s3").get_object(
+            Bucket=os.environ["CONFIG_BUCKET"], Key=NEWS_KEY)["Body"].read()
+        return {"ok": True, "text": raw.decode("utf-8")}
+    except Exception as exc:
+        # Missing on an upgrade is harmless; the first save creates it.
+        log.warning("news object unavailable", extra={"error": str(exc)[:160]})
+        return {"ok": True, "text": ""}
+
+def save_news(body):
+    text = str((body or {}).get("text") or "").replace("\r\n", "\n")
+    raw = text.encode("utf-8")
+    if len(raw) > MAX_NEWS_BYTES:
+        return {"ok": False,
+                "error": f"news is limited to {MAX_NEWS_BYTES} UTF-8 bytes"}
+    invalid = [i for i, line in enumerate(text.splitlines(), 1)
+               if line.strip() and ": " not in line]
+    if invalid:
+        return {"ok": False, "error": "each non-empty line must use "
+                f"'Date: message' format (invalid line {invalid[0]})"}
+    client("s3").put_object(
+        Bucket=os.environ["CONFIG_BUCKET"], Key=NEWS_KEY, Body=raw,
+        ContentType="text/plain; charset=utf-8",
+        CacheControl="no-store")
+    log.info("homepage news updated", extra={"bytes": len(raw),
+                                             "lines": len(text.splitlines())})
+    return {"ok": True, "bytes": len(raw), "lines": len(text.splitlines())}
 def _clean(body, require_name=True):
     cid = (body.get("channel_id") or "").strip()
     name = (body.get("channel_name") or "").strip()
@@ -503,8 +539,13 @@ PAGE = r"""<!doctype html>
                  background:#12141a; color:#e6e8ee; border:1px solid #323a49;
                  border-radius:6px; font:13px ui-monospace,Menlo,monospace; }
   dialog input:disabled { opacity:.5; }
+  textarea { box-sizing:border-box; width:100%; min-height:150px; resize:vertical;
+             padding:9px 11px; background:#12141a; color:#e6e8ee;
+             border:1px solid #323a49; border-radius:6px;
+             font:13px/1.5 ui-monospace,Menlo,monospace; }
+  .editor-actions { display:flex; align-items:center; gap:10px; margin-top:9px; }
+  #news-state { color:#8a93a6; font-size:12px; }
   dialog menu { display:flex; gap:8px; justify-content:flex-end; padding:0; margin:14px 0 0; }
-  .hint { color:#5d6button; }
   .hint { color:#5d6676; text-transform:none; letter-spacing:0; }
   td.ts { font-family:ui-monospace,Menlo,monospace; font-size:12px; color:#9aa3b4;
           white-space:nowrap; }
@@ -561,6 +602,18 @@ PAGE = r"""<!doctype html>
       <th class="num">Queued</th><th class="num">Videos</th>
       <th>Last scanned</th><th>Watermark</th><th>Error</th>
       <th>Actions</th></tr></thead><tbody id="channels"></tbody></table>
+  </section>
+  <section style="grid-column:1/-1">
+    <h2>Homepage news</h2>
+    <p class="hint">One item per line using <code>Date: message</code>. Changes
+      are stored in S3 and appear after the homepage is refreshed.</p>
+    <textarea id="news-text" maxlength="20000" spellcheck="true"
+      placeholder="September 7, 2026: News message"></textarea>
+    <div class="editor-actions">
+      <button id="btn-news-save" class="go">Save news</button>
+      <button id="btn-news-reload">Discard changes</button>
+      <span id="news-state">loadingâ€¦</span>
+    </div>
   </section>
 </main>
 <dialog id="chan-dlg">
@@ -634,6 +687,39 @@ $("btn-start").onclick = () => act("start");
 $("btn-stop").onclick  = () => act("stop");
 $("btn-scan").onclick  = () => act("scan_now");
 $("btn-retry").onclick = () => { if (confirm("Re-queue every failed job?")) act("retry_failed"); };
+let newsDirty = false;
+async function loadNews() {
+  $("news-state").textContent = "loadingâ€¦";
+  try {
+    const r = await fetch("api/news", { cache: "no-store" });
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.error || "HTTP " + r.status);
+    $("news-text").value = j.text || "";
+    newsDirty = false;
+    $("news-state").textContent = "loaded";
+  } catch (e) { $("news-state").textContent = "load failed: " + e; }
+}
+$("news-text").addEventListener("input", () => {
+  newsDirty = true; $("news-state").textContent = "unsaved changes";
+});
+$("btn-news-reload").onclick = () => {
+  if (!newsDirty || confirm("Discard unsaved news changes?")) loadNews();
+};
+$("btn-news-save").onclick = async () => {
+  $("btn-news-save").disabled = true;
+  $("news-state").textContent = "savingâ€¦";
+  try {
+    const r = await fetch("api/news", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: $("news-text").value })
+    });
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.error || "HTTP " + r.status);
+    newsDirty = false;
+    $("news-state").textContent = `saved ${j.lines} line(s)`;
+  } catch (e) { $("news-state").textContent = "save failed: " + e; }
+  $("btn-news-save").disabled = false;
+};
 const dlg = $("chan-dlg");
 let editingId = null;
 function openChan(mode, ch) {
@@ -790,6 +876,7 @@ async function tick() {
   }
 }
 tick();
+loadNews();
 setInterval(tick, REFRESH);   // page updates itself, no reload
 </script>
 </body>

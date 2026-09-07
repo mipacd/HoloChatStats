@@ -42,6 +42,7 @@ def deploy_code(stack, args):
     # no-op or leave queue URLs empty.
     check_db_config(stack, args)
     stack.ensure_secrets()
+    stack.ensure_news_seed()
     stack.ensure_queues()
     stack.ensure_elasticache()
     # Reapply function configuration as well as code so concurrency and newly

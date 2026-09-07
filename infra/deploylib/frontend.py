@@ -85,7 +85,8 @@ server {
         proxy_read_timeout    120s;
     }
     # LLM chat server: strip /llm, no buffering (streaming responses)
-    location /llm/ {
+    # ^~ prevents the global static-asset regex below from claiming chart PNGs.
+    location ^~ /llm/ {
         proxy_pass            http://${LLM_BACKEND}/;
         proxy_http_version    1.1;
         proxy_set_header      Host $host;

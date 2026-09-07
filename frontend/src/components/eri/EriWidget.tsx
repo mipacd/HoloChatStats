@@ -472,7 +472,8 @@ export function EriWidget() {
     a: ({ node, ...props }: any) => <a {...props} target="_blank" rel="noopener noreferrer" />,
     img: ({ node, ...props }: any) => {
       let src: string = props.src || ""
-      if (src.startsWith("/charts/")) src = BASE_URL + src
+      const chart = src.match(/(?:^|\/)charts\/([^?#]+\.png(?:[?#].*)?)$/i)
+      if (chart) src = `${BASE_URL}/charts/${chart[1]}`
       if (src.includes("/charts/")) {
         return (
           <img

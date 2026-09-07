@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Label } from "@/components/ui/label"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -131,25 +131,6 @@ export default function MembershipCounts() {
       next.has(key) ? next.delete(key) : next.add(key)
       return next
     })
-  const renderLegend = (props: any) => (
-    <div className="flex flex-wrap justify-center gap-3 text-xs mt-2">
-      {props.payload.map((entry: any) => {
-        const isHidden = hidden.has(entry.value)
-        return (
-          <button
-            key={entry.value}
-            type="button"
-            onClick={() => toggleKey(entry.value)}
-            className="flex items-center gap-1.5"
-            style={{ opacity: isHidden ? 0.4 : 1 }}
-          >
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: entry.color }} />
-            <span className={isHidden ? "line-through" : ""}>{entry.value}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
   const CustomTooltip = ({ active, label }: { active?: boolean; label?: string }) => {
     if (!active || !label) return null
     const row = sortedRows.find((r) => r.channel === label)

@@ -124,6 +124,24 @@ class ProductionConfigTests(unittest.TestCase):
         planner = (ROOT / "llm_chat" / "llm" / "planner.py").read_text()
         self.assertIn('relevant_tools = tools_description or ""', planner)
 
+    def test_chart_urls_and_admin_news_are_proxied(self):
+        main = (ROOT / "llm_chat" / "main.py").read_text()
+        widget = (ROOT / "frontend" / "src" / "components" / "eri" /
+                  "EriWidget.tsx").read_text(encoding="utf-8")
+        nginx = (ROOT / "infra" / "deploylib" / "frontend.py").read_text()
+        admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
+        webapi = (ROOT / "web" / "api.py").read_text()
+        deploy = (ROOT / "infra" / "deploy.py").read_text()
+        self.assertIn("/llm/charts/{filename}", main)
+        self.assertIn("chart[1]", widget)
+        self.assertIn("location ^~ /llm/", nginx)
+        self.assertIn('path == "/api/news"', admin)
+        self.assertIn('NEWS_KEY = "news.txt"', admin)
+        self.assertIn("Key=NEWS_KEY", admin)
+        self.assertIn('id="news-text"', admin)
+        self.assertIn('Key="news.txt"', webapi)
+        self.assertIn("stack.ensure_news_seed()", deploy)
+
 
 if __name__ == "__main__":
     unittest.main()

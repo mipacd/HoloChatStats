@@ -202,6 +202,7 @@ export MAX_REQUESTS_PER_WINDOW='120'
 export AWS_ENDPOINT_URL='{self.internal_endpoint() or "http://localhost:4566"}'
 export AWS_REGION='{self.args.region}'
 export AWS_DEFAULT_REGION='{self.args.region}'
+export CONFIG_BUCKET='{C.BUCKETS["config"]}'
 export LLM_SECRET_ID='{C.LLM_SECRET_ID}'
 set +x                       # keep credentials out of the init log
 export AWS_ACCESS_KEY_ID='test'
