@@ -275,7 +275,7 @@ def set_config(key, value):
     return {key: value}
 
 def retry_cookie_failures():
-    """Requeue terminal downloads that a refreshed YouTube cookie can fix."""
+    """Requeue terminal downloads fixed by auth or response-parser updates."""
     conn = get_conn()
     with conn.cursor() as cur:
         cur.execute("""
@@ -284,7 +284,9 @@ def retry_cookie_failures():
                 completed_at=NULL, lease_id=NULL, updated_at=NOW()
             WHERE status='failed'
               AND (last_error ILIKE '%%sign in to confirm%%not a bot%%'
-                   OR last_error ILIKE '%%cookie%%')
+                   OR last_error ILIKE '%%cookie%%'
+                   OR last_error ILIKE '%%unterminated string%%'
+                   OR last_error ILIKE '%%JSONDecodeError%%')
             RETURNING video_id, channel_id
         """)
         rows = cur.fetchall()
@@ -295,7 +297,7 @@ def retry_cookie_failures():
         sqs.send_message(QueueUrl=queue, MessageBody=json.dumps({
             "video_id": video_id, "channel_id": channel_id,
             "attempt": 0, "source": "retry"}))
-    log.info("cookie-related failures requeued", extra={"count": len(rows)})
+    log.info("retryable YouTube failures requeued", extra={"count": len(rows)})
     return {"requeued": len(rows)}
 
 def drain_retry_queue(limit=10_000):

@@ -81,6 +81,7 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("pg_try_advisory_lock", download)
         self.assertNotIn("yielding to recovery queue", download)
         self.assertIn("retry_cookie_failures", migrate)
+        self.assertIn("unterminated string", migrate)
         self.assertIn("drain_retry_queue", migrate)
         self.assertIn('@app.get("/healthz/llm")',
                       (ROOT / "llm_chat" / "main.py").read_text())
@@ -240,6 +241,29 @@ class ProductionConfigTests(unittest.TestCase):
                          ("ingest", 1, 2))
         self.assertIn('S3_READ_TIMEOUT_SECONDS", "120"', aws)
         self.assertIn('service == "s3"', aws)
+
+    def test_analytics_cache_entries_have_no_expiration(self):
+        api = (ROOT / "web" / "api.py").read_text(encoding="utf-8")
+        utils = (ROOT / "web" / "utils.py").read_text(encoding="utf-8")
+        invalidation = (ROOT / "common" /
+                        "cache_invalidation.py").read_text(encoding="utf-8")
+        self.assertNotIn("ttl=", api)
+        cache_helper = utils.split("def get_or_compute_cached", 1)[1].split(
+            "def cached_json", 1)[0]
+        self.assertNotIn("ex=", cache_helper)
+        self.assertIn("FINALIZED_MONTH_KEY_TEMPLATES", invalidation)
+        self.assertIn("_persist_analytics_caches",
+                      (ROOT / "web" / "cache_warmer.py").read_text())
+        self.assertIn("persist(redis_key)", cache_helper)
+        # Operational keys still need bounded lifetimes for correct rate
+        # limiting and finite metrics storage.
+        self.assertIn("pipe.expire(key, rate_limit_window)",
+                      (ROOT / "web" / "server.py").read_text())
+
+    def test_active_download_progress_reserves_100_percent_for_completion(self):
+        admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
+        self.assertIn("min(99.9", admin)
+        self.assertIn('r[3] in ("downloaded", "ingesting")', admin)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,30 @@ log = logging.getLogger("cache_warmer")
 REQUESTED_KEY = "cache_warm:requested_month"
 COMPLETED_KEY = "cache_warm:completed_month"
 COMPLETED_AT_KEY = "cache_warm:completed_at"
+ANALYTICS_CACHE_PATTERNS = (
+    "channel_clustering_vxd_*", "content_clustering_v2x_*",
+    "community_graph_xcAZSdf_*", "channel_recommendations:*",
+    "recommendation_monthly_data:*", "monthly_streaming_hours_*",
+    "group_total_streaming_hours_*", "group_avg_streaming_hours_*",
+    "group_max_streaming_hours_*", "group_chat_makeup_*",
+    "common_users_*", "common_matrix_percent_*", "common_members_*",
+    "group_membership_data_*", "group_membership_summary_*",
+    "group_membership_changes_*", "group_streaming_hours_diff_*",
+    "chat_leaderboard_*", "user_changes_*", "exclusive_chat_users_*",
+    "message_type_percents_*", "attrition_rates_*", "jp_user_percent_*",
+    "funniest_timestamps_*", "user_info_*", "chat_engagement_*",
+    "stream_frequency_*", "stream_calendar_*", "video_highlights_*",
+    "channel_names", "date_ranges", "number_of_chat_logs", "num_messages",
+)
+
+
+def _persist_analytics_caches(store):
+    """Remove old TTLs from analytics keys without touching operations data."""
+    changed = 0
+    for pattern in ANALYTICS_CACHE_PATTERNS:
+        for key in store.scan_iter(match=pattern, count=200):
+            changed += int(store.persist(key))
+    return changed
 
 
 def build_tasks(channels, groups, finalized_month):
@@ -192,6 +216,14 @@ def run(app):
         return
     store = redis.Redis(host=host, port=port, decode_responses=True,
                         socket_connect_timeout=5, socket_timeout=10)
+    try:
+        persisted = _persist_analytics_caches(store)
+        if persisted:
+            log.info("removed expiration from %s existing analytics caches",
+                     persisted)
+    except Exception:
+        # A temporarily unavailable emulator must not terminate the daemon.
+        log.exception("could not remove legacy analytics cache expirations")
     poll_seconds = int(os.environ.get("CACHE_WARM_POLL_SECONDS", "30"))
     retry_seconds = int(os.environ.get("CACHE_WARM_RETRY_SECONDS", "300"))
     interval_seconds = int(os.environ.get("CACHE_WARM_INTERVAL_SECONDS", "86400"))

@@ -115,11 +115,28 @@ def _extract_params(html):
     """
     key_m = re.search(r'INNERTUBE_API_KEY["\']\s*:\s*"([^"]+)"', html)
     ver_m = re.search(r'INNERTUBE_CONTEXT_CLIENT_VERSION["\']\s*:\s*"([^"]+)"', html)
-    yid_m = re.search(r'ytInitialData["\']?\s*[:=]\s*(\{.*?\})[;\n]', html, flags=re.DOTALL)
+    yid_m = re.search(r'ytInitialData["\']?\s*[:=]\s*', html)
     api_key = key_m.group(1) if key_m else None
     version = ver_m.group(1) if ver_m else "2.20201021.03.00"
-    yid = json.loads(yid_m.group(1)) if yid_m else None
+    yid = None
+    if yid_m:
+        start = html.find("{", yid_m.end())
+        if start >= 0:
+            # raw_decode understands nesting and escaped braces inside strings;
+            # the old non-greedy regex could cut valid embedded JSON short.
+            yid, _end = json.JSONDecoder().raw_decode(html[start:])
     return api_key, version, yid
+
+
+def _fetch_params(url, attempts=4):
+    """Fetch and decode watch-page parameters, retrying truncated HTML."""
+    for attempt in range(attempts):
+        try:
+            return _extract_params(_fetch_html(url))
+        except json.JSONDecodeError:
+            if attempt + 1 >= attempts:
+                raise
+            time.sleep(2 ** attempt)
 
 def _find_continuation(ytInitialData):
     """
@@ -184,11 +201,23 @@ def _fetch_chat(api_key, version, continuation):
         "context": {"client": {"clientName": "WEB", "clientVersion": version}},
         "continuation": continuation,
     }
-    r = _auth()["session"].post(
-        url, headers={"Content-Type": "application/json"}, json=data,
-        timeout=60)
-    r.raise_for_status()
-    return r.json()
+    retryable = (
+        requests.exceptions.Timeout,
+        requests.exceptions.ConnectionError,
+        requests.exceptions.ChunkedEncodingError,
+        json.JSONDecodeError,
+    )
+    for attempt in range(4):
+        try:
+            r = _auth()["session"].post(
+                url, headers={"Content-Type": "application/json"}, json=data,
+                timeout=60)
+            r.raise_for_status()
+            return r.json()
+        except retryable:
+            if attempt == 3:
+                raise
+            time.sleep(2 ** attempt)
 
 def _parse_messages(actions, video_start_ts):
     """
@@ -377,8 +406,7 @@ def iter_youtube_chat(video_id):
         duration = info.get("duration", 0)
         video_start_ts = info.get("release_timestamp") or info.get("timestamp") or 0
 
-    html = _fetch_html(url)
-    api_key, version, yid = _extract_params(html)
+    api_key, version, yid = _fetch_params(url)
     # Check if initial data was found, raise error if missing
     if not yid:
         raise RuntimeError("ytInitialData not found — possibly need cookies")
@@ -487,8 +515,7 @@ class ChatReplay:
         else:
             self.duration = None
             self.video_start_ts = video_start_ts
-        html = _fetch_html(url)
-        self.api_key, self.version, yid = _extract_params(html)
+        self.api_key, self.version, yid = _fetch_params(url)
         if not yid:
             raise RuntimeError("ytInitialData not found — possibly need cookies")
         self.continuation = continuation or _find_continuation(yid)

@@ -1238,7 +1238,6 @@ def recommend_channels():
         return get_or_compute_cached(
             redis_key,
             lambda: _compute_channel_recommendations(user_id, months, PARTICIPATION_EXCLUSION_THRESHOLD),
-            ttl=3600,
         )
     except Exception as e:
         print(f"An error occurred in recommend_channels: {e}")
@@ -1507,7 +1506,6 @@ def _build_set_overlap_response(set_a, set_b, channel_a, channel_b, month_a, mon
 @cached_json(
     lambda: f"common_users_{request.args.get('channel_a')}_{request.args.get('month_a')}_"
             f"{request.args.get('channel_b')}_{request.args.get('month_b')}",
-    ttl=86400,
 )
 def get_common_users():
     channel_a_name = request.args.get('channel_a')
@@ -1531,7 +1529,6 @@ def get_common_users():
         f"{','.join(sorted(n.strip() for n in request.args.get('channels', '').split(',')))}_"
         f"{request.args.get('month')}"
     ),
-    ttl=86400,
 )
 def get_common_users_matrix():
     month_str = request.args.get('month')
@@ -1565,7 +1562,6 @@ def get_common_users_matrix():
 @cached_json(
     lambda: f"common_members_{request.args.get('channel_a')}_{request.args.get('month_a')}_"
             f"{request.args.get('channel_b')}_{request.args.get('month_b')}",
-    ttl=86400,
 )
 def get_common_members():
     channel_a_name = request.args.get('channel_a')
@@ -2422,7 +2418,6 @@ def get_chat_engagement():
             f"{request.args.get('mode', 'span')}_"
             f"{request.args.get('resolution', '60')}_"
             f"{request.args.get('exclude_shorts', '0')}",
-    ttl=86400,
 )
 def get_stream_frequency():
     channel_name = request.args.get('channel_name')
@@ -2533,7 +2528,6 @@ def get_stream_frequency():
             f"{request.args.get('timezone', 'UTC')}_"
             f"{request.args.get('year', 'latest')}_"
             f"{request.args.get('exclude_shorts', '0')}",
-    ttl=86400,
 )
 def get_stream_calendar():
     channel_name = request.args.get('channel_name')

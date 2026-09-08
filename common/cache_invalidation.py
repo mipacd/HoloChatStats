@@ -10,6 +10,7 @@ import redis
 # state) do not match any of these application-specific patterns.
 FINALIZED_MONTH_PATTERNS = (
     "channel_recommendations:*",
+    "attrition_rates_*",
     "monthly_streaming_hours_*",
     "exclusive_chat_users_*",
     "message_type_percents_*",
@@ -20,6 +21,35 @@ FINALIZED_MONTH_PATTERNS = (
     "date_ranges",
     "number_of_chat_logs",
     "num_messages",
+)
+
+# A request can reach a month while it is still staging and cache an empty or
+# partial result. Delete only that just-published month's variants. Older
+# finalized-month keys remain untouched forever.
+FINALIZED_MONTH_KEY_TEMPLATES = (
+    "channel_clustering_vxd_{month}_*",
+    "content_clustering_v2x_{month}_*",
+    "community_graph_xcAZSdf_{month}_*",
+    "common_users_*_{month}_*",
+    "common_users_*_{month}",
+    "common_matrix_percent_*_{month}",
+    "common_members_*_{month}_*",
+    "common_members_*_{month}",
+    "group_membership_data_*_{month}",
+    "group_membership_summary_*_{month}_*",
+    "group_membership_changes_*_{month}",
+    "group_streaming_hours_diff_*_{month}",
+    "group_total_streaming_hours_*_{month}",
+    "group_avg_streaming_hours_*_{month}",
+    "group_max_streaming_hours_*_{month}",
+    "group_chat_makeup_*_{month}",
+    "chat_engagement_{month}_*",
+    "chat_leaderboard_*_{month}",
+    "user_changes_*_{month}",
+    "funniest_timestamps_*_{month}",
+    "user_info_*_{month}",
+    "video_highlights_*_{month}",
+    "recommendation_monthly_data:{month}",
 )
 
 
@@ -39,7 +69,12 @@ def invalidate_finalized_month_caches(batch_size=200, finalized_month=None):
                          socket_timeout=10)
     removed = 0
     pending = []
-    for pattern in FINALIZED_MONTH_PATTERNS:
+    patterns = list(FINALIZED_MONTH_PATTERNS)
+    if finalized_month is not None:
+        month = str(finalized_month)[:7]
+        patterns.extend(p.format(month=month)
+                        for p in FINALIZED_MONTH_KEY_TEMPLATES)
+    for pattern in patterns:
         for key in client.scan_iter(match=pattern, count=batch_size):
             pending.append(key)
             if len(pending) >= batch_size:

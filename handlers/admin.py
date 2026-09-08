@@ -291,7 +291,10 @@ def snapshot():
             "end_time": r[12].isoformat(sep=" ", timespec="minutes") if r[12] else None,
             "end_time_approx": (r[13].isoformat(sep=" ", timespec="minutes")
                                 if r[12] is None and r[13] else None),
-            "pct": (round(min(100.0, 100.0 * float(r[5]) / float(r[6])), 1)
+            # Reaching the video's duration only measures timeline coverage;
+            # YouTube may still have continuation pages with messages. Reserve
+            # 100% for a job that has actually left the download phase.
+            "pct": (round(min(99.9, 100.0 * float(r[5]) / float(r[6])), 1)
                     if r[3] == "downloading" and r[6] else
                     (100.0 if r[3] in ("downloaded", "ingesting") else None)),
             "phase": (f"held until {active_month} is published"

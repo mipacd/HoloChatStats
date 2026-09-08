@@ -1,9 +1,34 @@
+import fnmatch
 import unittest
 
-from web.cache_warmer import build_tasks
+from web.cache_warmer import _persist_analytics_caches, build_tasks
+
+
+class PersistRedis:
+    def __init__(self, keys, expiring):
+        self.keys = set(keys)
+        self.expiring = set(expiring)
+
+    def scan_iter(self, match, count):
+        del count
+        yield from sorted(k for k in self.keys if fnmatch.fnmatch(k, match))
+
+    def persist(self, key):
+        changed = key in self.expiring
+        self.expiring.discard(key)
+        return int(changed)
 
 
 class CacheWarmerTaskTests(unittest.TestCase):
+    def test_only_analytics_cache_ttls_are_removed(self):
+        analytics = {"common_users_Alpha_2026-07_Beta_2026-07",
+                     "exclusive_chat_users_Alpha"}
+        operational = {"rate:visitor-hash", "v2:page_views:2026-09-08"}
+        fake = PersistRedis(analytics | operational, analytics | operational)
+        changed = _persist_analytics_caches(fake)
+        self.assertEqual(changed, len(analytics))
+        self.assertEqual(fake.expiring, operational)
+
     def test_tasks_are_bounded_and_prioritize_exclusive_chat(self):
         tasks = build_tasks(["Alpha", "Beta"], ["Group A"], "2026-07-01")
         exclusive = [

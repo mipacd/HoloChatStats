@@ -416,31 +416,36 @@ def fetch_past_videos(youtube, channel_id, limit):
                     video_data[v] = live_details[k]
         videos.append(video_data)
     return videos
-def get_or_compute_cached(redis_key, compute_fn, ttl=None):
+def get_or_compute_cached(redis_key, compute_fn):
     try:
         cached_data = g.redis_conn.get(redis_key)
     except Exception:
         cached_data = None
     if cached_data:
         inc_cache_hit_count()
+        try:
+            # Convert entries created by older releases with a TTL to the new
+            # durable analytics-cache policy.
+            g.redis_conn.persist(redis_key)
+        except Exception:
+            pass
         return jsonify(json.loads(cached_data))
     inc_cache_miss_count()
     result = compute_fn()
     if isinstance(result, tuple):
         return result
     try:
-        if ttl:
-            g.redis_conn.set(redis_key, json.dumps(result), ex=ttl)
-        else:
-            g.redis_conn.set(redis_key, json.dumps(result))
+        # Analytics caches are durable. Finalized-month keys are immutable;
+        # rolling/aggregate keys are explicitly invalidated after publication.
+        g.redis_conn.set(redis_key, json.dumps(result))
     except Exception:
         pass
     return jsonify(result)
-def cached_json(key_func, ttl=None):
+def cached_json(key_func):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(*args, **kwargs):
-            return get_or_compute_cached(key_func(), lambda: view_func(*args, **kwargs), ttl=ttl)
+            return get_or_compute_cached(key_func(), lambda: view_func(*args, **kwargs))
         return wrapper
     return decorator
 def parse_month(month_str):

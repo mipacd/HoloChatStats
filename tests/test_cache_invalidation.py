@@ -28,7 +28,6 @@ class FakeRedis:
         self.values[key] = str(value)
         return True
 
-
 class CacheInvalidationTests(unittest.TestCase):
     def test_only_aggregate_application_keys_are_removed(self):
         aggregate = {
@@ -57,16 +56,28 @@ class CacheInvalidationTests(unittest.TestCase):
         self.assertEqual(fake.keys, protected)
 
     def test_finalized_month_requests_a_warm_pass(self):
-        fake = FakeRedis(set())
+        remove = {
+            "group_chat_makeup_all_2026-07",
+            "common_users_Alpha_2026-07_Beta_2026-06",
+            "common_members_Alpha_2026-06_Beta_2026-07",
+            "recommendation_monthly_data:2026-07",
+        }
+        preserve = {
+            "group_chat_makeup_all_2026-06",
+            "recommendation_monthly_data:2026-06",
+            "rate:visitor-hash",
+        }
+        fake = FakeRedis(remove | preserve)
         with mock.patch.dict("os.environ", {"REDIS_HOST": "redis"},
                              clear=False), mock.patch.object(
                                  cache_invalidation.redis, "Redis",
                                  return_value=fake):
             cache_invalidation.invalidate_finalized_month_caches(
                 finalized_month="2026-07-01")
+        self.assertEqual(set(fake.deleted), remove)
+        self.assertEqual(fake.keys, preserve)
         self.assertEqual(fake.values["cache_warm:requested_month"],
                          "2026-07-01")
-
 
 if __name__ == "__main__":
     unittest.main()
