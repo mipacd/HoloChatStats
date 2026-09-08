@@ -284,6 +284,23 @@ class ProductionConfigTests(unittest.TestCase):
                       refresh)
         self.assertIn("updated_at=%s", refresh)
 
+    def test_home_shows_next_month_publication_backlog_only_when_behind(self):
+        api = (ROOT / "web" / "api.py").read_text(encoding="utf-8")
+        home = (ROOT / "frontend" / "src" / "pages" /
+                "Home.tsx").read_text(encoding="utf-8")
+        endpoint = api.split("def get_publication_progress", 1)[1].split(
+            "@api_bp.route", 1)[0]
+        self.assertIn("MAX(observed_month)", endpoint)
+        self.assertIn("latest + INTERVAL '1 month'", endpoint)
+        self.assertIn("j.status NOT IN ('done', 'skipped')", endpoint)
+        decorators = api.split(
+            "@api_bp.route('/api/get_publication_progress'", 1)[1].split(
+                "def get_publication_progress", 1)[0]
+        self.assertNotIn("@cached_json", decorators)
+        self.assertIn('api.get("/get_publication_progress")', home)
+        self.assertIn("publication?.behind", home)
+        self.assertIn("remaining_chat_logs", home)
+
 
 if __name__ == "__main__":
     unittest.main()

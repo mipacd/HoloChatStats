@@ -163,6 +163,7 @@
   "Membership Counts": "멤버십 수",
   "User Message Counts": "사용자 메시지 수",
   "Data Coverage": "데이터 범위",
+  "Approximately {{count}} chat logs remain before {{month}} is published.": "{{month}} 공개까지 약 {{count}}개의 채팅 로그가 남았습니다.",
   "Loading date ranges...": "날짜 범위 로딩 중...",
   "Loading chat log count...": "채팅 로그 수를 불러오는 중...",
   "Loading message count...": "메시지 수 로딩 중...",

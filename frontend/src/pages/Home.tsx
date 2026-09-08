@@ -6,11 +6,18 @@ import { Button } from "@/components/ui/button"
 import { FaGithub, FaXTwitter, FaCloud } from "react-icons/fa6"
 import { api } from "@/lib/api"
 type Update = { date: string; message: string }
+type PublicationProgress = {
+  behind: boolean
+  target_month: string
+  remaining_chat_logs: number
+  approximate: boolean
+}
 export default function Home() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [dateRange, setDateRange] = useState<string[] | null>(null)
   const [logCount, setLogCount] = useState<number | null>(null)
   const [msgCount, setMsgCount] = useState<number | null>(null)
+  const [publication, setPublication] = useState<PublicationProgress | null>(null)
   const [updates, setUpdates] = useState<Update[] | null>(null)
   const [errors, setErrors] = useState<Record<string, boolean>>({})
   useEffect(() => {
@@ -23,6 +30,10 @@ export default function Home() {
     api.get("/get_num_messages")
       .then((res) => setMsgCount(res.data))
       .catch(() => setErrors((e) => ({ ...e, msgCount: true })))
+    api.get("/get_publication_progress")
+      .then((res) => setPublication(res.data))
+      // Supplemental status must not make the coverage card fail as a whole.
+      .catch(() => undefined)
     api.get("/get_latest_updates")
       .then((res) => setUpdates(res.data))
       .catch(() => setErrors((e) => ({ ...e, updates: true })))
@@ -99,6 +110,18 @@ export default function Home() {
             ) : (
               <p className="text-muted-foreground">{t("Loading message count...")}</p>
             )}
+            {publication?.behind && publication.target_month ? (
+              <p className="pt-2 text-amber-700 dark:text-amber-400">
+                {t("Approximately {{count}} chat logs remain before {{month}} is published.", {
+                  count: publication.remaining_chat_logs.toLocaleString(i18n.resolvedLanguage),
+                  month: new Intl.DateTimeFormat(i18n.resolvedLanguage, {
+                    month: "long",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  }).format(new Date(`${publication.target_month}T00:00:00Z`)),
+                })}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
         <Card>

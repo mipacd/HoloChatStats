@@ -163,6 +163,7 @@
   "Membership Counts": "Membership Counts",
   "User Message Counts": "User Message Counts",
   "Data Coverage": "Data Coverage",
+  "Approximately {{count}} chat logs remain before {{month}} is published.": "Approximately {{count}} chat logs remain before {{month}} is published.",
   "Loading date ranges...": "Loading date ranges...",
   "Loading chat log count...": "Loading chat log count...",
   "Loading message count...": "Loading message count...",

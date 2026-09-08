@@ -20,7 +20,7 @@ import logging
 from scipy.sparse import csr_matrix
 from googleapiclient.errors import HttpError
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sqlalchemy import func, extract, cast, and_, case, or_, literal_column, collate
+from sqlalchemy import func, extract, cast, and_, case, or_, literal_column, collate, text
 from sqlalchemy.orm import aliased
 from sqlalchemy.types import Numeric, BigInteger, Date
 from zoneinfo import ZoneInfo
@@ -2259,6 +2259,47 @@ def get_number_of_chat_logs():
         .filter(Video.has_chat_log.is_(True))
         .scalar()
     )
+
+
+@api_bp.route('/api/get_publication_progress', methods=['GET'])
+def get_publication_progress():
+    """Return known work for the next sequential unpublished month."""
+    row = db.session.execute(text("""
+        WITH publication AS (
+            SELECT MAX(observed_month) FILTER (WHERE status = 'merged') AS latest,
+                   COALESCE(
+                       NULLIF((SELECT value FROM service_config
+                               WHERE key = 'backlog_floor'), '')::timestamptz,
+                       '2026-07-01 00:00:00+00'::timestamptz
+                   ) AS backlog_floor
+            FROM monthly_merge_state
+        ), target AS (
+            SELECT COALESCE(
+                       (latest + INTERVAL '1 month')::date,
+                       date_trunc('month', backlog_floor AT TIME ZONE 'UTC')::date
+                   ) AS target_month,
+                   (date_trunc('month', NOW() AT TIME ZONE 'UTC')
+                       - INTERVAL '1 month')::date AS previous_month
+            FROM publication
+        )
+        SELECT t.target_month,
+               t.target_month <= t.previous_month AS behind,
+               COUNT(j.video_id) FILTER (
+                   WHERE j.status NOT IN ('done', 'skipped')) AS remaining
+        FROM target t
+        LEFT JOIN videos v
+          ON v.end_time >= (t.target_month::timestamp AT TIME ZONE 'UTC')
+         AND v.end_time < ((t.target_month + INTERVAL '1 month')::timestamp
+                           AT TIME ZONE 'UTC')
+        LEFT JOIN ingest_jobs j ON j.video_id = v.video_id
+        GROUP BY t.target_month, t.previous_month
+    """)).one()
+    return {
+        "behind": bool(row.behind),
+        "target_month": str(row.target_month),
+        "remaining_chat_logs": int(row.remaining or 0),
+        "approximate": True,
+    }
 
 @api_bp.route('/api/get_num_messages', methods=['GET'])
 @cached_json(lambda: "num_messages")

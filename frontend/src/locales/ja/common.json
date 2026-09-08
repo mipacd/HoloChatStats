@@ -163,6 +163,7 @@
   "Membership Counts": "メンバーシップ数",
   "User Message Counts": "ユーザーメッセージ数",
   "Data Coverage": "データ範囲",
+  "Approximately {{count}} chat logs remain before {{month}} is published.": "{{month}}の公開まで、残り約{{count}}件のチャットログを処理します。",
   "Loading date ranges...": "日付範囲を読み込み中...",
   "Loading chat log count...": "チャットログ数を読み込み中...",
   "Loading message count...": "メッセージ数を読み込み中...",
