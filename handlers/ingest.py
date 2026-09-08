@@ -144,6 +144,11 @@ def _ingest(msg):
         rows, user_rows = [], []
         with conn.cursor() as cur:
             table, month = _route(cur, video_id, last_ts)
+            cur.execute("""SELECT EXISTS (
+                           SELECT 1 FROM monthly_merge_state
+                           WHERE observed_month=%s AND status='merged')""",
+                        (month,))
+            late_finalized = bool(cur.fetchone()[0])
             # Keep user_data_all (UNION ALL) duplicate-free: whichever table we
             # are about to write, this video must not have rows in the other.
             # Both deletes are index-backed on video_id.
@@ -169,6 +174,15 @@ def _ingest(msg):
                            SET status='done', message_count=%s, completed_at=NOW(),
                                updated_at=NOW(), last_error=NULL
                            WHERE video_id=%s""", (total, video_id))
+            if late_finalized:
+                # The scheduled refresh consumes this durable marker only
+                # after rebuilding derived data and invalidating this month's
+                # permanent analytics caches.
+                cur.execute("""INSERT INTO service_config (key, value, updated_at)
+                               VALUES (%s, 'pending', NOW())
+                               ON CONFLICT (key) DO UPDATE
+                                 SET value='pending', updated_at=NOW()""",
+                            (f"late_data_month:{month}",))
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -184,7 +198,8 @@ def _ingest(msg):
          {"Stage": "ingest"}, video_id=video_id)
     log.info("ingested", extra={"video_id": video_id, "messages": total,
                                "chatters": len(usernames),
-                               "table": table, "month": str(month)})
+                               "table": table, "month": str(month),
+                               "late_finalized": late_finalized})
 def _write(cur, table, month, rows, user_rows):
     execute_values(cur, """
         INSERT INTO users (user_id, username) VALUES %s

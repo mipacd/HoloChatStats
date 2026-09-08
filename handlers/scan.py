@@ -25,7 +25,12 @@ from common.channels import is_active, cancel_channel_jobs
 log = get_logger("scan")
 RESERVE_MS = 90_000   # headroom to re-enqueue + write state before timeout
 QUOTA_MARKERS = ("quota", "quotaexceeded", "dailylimitexceeded")
-PERMANENT_SKIP = ("members", "not available", "removed", "private", "deleted")
+# Some replay failures are only true at the time YouTube is queried.  They are
+# terminal for month publication, but the first uploads-playlist page is
+# reconsidered on later scans so a newly-published replay can be recovered.
+SKIP_ON_LOOKUP_ERROR = ("members", "not available", "removed", "private", "deleted")
+RECHECKABLE_SKIP = ("members", "not available", "private",
+                    "concluded, no chat replay", "live event", "will begin")
 def handler(event, context):
     if paused():
         requeue_all("SCAN_QUEUE_URL", event["Records"])
@@ -79,6 +84,7 @@ def _scan(msg, context):
                                    "cold_start": cold_start})
     playlist_id = "UU" + channel_id[2:]
     enqueued = pages = videos_seen = api_video_calls = 0
+    lookup_errors = []
     reached_floor = False
     try:
         while True:
@@ -110,24 +116,39 @@ def _scan(msg, context):
                 prior = known.get(video_id)
                 # Already resolved: reuse the stored end_time for the
                 # pagination decision and make zero network calls.
-                if prior and prior["status"] in ("done", "skipped") and prior["end_time"]:
+                recheck_skip = bool(
+                    prior and prior["status"] == "skipped" and pages == 1
+                    and _recheckable_skip(prior.get("skip_reason")))
+                # Once page 1 crosses the ordinary discovery floor, inspect
+                # the rest of that page only for eligible skipped replays.
+                # Do not make metadata calls for other old entries and never
+                # paginate to page 2 merely for late-arrival monitoring.
+                if reached_floor and pages == 1 and not recheck_skip:
+                    continue
+                if (prior and prior["status"] in ("done", "skipped")
+                        and prior["end_time"] and not recheck_skip):
                     if prior["end_time"] < floor:
                         reached_floor = True
+                        if pages == 1:
+                            continue
                         break
                     newest = max(newest, prior["end_time"])
                     continue
                 try:
                     video_data = cd.get_video_data(video_id=video_id)
                 except Exception as e:
-                    if any(k in str(e).lower() for k in PERMANENT_SKIP):
+                    if any(k in str(e).lower() for k in SKIP_ON_LOOKUP_ERROR):
                         _mark_skipped(conn, channel_id, video_id, str(e)[:200])
                         continue
                     log.warning("get_video_data failed",
                                 extra={"video_id": video_id, "error": str(e)[:200]})
+                    lookup_errors.append(f"{video_id}: {str(e)[:160]}")
                     continue
                 end_date = _resolve_end_time(item, video_data)
-                if end_date < floor:
+                if end_date < floor and not recheck_skip:
                     reached_floor = True
+                    if pages == 1:
+                        continue
                     break
                 newest = max(newest, end_date)
                 # No continuation_info => plain upload, premiere without chat,
@@ -152,7 +173,8 @@ def _scan(msg, context):
                     except Exception:
                         duration = 0
                 if _upsert_and_claim(conn, channel_id, video_id,
-                                     item.snippet.title, end_date, duration):
+                                     item.snippet.title, end_date, duration,
+                                     reopen_skipped=recheck_skip):
                     # The job deliberately remains undispatched.  Only
                     # common.dispatch may release downloads, which guarantees
                     # strict oldest-month-first processing.
@@ -177,7 +199,17 @@ def _scan(msg, context):
         emit({"ScanFailed": (1, COUNT)}, {"Channel": channel_name})
         log.exception("scan failed", extra={"channel_id": channel_id})
         raise   # SQS retries, then DLQ
-    # Full pass completed -> commit the watermark.
+    # A partial lookup is not proof that this channel was checked through the
+    # month boundary.  Keep its successful watermark unchanged so publication
+    # remains blocked and the next discovery cycle retries it.
+    if lookup_errors:
+        _record_error(conn, channel_id, "; ".join(lookup_errors)[:500])
+        emit({"ScanFailed": (1, COUNT)}, {"Channel": channel_name})
+        log.warning("scan incomplete; successful watermark preserved",
+                    extra={"channel_id": channel_id,
+                           "lookup_errors": len(lookup_errors)})
+        return
+    # Full, error-free pass completed -> commit the watermark.
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO channel_watermarks
@@ -230,15 +262,20 @@ def _known_videos(conn, video_ids):
         return {}
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT j.video_id, j.status, v.end_time
+            SELECT j.video_id, j.status, v.end_time, j.skip_reason
             FROM ingest_jobs j
             LEFT JOIN videos v USING (video_id)
             WHERE j.video_id = ANY(%s)
         """, (list(video_ids),))
         rows = cur.fetchall()
     conn.rollback()
-    return {r[0]: {"status": r[1], "end_time": r[2]} for r in rows}
-def _upsert_and_claim(conn, channel_id, video_id, title, end_date, duration):
+    return {r[0]: {"status": r[1], "end_time": r[2], "skip_reason": r[3]}
+            for r in rows}
+def _recheckable_skip(reason):
+    text = (reason or "").lower()
+    return any(marker in text for marker in RECHECKABLE_SKIP)
+def _upsert_and_claim(conn, channel_id, video_id, title, end_date, duration,
+                      reopen_skipped=False):
     """
     Upsert video metadata and claim the download job. Returns True only when
     this call created a fresh pending job, so overlapping scans can't enqueue
@@ -263,6 +300,19 @@ def _upsert_and_claim(conn, channel_id, video_id, title, end_date, duration):
             RETURNING video_id
         """, (video_id, channel_id, duration or 0, f"{channel_id}/{video_id}"))
         claimed = cur.fetchone() is not None
+        if not claimed and reopen_skipped:
+            cur.execute("""
+                UPDATE ingest_jobs
+                   SET status='pending', attempts=0, continuation=NULL,
+                       part_count=0, last_offset_s=0, messages_downloaded=0,
+                       lease_id=NULL, reaped_count=0, message_count=NULL,
+                       skip_reason=NULL, last_error=NULL, dispatched_at=NULL,
+                       enqueued_at=NOW(), started_at=NULL, completed_at=NULL,
+                       updated_at=NOW(), video_duration_s=%s, s3_prefix=%s
+                 WHERE video_id=%s AND status='skipped'
+                 RETURNING video_id
+            """, (duration or 0, f"{channel_id}/{video_id}", video_id))
+            claimed = cur.fetchone() is not None
     conn.commit()
     return claimed
 def _mark_skipped(conn, channel_id, video_id, reason):
@@ -283,9 +333,9 @@ def _record_error(conn, channel_id, message):
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO channel_watermarks (channel_id, last_scanned_at, last_error)
-            VALUES (%s, NOW(), %s)
+            VALUES (%s, NULL, %s)
             ON CONFLICT (channel_id) DO UPDATE
-              SET last_scanned_at = NOW(), last_error = EXCLUDED.last_error
+              SET last_error = EXCLUDED.last_error
         """, (channel_id, message))
     conn.commit()
 def _channel_baseline(conn, channel_id, start_floor):

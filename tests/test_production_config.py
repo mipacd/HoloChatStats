@@ -265,6 +265,25 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("min(99.9", admin)
         self.assertIn('r[3] in ("downloaded", "ingesting")', admin)
 
+    def test_late_replays_are_bounded_and_republish_finalized_months(self):
+        scan = (ROOT / "handlers" / "scan.py").read_text(encoding="utf-8")
+        ingest = (ROOT / "handlers" / "ingest.py").read_text(encoding="utf-8")
+        refresh = (ROOT / "handlers" / "refresh.py").read_text(encoding="utf-8")
+        self.assertIn('prior["status"] == "skipped" and pages == 1', scan)
+        self.assertIn("_recheckable_skip", scan)
+        self.assertIn("reopen_skipped=recheck_skip", scan)
+        self.assertIn("reached_floor and pages == 1 and not recheck_skip", scan)
+        self.assertIn("end_date < floor and not recheck_skip", scan)
+        self.assertIn("successful watermark preserved", scan)
+        error_writer = scan.split("def _record_error", 1)[1].split(
+            "def _channel_baseline", 1)[0]
+        self.assertNotIn("last_scanned_at = NOW()", error_writer)
+        self.assertIn("late_data_month:", ingest)
+        self.assertIn("late_data_month:%", refresh)
+        self.assertIn("invalidate_finalized_month_caches(finalized_month=m)",
+                      refresh)
+        self.assertIn("updated_at=%s", refresh)
+
 
 if __name__ == "__main__":
     unittest.main()
