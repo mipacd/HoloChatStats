@@ -2,3 +2,5 @@ boto3
 botocore
 redis
 sqlalchemy
+requests
+yt-dlp
