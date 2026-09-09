@@ -5,12 +5,14 @@ import re
 import json
 import time
 import sys
+import logging
 import requests
 from yt_dlp import YoutubeDL
 from common.config import secret
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
 _AUTH = None
+log = logging.getLogger("youtube")
 
 def _auth():
     """Materialize the Secrets Manager cookie only in Lambda's private /tmp."""
@@ -36,6 +38,17 @@ def _auth():
         jar = http.cookiejar.MozillaCookieJar(cookie_path)
         jar.load(ignore_discard=True, ignore_expires=True)
         session.cookies.update(jar)
+        youtube_cookies = [c for c in jar
+                           if c.domain.endswith(("youtube.com", "google.com"))]
+        auth_names = {"SID", "HSID", "SSID", "APISID", "SAPISID",
+                      "LOGIN_INFO", "__Secure-1PSID", "__Secure-3PSID",
+                      "__Secure-1PAPISID", "__Secure-3PAPISID"}
+        auth_cookies = [c for c in youtube_cookies if c.name in auth_names]
+        # Names/counts are safe operational metadata; values are never logged.
+        log.info("YouTube cookie jar loaded (cookies=%s youtube_google=%s "
+                 "auth_markers=%s custom_user_agent=%s)",
+                 len(jar), len(youtube_cookies), len(auth_cookies),
+                 bool(data.get("user_agent")))
     _AUTH = {"cookiefile": cookie_path, "user_agent": user_agent,
              "session": session}
     return _AUTH
@@ -46,7 +59,32 @@ def _ydl_options():
             "user_agent": auth["user_agent"]}
     if auth["cookiefile"]:
         opts["cookiefile"] = auth["cookiefile"]
+        # Current yt-dlp guidance for logged-in YouTube extraction avoids the
+        # problematic default logged-in client while retaining an embedded
+        # fallback that can handle age-gated metadata.
+        opts["extractor_args"] = {
+            "youtube": {"player_client": ["default", "web_embedded"]}
+        }
     return opts
+
+
+def _extract_video_info(url, attempts=6):
+    """Run yt-dlp metadata extraction with retries for malformed/transient
+    YouTube responses. Authentication and availability errors are returned
+    immediately because retrying cannot repair the cookie/account state."""
+    transient = ("unterminated string", "jsondecodeerror", "503",
+                 "service unavailable", "timed out", "timeout",
+                 "connection reset", "remote end closed")
+    for attempt in range(attempts):
+        try:
+            with YoutubeDL(_ydl_options()) as ydl:
+                return ydl.extract_info(url, download=False)
+        except Exception as exc:
+            if not any(marker in str(exc).lower() for marker in transient):
+                raise
+            if attempt + 1 >= attempts:
+                raise
+            time.sleep(min(2 ** attempt, 16))
 
 def _fetch_html(url):
     """
@@ -434,10 +472,9 @@ def iter_youtube_chat(video_id):
         yt_dlp.utils.DownloadError: If video info extraction fails
     """
     url = f"https://www.youtube.com/watch?v={video_id}"
-    with YoutubeDL(_ydl_options()) as ydl:
-        info = ydl.extract_info(url, download=False)
-        duration = info.get("duration", 0)
-        video_start_ts = info.get("release_timestamp") or info.get("timestamp") or 0
+    info = _extract_video_info(url)
+    duration = info.get("duration", 0)
+    video_start_ts = info.get("release_timestamp") or info.get("timestamp") or 0
 
     api_key, version, yid = _fetch_params(url)
     # Check if initial data was found, raise error if missing
@@ -540,8 +577,7 @@ class ChatReplay:
         self.video_id = video_id
         url = f"https://www.youtube.com/watch?v={video_id}"
         if video_start_ts is None or continuation is None:
-            with YoutubeDL(_ydl_options()) as ydl:
-                info = ydl.extract_info(url, download=False)
+            info = _extract_video_info(url)
             self.duration = info.get("duration") or 0
             self.video_start_ts = (info.get("release_timestamp")
                                    or info.get("timestamp") or 0)

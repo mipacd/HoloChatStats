@@ -71,12 +71,17 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
           YOUTUBE_COOKIES_B64: ${{ secrets.YOUTUBE_COOKIES_B64 }}
+          YOUTUBE_USER_AGENT: ${{ secrets.YOUTUBE_USER_AGENT }}
         run: |
           test -n "$DB_PASSWORD" || { echo 'DB_PASSWORD is required'; exit 1; }
           test -n "$YT_API_KEY" || { echo 'YT_API_KEY is required'; exit 1; }
           if [ -n "$YOUTUBE_COOKIES_B64" ]; then
-            python -c "import base64,os; d=base64.b64decode(os.environ['YOUTUBE_COOKIES_B64'], validate=True); assert d.decode('utf-8-sig').splitlines()[0] in ('# HTTP Cookie File','# Netscape HTTP Cookie File')"
-            echo 'YouTube Netscape cookie secret is valid.'
+            test -n "$YOUTUBE_USER_AGENT" || {
+              echo 'YOUTUBE_USER_AGENT is required when YOUTUBE_COOKIES_B64 is set.'
+              echo 'Use the exact full User-Agent from the browser that exported the cookies.'
+              exit 1
+            }
+            python scripts/validate_youtube_cookies.py
           fi
 
       - name: Validate destructive bootstrap

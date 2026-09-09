@@ -90,6 +90,24 @@ class YoutubeResponseTests(unittest.TestCase):
         self.assertEqual(session.post.call_count, 1)
         sleep.assert_not_called()
 
+    @mock.patch.object(youtube.time, "sleep")
+    @mock.patch.object(youtube, "_ydl_options", return_value={"quiet": True})
+    @mock.patch.object(youtube, "YoutubeDL")
+    def test_yt_dlp_metadata_retries_malformed_response(
+            self, ydl_cls, _options, sleep):
+        first = mock.MagicMock()
+        first.__enter__.return_value.extract_info.side_effect = ValueError(
+            "Unterminated string starting at line 1")
+        second = mock.MagicMock()
+        second.__enter__.return_value.extract_info.return_value = {
+            "duration": 10,
+        }
+        ydl_cls.side_effect = [first, second]
+        result = youtube._extract_video_info("https://example.test")
+        self.assertEqual(result, {"duration": 10})
+        self.assertEqual(ydl_cls.call_count, 2)
+        sleep.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

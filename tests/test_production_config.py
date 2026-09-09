@@ -112,6 +112,8 @@ class ProductionConfigTests(unittest.TestCase):
         migrate = (ROOT / "handlers" / "migrate.py").read_text(
             encoding="utf-8")
         self.assertIn("for attempt in range(8)", youtube)
+        self.assertIn("_extract_video_info(url)", youtube)
+        self.assertIn('"default", "web_embedded"', youtube)
         self.assertIn("requests.exceptions.HTTPError", youtube)
         self.assertIn('response.headers.get("Retry-After")', youtube)
         self.assertIn("REPLAY_END_SILENCE_SECONDS = 15 * 60", download)
@@ -119,6 +121,9 @@ class ProductionConfigTests(unittest.TestCase):
         for marker in ("503 Server Error", "Service Unavailable",
                        "truncated: last message", "will begin"):
             self.assertIn(marker, migrate)
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+        self.assertIn("python scripts/validate_youtube_cookies.py", workflow)
+        self.assertIn("YOUTUBE_USER_AGENT is required", workflow)
 
     def test_download_rechecks_month_order_at_execution(self):
         download = (ROOT / "handlers" / "download.py").read_text()
