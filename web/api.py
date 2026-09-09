@@ -2241,24 +2241,44 @@ def get_channel_names():
     return [r.channel_name for r in rows]
 
 @api_bp.route('/api/get_date_ranges', methods=['GET'])
-@cached_json(lambda: "date_ranges")
+@cached_json(lambda: "published_coverage_v2:date_ranges")
 def get_date_ranges():
-    min_date, max_date = (
-        db.session.query(func.min(Video.end_time), func.max(Video.end_time))
-        .filter(Video.has_chat_log.is_(True))
-        .one()
-    )
+    min_date, max_date = db.session.execute(text("""
+        WITH published AS (
+            SELECT COALESCE(
+                (SELECT MAX(observed_month) + INTERVAL '1 month'
+                   FROM monthly_merge_state WHERE status = 'merged'),
+                (SELECT date_trunc('month', value::timestamptz)
+                   FROM service_config WHERE key = 'backlog_floor')
+            ) AS cutoff
+        )
+        SELECT MIN(v.end_time), MAX(v.end_time)
+        FROM videos v CROSS JOIN published p
+        WHERE v.has_chat_log IS TRUE
+          AND p.cutoff IS NOT NULL
+          AND v.end_time < p.cutoff
+    """)).one()
     return [str(min_date), str(max_date)]
 
 
 @api_bp.route('/api/get_number_of_chat_logs', methods=['GET'])
-@cached_json(lambda: "number_of_chat_logs")
+@cached_json(lambda: "published_coverage_v2:number_of_chat_logs")
 def get_number_of_chat_logs():
-    return (
-        db.session.query(func.count(Video.video_id))
-        .filter(Video.has_chat_log.is_(True))
-        .scalar()
-    )
+    return db.session.execute(text("""
+        WITH published AS (
+            SELECT COALESCE(
+                (SELECT MAX(observed_month) + INTERVAL '1 month'
+                   FROM monthly_merge_state WHERE status = 'merged'),
+                (SELECT date_trunc('month', value::timestamptz)
+                   FROM service_config WHERE key = 'backlog_floor')
+            ) AS cutoff
+        )
+        SELECT COUNT(v.video_id)
+        FROM videos v CROSS JOIN published p
+        WHERE v.has_chat_log IS TRUE
+          AND p.cutoff IS NOT NULL
+          AND v.end_time < p.cutoff
+    """)).scalar()
 
 
 @api_bp.route('/api/get_publication_progress', methods=['GET'])
@@ -2302,9 +2322,27 @@ def get_publication_progress():
     }
 
 @api_bp.route('/api/get_num_messages', methods=['GET'])
-@cached_json(lambda: "num_messages")
+@cached_json(lambda: "published_coverage_v2:num_messages")
 def get_num_messages():
-    return db.session.query(func.sum(UserData.total_message_count)).scalar()
+    # user_data normally contains only published rows.  Keep the video-month
+    # fence anyway so a legacy restore or an old worker cannot leak a future
+    # month into the public coverage total.
+    return db.session.execute(text("""
+        WITH published AS (
+            SELECT COALESCE(
+                (SELECT MAX(observed_month) + INTERVAL '1 month'
+                   FROM monthly_merge_state WHERE status = 'merged'),
+                (SELECT date_trunc('month', value::timestamptz)
+                   FROM service_config WHERE key = 'backlog_floor')
+            ) AS cutoff
+        )
+        SELECT COALESCE(SUM(u.total_message_count), 0)
+        FROM user_data u
+        JOIN videos v USING (video_id)
+        CROSS JOIN published p
+        WHERE p.cutoff IS NOT NULL
+          AND v.end_time < p.cutoff
+    """)).scalar()
 
 @api_bp.route('/api/get_funniest_timestamps', methods=['GET'])
 @cached_json(lambda: f"funniest_timestamps_{request.args.get('channel')}_{request.args.get('month')}")

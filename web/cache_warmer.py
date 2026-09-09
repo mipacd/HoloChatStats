@@ -25,6 +25,7 @@ ANALYTICS_CACHE_PATTERNS = (
     "funniest_timestamps_*", "user_info_*", "chat_engagement_*",
     "stream_frequency_*", "stream_calendar_*", "video_highlights_*",
     "channel_names", "date_ranges", "number_of_chat_logs", "num_messages",
+    "published_coverage_v2:*",
 )
 
 

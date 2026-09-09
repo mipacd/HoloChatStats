@@ -21,6 +21,7 @@ FINALIZED_MONTH_PATTERNS = (
     "date_ranges",
     "number_of_chat_logs",
     "num_messages",
+    "published_coverage_v2:*",
 )
 
 # A request can reach a month while it is still staging and cache an empty or

@@ -36,6 +36,9 @@ class CacheInvalidationTests(unittest.TestCase):
             "monthly_streaming_hours_Test_forecast_True",
             "channel_recommendations:user-1:6m",
             "stream_calendar_Test_UTC_latest_0",
+            "published_coverage_v2:date_ranges",
+            "published_coverage_v2:number_of_chat_logs",
+            "published_coverage_v2:num_messages",
         }
         protected = {
             "group_chat_makeup_all_2026-07",

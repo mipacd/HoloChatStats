@@ -197,7 +197,7 @@ class ProductionConfigTests(unittest.TestCase):
             "exclusive_chat_users_*", "message_type_percents_*",
             "jp_user_percent_*", "stream_frequency_*", "stream_calendar_*",
             "channel_names", "date_ranges", "number_of_chat_logs",
-            "num_messages",
+            "num_messages", "published_coverage_v2:*",
         ):
             self.assertIn(f'"{pattern}"', invalidation)
         for protected in ("rate:*", "v2:*", "cache_hits:*", "cache_misses:*"):
@@ -300,6 +300,22 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn('api.get("/get_publication_progress")', home)
         self.assertIn("publication?.behind", home)
         self.assertIn("remaining_chat_logs", home)
+
+    def test_home_coverage_is_fenced_to_published_months_and_cached(self):
+        api = (ROOT / "web" / "api.py").read_text(encoding="utf-8")
+        coverage = api.split(
+            "@api_bp.route('/api/get_date_ranges'", 1)[1].split(
+                "@api_bp.route('/api/get_funniest_timestamps'", 1)[0]
+        for endpoint in ("date_ranges", "number_of_chat_logs", "num_messages"):
+            self.assertIn(f'published_coverage_v2:{endpoint}', coverage)
+        self.assertGreaterEqual(coverage.count("MAX(observed_month)"), 3)
+        self.assertGreaterEqual(coverage.count("status = 'merged'"), 3)
+        self.assertGreaterEqual(coverage.count("v.end_time < p.cutoff"), 3)
+        # Progress must remain live while the current month drains.
+        progress_decorators = api.split(
+            "@api_bp.route('/api/get_publication_progress'", 1)[1].split(
+                "def get_publication_progress", 1)[0]
+        self.assertNotIn("@cached_json", progress_decorators)
 
 
 if __name__ == "__main__":
