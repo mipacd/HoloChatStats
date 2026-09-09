@@ -74,7 +74,8 @@ def _extract_video_info(url, attempts=6):
     immediately because retrying cannot repair the cookie/account state."""
     transient = ("unterminated string", "jsondecodeerror", "503",
                  "service unavailable", "timed out", "timeout",
-                 "connection reset", "remote end closed")
+                 "connection reset", "remote end closed",
+                 "page needs to be reloaded")
     for attempt in range(attempts):
         try:
             with YoutubeDL(_ydl_options()) as ydl:

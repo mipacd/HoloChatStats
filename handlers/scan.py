@@ -28,7 +28,8 @@ QUOTA_MARKERS = ("quota", "quotaexceeded", "dailylimitexceeded")
 # Some replay failures are only true at the time YouTube is queried.  They are
 # terminal for month publication, but the first uploads-playlist page is
 # reconsidered on later scans so a newly-published replay can be recovered.
-SKIP_ON_LOOKUP_ERROR = ("members", "not available", "removed", "private", "deleted")
+SKIP_ON_LOOKUP_ERROR = ("members", "not available", "removed", "private", "deleted",
+                        "age-restricted", "age restricted", "confirm your age")
 RECHECKABLE_SKIP = ("members", "not available", "private",
                     "concluded, no chat replay", "live event", "will begin")
 def handler(event, context):

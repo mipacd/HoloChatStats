@@ -18,7 +18,8 @@ DOWNLOAD_LOCK_KEY = 744_211_988
 BUCKET = os.environ["RAW_BUCKET"]
 RETRY_QUEUE = os.environ.get("DOWNLOAD_RETRY_QUEUE_URL")
 PERMANENT = ("members", "not available", "removed", "private", "no chat replay",
-             "no continuation", "live event", "will begin")
+             "no continuation", "live event", "will begin", "age-restricted",
+             "age restricted", "confirm your age")
 # Chat replay pagination ending is the authoritative completion signal.  The
 # last message need not be near the end of the video (outros and post-stream
 # screens are often quiet), so only flag a very large unexplained gap.
@@ -117,16 +118,24 @@ def _process(msg, context):
     t0 = time.time()
     lease = str(uuid.uuid4())
     with conn.cursor() as cur:
-        cur.execute("""SELECT status, continuation, part_count, attempts,
-                              last_offset_s, video_duration_s,
-                              COALESCE(messages_downloaded, 0)
-                       FROM ingest_jobs WHERE video_id = %s FOR UPDATE""", (video_id,))
+        cur.execute("""SELECT j.status, j.continuation, j.part_count, j.attempts,
+                              j.last_offset_s, j.video_duration_s,
+                              COALESCE(j.messages_downloaded, 0),
+                              EXTRACT(EPOCH FROM (
+                                  v.end_time - COALESCE(
+                                      v.duration,
+                                      make_interval(secs => j.video_duration_s)
+                                  )
+                              ))::double precision AS derived_start_ts
+                       FROM ingest_jobs j
+                       LEFT JOIN videos v ON v.video_id = j.video_id
+                       WHERE j.video_id = %s FOR UPDATE OF j""", (video_id,))
         row = cur.fetchone()
         if row is None:
             log.warning("no job row; dropping", extra={"video_id": video_id})
             conn.rollback(); return
         (status, continuation, part_count, attempts, last_offset, duration,
-         msgs_before) = row
+         msgs_before, stored_start_ts) = row
         if status in ("done", "skipped", "ingesting", "downloaded"):
             log.info("already past download stage", extra={"video_id": video_id,
                                                            "status": status})
@@ -141,11 +150,12 @@ def _process(msg, context):
     try:
         replay = ChatReplay(video_id,
                             continuation=continuation,
-                            video_start_ts=msg.get("video_start_ts"))
+                            video_start_ts=(msg.get("video_start_ts")
+                                            or stored_start_ts))
     except Exception as e:
         return _handle_error(conn, sqs, video_id, channel_id, msg, e)
     if not duration and getattr(replay, "duration", None):
-        duration = replay.duration
+        duration = duration or replay.duration
         with conn.cursor() as cur:
             cur.execute("""UPDATE ingest_jobs SET video_duration_s = %s,
                            updated_at = NOW() WHERE video_id = %s""",
@@ -201,7 +211,9 @@ def _process(msg, context):
             part_count += 1
             _checkpoint(conn, video_id, lease, next_cont, part_count,
                         last_offset, msgs_before + written)
-        return _handle_error(conn, sqs, video_id, channel_id, msg, e)
+        return _handle_error(
+            conn, sqs, video_id, channel_id,
+            {**msg, "video_start_ts": replay.video_start_ts, "resumed": True}, e)
     if buf:
         written += _flush(s3, channel_id, video_id, part_count, buf)
         part_count += 1

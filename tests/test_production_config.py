@@ -118,9 +118,20 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn('response.headers.get("Retry-After")', youtube)
         self.assertIn("REPLAY_END_SILENCE_SECONDS = 15 * 60", download)
         self.assertIn('"live event", "will begin"', download)
+        self.assertIn('"age-restricted"', download)
+        self.assertIn('"confirm your age"', download)
+        self.assertIn('"video_start_ts": replay.video_start_ts', download)
+        self.assertIn("video_start_ts=(msg.get", download)
+        self.assertIn('"page needs to be reloaded"', youtube)
         for marker in ("503 Server Error", "Service Unavailable",
-                       "truncated: last message", "will begin"):
+                       "truncated: last message", "will begin",
+                       "age-restricted", "page needs to be reloaded"):
             self.assertIn(marker, migrate)
+        scan = (ROOT / "handlers" / "scan.py").read_text(encoding="utf-8")
+        self.assertIn('"age-restricted", "age restricted"', scan)
+        self.assertIn("derived_start_ts", download)
+        self.assertIn("v.end_time - COALESCE", download)
+        self.assertIn("FOR UPDATE OF j", download)
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
         self.assertIn("python scripts/validate_youtube_cookies.py", workflow)
         self.assertIn("YOUTUBE_USER_AGENT is required", workflow)

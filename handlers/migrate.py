@@ -291,7 +291,11 @@ def retry_cookie_failures():
                    OR last_error ILIKE '%%Service Unavailable%%'
                    OR last_error ILIKE '%%truncated: last message%%'
                    OR last_error ILIKE '%%live event%%'
-                   OR last_error ILIKE '%%will begin%%')
+                   OR last_error ILIKE '%%will begin%%'
+                   OR last_error ILIKE '%%age-restricted%%'
+                   OR last_error ILIKE '%%age restricted%%'
+                   OR last_error ILIKE '%%confirm your age%%'
+                   OR last_error ILIKE '%%page needs to be reloaded%%')
             RETURNING video_id, channel_id
         """)
         rows = cur.fetchall()
