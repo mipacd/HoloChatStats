@@ -115,20 +115,31 @@ def _extract_params(html):
     """
     key_m = re.search(r'INNERTUBE_API_KEY["\']\s*:\s*"([^"]+)"', html)
     ver_m = re.search(r'INNERTUBE_CONTEXT_CLIENT_VERSION["\']\s*:\s*"([^"]+)"', html)
-    yid_m = re.search(r'ytInitialData["\']?\s*[:=]\s*', html)
     api_key = key_m.group(1) if key_m else None
     version = ver_m.group(1) if ver_m else "2.20201021.03.00"
     yid = None
-    if yid_m:
+    decode_error = None
+    # A watch page can mention ytInitialData before the real assignment.  Try
+    # every candidate instead of letting one incidental/truncated match hide a
+    # later valid object.
+    for yid_m in re.finditer(r'ytInitialData["\']?\s*[:=]\s*', html):
         start = html.find("{", yid_m.end())
         if start >= 0:
-            # raw_decode understands nesting and escaped braces inside strings;
-            # the old non-greedy regex could cut valid embedded JSON short.
-            yid, _end = json.JSONDecoder().raw_decode(html[start:])
+            try:
+                # raw_decode understands nesting and escaped braces inside
+                # strings; the old non-greedy regex cut valid JSON short.
+                candidate, _end = json.JSONDecoder().raw_decode(html[start:])
+                if isinstance(candidate, dict):
+                    yid = candidate
+                    break
+            except json.JSONDecodeError as exc:
+                decode_error = exc
+    if yid is None and decode_error is not None:
+        raise decode_error
     return api_key, version, yid
 
 
-def _fetch_params(url, attempts=4):
+def _fetch_params(url, attempts=8):
     """Fetch and decode watch-page parameters, retrying truncated HTML."""
     for attempt in range(attempts):
         try:
@@ -206,18 +217,40 @@ def _fetch_chat(api_key, version, continuation):
         requests.exceptions.ConnectionError,
         requests.exceptions.ChunkedEncodingError,
         json.JSONDecodeError,
+        requests.exceptions.HTTPError,
     )
-    for attempt in range(4):
+    # A replay can contain thousands of pages.  YouTube occasionally returns a
+    # truncated JSON body or a short burst of 429/5xx responses for one page;
+    # losing the entire Lambda invocation for that is both slow and likely to
+    # hit the same continuation again.  Keep retries local to the page.
+    for attempt in range(8):
         try:
             r = _auth()["session"].post(
                 url, headers={"Content-Type": "application/json"}, json=data,
                 timeout=60)
             r.raise_for_status()
-            return r.json()
-        except retryable:
-            if attempt == 3:
+            # Decode with the stdlib so every malformed/truncated response has
+            # the same exception type across requests releases.
+            decoded = json.loads(r.content)
+            if not isinstance(decoded, dict):
+                raise json.JSONDecodeError("YouTube response is not an object",
+                                           r.text, 0)
+            return decoded
+        except retryable as exc:
+            response = getattr(exc, "response", None)
+            status = getattr(response, "status_code", None)
+            if (isinstance(exc, requests.exceptions.HTTPError)
+                    and status != 429 and (status is None or status < 500)):
                 raise
-            time.sleep(2 ** attempt)
+            if attempt == 7:
+                raise
+            retry_after = (response.headers.get("Retry-After")
+                           if response is not None else None)
+            try:
+                delay = float(retry_after) if retry_after is not None else 2 ** attempt
+            except (TypeError, ValueError):
+                delay = 2 ** attempt
+            time.sleep(max(0.25, min(delay, 30)))
 
 def _parse_messages(actions, video_start_ts):
     """

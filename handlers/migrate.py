@@ -275,7 +275,7 @@ def set_config(key, value):
     return {key: value}
 
 def retry_cookie_failures():
-    """Requeue terminal downloads fixed by auth or response-parser updates."""
+    """Requeue terminal downloads fixed by auth/response-reader updates."""
     conn = get_conn()
     with conn.cursor() as cur:
         cur.execute("""
@@ -286,7 +286,12 @@ def retry_cookie_failures():
               AND (last_error ILIKE '%%sign in to confirm%%not a bot%%'
                    OR last_error ILIKE '%%cookie%%'
                    OR last_error ILIKE '%%unterminated string%%'
-                   OR last_error ILIKE '%%JSONDecodeError%%')
+                   OR last_error ILIKE '%%JSONDecodeError%%'
+                   OR last_error ILIKE '%%503 Server Error%%'
+                   OR last_error ILIKE '%%Service Unavailable%%'
+                   OR last_error ILIKE '%%truncated: last message%%'
+                   OR last_error ILIKE '%%live event%%'
+                   OR last_error ILIKE '%%will begin%%')
             RETURNING video_id, channel_id
         """)
         rows = cur.fetchall()

@@ -83,6 +83,7 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("retry_cookie_failures", migrate)
         self.assertIn("unterminated string", migrate)
         self.assertIn("drain_retry_queue", migrate)
+
         self.assertIn('@app.get("/healthz/llm")',
                       (ROOT / "llm_chat" / "main.py").read_text())
         self.assertIn('LLM_HEALTH_PATH = "/healthz/llm"', config)
@@ -102,6 +103,22 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertLess(zero, update)
         self.assertIn("_stop_orphaned_emulator_frontends", frontend)
         self.assertIn('startswith("floci-ecs-")', frontend)
+
+    def test_replay_transients_and_quiet_outros_do_not_stall_a_month(self):
+        youtube = (ROOT / "common" / "youtube.py").read_text(
+            encoding="utf-8")
+        download = (ROOT / "handlers" / "download.py").read_text(
+            encoding="utf-8")
+        migrate = (ROOT / "handlers" / "migrate.py").read_text(
+            encoding="utf-8")
+        self.assertIn("for attempt in range(8)", youtube)
+        self.assertIn("requests.exceptions.HTTPError", youtube)
+        self.assertIn('response.headers.get("Retry-After")', youtube)
+        self.assertIn("REPLAY_END_SILENCE_SECONDS = 15 * 60", download)
+        self.assertIn('"live event", "will begin"', download)
+        for marker in ("503 Server Error", "Service Unavailable",
+                       "truncated: last message", "will begin"):
+            self.assertIn(marker, migrate)
 
     def test_download_rechecks_month_order_at_execution(self):
         download = (ROOT / "handlers" / "download.py").read_text()

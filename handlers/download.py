@@ -18,7 +18,11 @@ DOWNLOAD_LOCK_KEY = 744_211_988
 BUCKET = os.environ["RAW_BUCKET"]
 RETRY_QUEUE = os.environ.get("DOWNLOAD_RETRY_QUEUE_URL")
 PERMANENT = ("members", "not available", "removed", "private", "no chat replay",
-             "no continuation")
+             "no continuation", "live event", "will begin")
+# Chat replay pagination ending is the authoritative completion signal.  The
+# last message need not be near the end of the video (outros and post-stream
+# screens are often quiet), so only flag a very large unexplained gap.
+REPLAY_END_SILENCE_SECONDS = 15 * 60
 class LeaseLost(Exception):
     """Our row was reassigned (reaper decided we were dead). Stop immediately:
     anything we write from here on would corrupt the new owner's checkpoint."""
@@ -201,7 +205,8 @@ def _process(msg, context):
     if buf:
         written += _flush(s3, channel_id, video_id, part_count, buf)
         part_count += 1
-    if duration and last_offset < (duration - 60):
+    if (duration and last_offset
+            and last_offset < (duration - REPLAY_END_SILENCE_SECONDS)):
         return _handle_error(
             conn, sqs, video_id, channel_id, msg,
             RuntimeError(f"truncated: last message at {int(last_offset)}s "
