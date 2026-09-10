@@ -35,7 +35,8 @@ def handler(event, context):
     for record in event["Records"]:
         msg = json.loads(record["body"])
         source = msg.get("source") or msg.get("src")
-        if source not in (None, "dispatch", "retry", "resume", "manual"):
+        if source not in (None, "dispatch", "retry", "resume", "manual",
+                          "repair"):
             log.warning("download message from an unknown producer -- month ordering "
                 "is not being honoured", extra={"video_id": msg.get("video_id"),
                                                 "msg": msg})
@@ -211,9 +212,16 @@ def _process(msg, context):
             part_count += 1
             _checkpoint(conn, video_id, lease, next_cont, part_count,
                         last_offset, msgs_before + written)
+        response = getattr(e, "response", None)
+        stale_checkpoint = (
+            getattr(response, "status_code", None) == 400
+            and part_count > 0
+            and not msg.get("checkpoint_reset")
+        )
         return _handle_error(
             conn, sqs, video_id, channel_id,
-            {**msg, "video_start_ts": replay.video_start_ts, "resumed": True}, e)
+            {**msg, "video_start_ts": replay.video_start_ts, "resumed": True},
+            e, reset_checkpoint=stale_checkpoint)
     if buf:
         written += _flush(s3, channel_id, video_id, part_count, buf)
         part_count += 1
@@ -276,11 +284,14 @@ def _checkpoint(conn, video_id, lease, continuation, part_count, last_offset, me
     conn.commit()
     if lost:
         raise LeaseLost(video_id)
-def _handle_error(conn, sqs, video_id, channel_id, msg, exc):
+def _handle_error(conn, sqs, video_id, channel_id, msg, exc,
+                  reset_checkpoint=False):
     text = str(exc)
     permanent = any(k in text.lower() for k in PERMANENT)
     max_retries = setting("max_retries", 5, int)
-    attempt = msg.get("attempt", 0) + 1
+    # A stale checkpoint repair starts a fresh retry budget because the prior
+    # attempts all exercised the same invalid continuation.
+    attempt = 1 if reset_checkpoint else msg.get("attempt", 0) + 1
     if permanent or attempt >= max_retries:
         with conn.cursor() as cur:
             cur.execute("""UPDATE ingest_jobs
@@ -297,14 +308,33 @@ def _handle_error(conn, sqs, video_id, channel_id, msg, exc):
         return
     delay = min(900, 5 * (2 ** attempt))
     with conn.cursor() as cur:
-        cur.execute("""UPDATE ingest_jobs SET status='pending', last_error=%s,
-                       lease_id=NULL, updated_at=NOW() WHERE video_id=%s""",
-                    (text[:1000], video_id))
+        if reset_checkpoint:
+            # YouTube replay continuations can expire independently of the
+            # watch page. Restart this one video from its newly issued initial
+            # token. Parts are numbered from zero and atomically overwritten;
+            # any higher stale objects are ignored by the new part_count.
+            cur.execute("""UPDATE ingest_jobs
+                           SET status='pending', last_error=%s, lease_id=NULL,
+                               continuation=NULL, part_count=0,
+                               last_offset_s=0, messages_downloaded=0,
+                               updated_at=NOW() WHERE video_id=%s""",
+                        (text[:1000], video_id))
+        else:
+            cur.execute("""UPDATE ingest_jobs SET status='pending', last_error=%s,
+                           lease_id=NULL, updated_at=NOW() WHERE video_id=%s""",
+                        (text[:1000], video_id))
     conn.commit()
     # Keep the message on whichever lane it arrived on.
     queue = os.environ["DOWNLOAD_QUEUE_URL"]
     sqs.send_message(QueueUrl=queue,
-                     MessageBody=json.dumps({**msg, "attempt": attempt}),
+                     MessageBody=json.dumps({
+                         **msg, "attempt": attempt,
+                         "checkpoint_reset": (msg.get("checkpoint_reset")
+                                              or reset_checkpoint),
+                     }),
                      DelaySeconds=delay)
     emit({"DownloadRetries": (1, COUNT)}, {"Stage": "download"},
          video_id=video_id, delay=delay, error=text[:200])
+    if reset_checkpoint:
+        log.warning("invalid replay continuation; restarting video download",
+                    extra={"video_id": video_id})

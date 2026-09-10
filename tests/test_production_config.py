@@ -137,6 +137,13 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("derived_start_ts", download)
         self.assertIn("v.end_time - COALESCE", download)
         self.assertIn("FOR UPDATE OF j", download)
+        self.assertIn("invalid replay continuation; restarting", download)
+        self.assertIn("reset_checkpoint=stale_checkpoint", download)
+        self.assertIn("class RawPartCorrupt", (ROOT / "handlers" /
+                                               "ingest.py").read_text())
+        self.assertIn("corrupt raw part; restarting video download",
+                      (ROOT / "handlers" / "ingest.py").read_text())
+        self.assertIn("400 Client Error", migrate)
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
         self.assertIn("python scripts/validate_youtube_cookies.py", workflow)
         self.assertIn("YOUTUBE_USER_AGENT is required", workflow)

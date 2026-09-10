@@ -30,6 +30,10 @@ _UPDATE = """
         es_en_id_count = EXCLUDED.es_en_id_count,
         total_message_count = EXCLUDED.total_message_count,
         is_gift = EXCLUDED.is_gift"""
+
+class RawPartCorrupt(RuntimeError):
+    """A committed download part cannot be decoded and must be rebuilt."""
+
 def handler(event, context):
     if paused():
         requeue_all("INGEST_QUEUE_URL", event["Records"])
@@ -41,9 +45,19 @@ def _iter_messages(s3, channel_id, video_id, part_count):
     for part in range(part_count):
         key = f"{channel_id}/{video_id}/part-{part:05d}.jsonl.gz"
         body = s3.get_object(Bucket=BUCKET, Key=key)["Body"].read()
-        for line in gzip.decompress(body).decode().splitlines():
-            if line:
-                yield json.loads(line)
+        line_number = 0
+        try:
+            lines = gzip.decompress(body).decode().splitlines()
+            for line_number, line in enumerate(lines, 1):
+                if line:
+                    yield json.loads(line)
+        except (gzip.BadGzipFile, EOFError, UnicodeDecodeError,
+                json.JSONDecodeError) as exc:
+            # Do not include the line contents: chat text is user data and can
+            # be large. The key and line number are sufficient diagnostics.
+            raise RawPartCorrupt(
+                f"corrupt raw chat part {key} at line {line_number}: {exc}"
+            ) from exc
 def _month_of_ts(ts):
     return datetime.fromtimestamp(ts or 0, timezone.utc).date().replace(day=1)
 def _route(cur, video_id, fallback_ts):
@@ -184,6 +198,28 @@ def _ingest(msg):
                                  SET value='pending', updated_at=NOW()""",
                             (f"late_data_month:{month}",))
         conn.commit()
+    except RawPartCorrupt as e:
+        conn.rollback()
+        with conn.cursor() as cur:
+            cur.execute("""UPDATE ingest_jobs
+                           SET status='pending', attempts=0,
+                               continuation=NULL, part_count=0,
+                               last_offset_s=0, messages_downloaded=0,
+                               lease_id=NULL, last_error=%s, updated_at=NOW()
+                           WHERE video_id=%s""", (str(e)[:1000], video_id))
+        conn.commit()
+        client("sqs").send_message(
+            QueueUrl=os.environ["DOWNLOAD_QUEUE_URL"],
+            MessageBody=json.dumps({
+                "video_id": video_id, "channel_id": channel_id,
+                "attempt": 0, "source": "repair",
+                "checkpoint_reset": True,
+            }))
+        emit({"RawPartsRepaired": (1, COUNT)}, {"Stage": "ingest"},
+             video_id=video_id)
+        log.warning("corrupt raw part; restarting video download",
+                    extra={"video_id": video_id, "error": str(e)[:300]})
+        return
     except Exception as e:
         conn.rollback()
         with conn.cursor() as cur:

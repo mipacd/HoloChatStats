@@ -280,7 +280,32 @@ def retry_cookie_failures():
     with conn.cursor() as cur:
         cur.execute("""
             UPDATE ingest_jobs
-            SET status='pending', attempts=0, last_error=NULL,
+            SET status='pending', attempts=0,
+                continuation = CASE
+                  WHEN last_error ILIKE '%%unterminated string%%'
+                    OR last_error ILIKE '%%JSONDecodeError%%'
+                    OR last_error ILIKE '%%400 Client Error%%'
+                    OR last_error ILIKE '%%Bad Request%%'
+                  THEN NULL ELSE continuation END,
+                part_count = CASE
+                  WHEN last_error ILIKE '%%unterminated string%%'
+                    OR last_error ILIKE '%%JSONDecodeError%%'
+                    OR last_error ILIKE '%%400 Client Error%%'
+                    OR last_error ILIKE '%%Bad Request%%'
+                  THEN 0 ELSE part_count END,
+                last_offset_s = CASE
+                  WHEN last_error ILIKE '%%unterminated string%%'
+                    OR last_error ILIKE '%%JSONDecodeError%%'
+                    OR last_error ILIKE '%%400 Client Error%%'
+                    OR last_error ILIKE '%%Bad Request%%'
+                  THEN 0 ELSE last_offset_s END,
+                messages_downloaded = CASE
+                  WHEN last_error ILIKE '%%unterminated string%%'
+                    OR last_error ILIKE '%%JSONDecodeError%%'
+                    OR last_error ILIKE '%%400 Client Error%%'
+                    OR last_error ILIKE '%%Bad Request%%'
+                  THEN 0 ELSE messages_downloaded END,
+                last_error=NULL,
                 completed_at=NULL, lease_id=NULL, updated_at=NOW()
             WHERE status='failed'
               AND (last_error ILIKE '%%sign in to confirm%%not a bot%%'
@@ -295,7 +320,9 @@ def retry_cookie_failures():
                    OR last_error ILIKE '%%age-restricted%%'
                    OR last_error ILIKE '%%age restricted%%'
                    OR last_error ILIKE '%%confirm your age%%'
-                   OR last_error ILIKE '%%page needs to be reloaded%%')
+                   OR last_error ILIKE '%%page needs to be reloaded%%'
+                   OR last_error ILIKE '%%400 Client Error%%'
+                   OR last_error ILIKE '%%Bad Request%%')
             RETURNING video_id, channel_id
         """)
         rows = cur.fetchall()
