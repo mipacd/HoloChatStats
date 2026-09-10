@@ -2305,7 +2305,7 @@ def get_publication_progress():
         SELECT t.target_month,
                t.target_month <= t.previous_month AS behind,
                COUNT(j.video_id) FILTER (
-                   WHERE j.status NOT IN ('done', 'skipped')) AS remaining
+                   WHERE j.status NOT IN ('done', 'failed', 'skipped')) AS remaining
         FROM target t
         LEFT JOIN videos v
           ON v.end_time >= (t.target_month::timestamp AT TIME ZONE 'UTC')

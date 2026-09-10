@@ -109,7 +109,7 @@ def _ingest(msg):
         return
     with conn.cursor() as cur:
         cur.execute("""UPDATE ingest_jobs SET status='ingesting', updated_at=NOW()
-                       WHERE video_id=%s AND status IN ('downloaded','failed')
+                       WHERE video_id=%s AND status = 'downloaded'
                        RETURNING part_count""", (video_id,))
         row = cur.fetchone()
     conn.commit()
@@ -189,9 +189,9 @@ def _ingest(msg):
                                updated_at=NOW(), last_error=NULL
                            WHERE video_id=%s""", (total, video_id))
             if late_finalized:
-                # The scheduled refresh consumes this durable marker only
-                # after rebuilding derived data and invalidating this month's
-                # permanent analytics caches.
+                # An operator-triggered re-publication consumes this durable
+                # marker only after rebuilding derived data and invalidating
+                # this month's permanent analytics caches.
                 cur.execute("""INSERT INTO service_config (key, value, updated_at)
                                VALUES (%s, 'pending', NOW())
                                ON CONFLICT (key) DO UPDATE
@@ -202,22 +202,16 @@ def _ingest(msg):
         conn.rollback()
         with conn.cursor() as cur:
             cur.execute("""UPDATE ingest_jobs
-                           SET status='pending', attempts=0,
+                           SET status='failed',
                                continuation=NULL, part_count=0,
                                last_offset_s=0, messages_downloaded=0,
-                               lease_id=NULL, last_error=%s, updated_at=NOW()
+                               lease_id=NULL, last_error=%s,
+                               completed_at=NOW(), updated_at=NOW()
                            WHERE video_id=%s""", (str(e)[:1000], video_id))
         conn.commit()
-        client("sqs").send_message(
-            QueueUrl=os.environ["DOWNLOAD_QUEUE_URL"],
-            MessageBody=json.dumps({
-                "video_id": video_id, "channel_id": channel_id,
-                "attempt": 0, "source": "repair",
-                "checkpoint_reset": True,
-            }))
-        emit({"RawPartsRepaired": (1, COUNT)}, {"Stage": "ingest"},
+        emit({"RawPartsRejected": (1, COUNT)}, {"Stage": "ingest"},
              video_id=video_id)
-        log.warning("corrupt raw part; restarting video download",
+        log.warning("corrupt raw part; awaiting operator retry",
                     extra={"video_id": video_id, "error": str(e)[:300]})
         return
     except Exception as e:

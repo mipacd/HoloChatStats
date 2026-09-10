@@ -7,6 +7,7 @@ import time
 import psycopg2
 log = get_logger("refresh")
 def handler(event, context):
+    event = event or {}
     conn = get_conn()
     conn.autocommit = True           # REFRESH CONCURRENTLY cannot run in a txn block
     t0 = time.time()
@@ -16,12 +17,23 @@ def handler(event, context):
             SELECT DISTINCT date_trunc('month', v.end_time)::date
             FROM ingest_jobs j JOIN videos v USING (video_id)
             WHERE j.status = 'done'
-              AND j.completed_at > NOW() - INTERVAL '2 days'""")
+              AND j.completed_at > NOW() - INTERVAL '2 days'
+              AND NOT EXISTS (
+                  SELECT 1 FROM monthly_merge_state s
+                  WHERE s.observed_month =
+                        date_trunc('month', v.end_time)::date
+                    AND s.status = 'merged')""")
         months = {r[0] for r in cur.fetchall()}
         cur.execute("""SELECT key, split_part(key, ':', 2)::date, updated_at
                        FROM service_config
                        WHERE key LIKE 'late_data_month:%' AND value='pending'""")
-        late = {r[1]: (r[0], r[2]) for r in cur.fetchall()}
+        late_pending = {r[1]: (r[0], r[2]) for r in cur.fetchall()}
+        late = {}
+        if event.get("publish_months"):
+            requested = {datetime.fromisoformat(str(m)).date().replace(day=1)
+                         for m in event["publish_months"]}
+            late = {m: marker for m, marker in late_pending.items()
+                    if m in requested}
         months.update(late)
         for mv in ("mv_user_monthly_activity", "mv_user_activity",
                    "chat_language_stats_mv", "mv_user_language_per_month"):
@@ -41,14 +53,23 @@ def handler(event, context):
             cur.execute("""DELETE FROM service_config
                            WHERE key=%s AND value='pending' AND updated_at=%s""",
                         (key, marker_updated_at))
+            marker_cleared = cur.rowcount == 1
+            if marker_cleared:
+                cur.execute("""INSERT INTO service_config (key, value, updated_at)
+                               VALUES (%s, %s, NOW())
+                               ON CONFLICT (key) DO UPDATE
+                                 SET value=EXCLUDED.value, updated_at=NOW()""",
+                            (f"late_data_published:{m}",
+                             datetime.now(timezone.utc).isoformat()))
             log.info("late finalized month published",
                      extra={"month": str(m), "cache_keys_removed": removed,
-                            "marker_cleared": cur.rowcount == 1})
+                            "marker_cleared": marker_cleared})
     conn.autocommit = False
     emit({"RefreshSeconds": (time.time() - t0, SECONDS),
           "MonthsRefreshed": (len(months), COUNT)})
     return {"months": [str(m) for m in sorted(months)],
-            "late_months": [str(m) for m in sorted(late)]}
+            "late_months": [str(m) for m in sorted(late)],
+            "late_months_pending": [str(m) for m in sorted(late_pending)]}
 
 def _refresh(cur, mv, log):
     """CONCURRENTLY needs a unique index and a populated MV. If either is

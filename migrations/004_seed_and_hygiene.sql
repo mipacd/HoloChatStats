@@ -20,7 +20,6 @@ INSERT INTO service_config (key, value) VALUES
     -- monthly staging / merge
     ('current_month_staging',     'true'),
     ('merge_grace_hours',         '24'),
-    ('merge_ignore_failed',       'false'),
     -- stall recovery (handlers/reap.py); the download heartbeat is ~5s, so
     -- 15 minutes of silence is 180x slack
     ('stale_download_minutes',    '15'),

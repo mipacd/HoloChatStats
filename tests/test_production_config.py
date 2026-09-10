@@ -148,7 +148,7 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("reset_checkpoint=stale_checkpoint", download)
         self.assertIn("class RawPartCorrupt", (ROOT / "handlers" /
                                                "ingest.py").read_text())
-        self.assertIn("corrupt raw part; restarting video download",
+        self.assertIn("corrupt raw part; awaiting operator retry",
                       (ROOT / "handlers" / "ingest.py").read_text())
         self.assertIn("400 Client Error", migrate)
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
@@ -335,6 +335,32 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("invalidate_finalized_month_caches(finalized_month=m)",
                       refresh)
         self.assertIn("updated_at=%s", refresh)
+        self.assertIn("late_data_published:", refresh)
+        self.assertIn('event.get("publish_months")', refresh)
+        admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
+        self.assertIn('"late_months"', admin)
+        self.assertIn('"republish_month"', admin)
+        self.assertIn('id="late-months"', admin)
+        self.assertIn("Re-publish", admin)
+
+    def test_failed_jobs_are_terminal_until_an_admin_retry(self):
+        download = (ROOT / "handlers" / "download.py").read_text()
+        ingest = (ROOT / "handlers" / "ingest.py").read_text()
+        ordering = (ROOT / "common" / "month_order.py").read_text()
+        merge = (ROOT / "handlers" / "merge.py").read_text()
+        admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
+        deploy = (ROOT / "infra" / "deploy.py").read_text()
+        self.assertIn('("done", "failed", "skipped", "ingesting", "downloaded")',
+                      download)
+        self.assertIn("WHERE video_id=%s AND status = 'downloaded'", ingest)
+        self.assertIn("SET status='failed'", ingest)
+        self.assertIn("'done', 'failed', 'skipped'", ordering)
+        self.assertNotIn("if failed and not ignore_failed", merge)
+        self.assertIn('"retry_job"', admin)
+        self.assertIn('id="btn-retry-all"', admin)
+        self.assertIn("Stream ended (UTC)", admin)
+        self.assertNotIn('id="btn-retry"', admin)
+        self.assertNotIn('stack.run_migrate("retry_cookie_failures")', deploy)
 
     def test_home_shows_next_month_publication_backlog_only_when_behind(self):
         api = (ROOT / "web" / "api.py").read_text(encoding="utf-8")
@@ -344,7 +370,7 @@ class ProductionConfigTests(unittest.TestCase):
             "@api_bp.route", 1)[0]
         self.assertIn("MAX(observed_month)", endpoint)
         self.assertIn("latest + INTERVAL '1 month'", endpoint)
-        self.assertIn("j.status NOT IN ('done', 'skipped')", endpoint)
+        self.assertIn("j.status NOT IN ('done', 'failed', 'skipped')", endpoint)
         decorators = api.split(
             "@api_bp.route('/api/get_publication_progress'", 1)[1].split(
                 "def get_publication_progress", 1)[0]

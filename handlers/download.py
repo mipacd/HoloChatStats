@@ -136,7 +136,7 @@ def _process(msg, context):
             conn.rollback(); return
         (status, continuation, part_count, attempts, last_offset, duration,
          msgs_before, stored_start_ts) = row
-        if status in ("done", "skipped", "ingesting", "downloaded"):
+        if status in ("done", "failed", "skipped", "ingesting", "downloaded"):
             log.info("already past download stage", extra={"video_id": video_id,
                                                            "status": status})
             conn.rollback(); return

@@ -3,7 +3,7 @@ Admin surface for the chat-ingestion pipeline.
 Routes (served to the admin gateway / API Gateway):
     GET  /                -> HTML dashboard ("HoloChatStats Admin Page")
     GET  /api/status      -> JSON snapshot (jobs, queues, channels, run state)
-    POST /api/control     -> {"action": "start" | "stop" | "scan_now" | "retry_failed"}
+    POST /api/control     -> pipeline, per-job retry, and month publish actions
     GET/POST /api/news    -> edit the homepage news.txt stored in config S3
 "stop" does three things, belt-and-braces, because an emulator may not
 implement all of them:
@@ -43,7 +43,7 @@ def handler(event, context):
             return _json(200, snapshot())
         if method == "POST" and path == "/api/control":
             body = _body(event)
-            return _json(200, control(body.get("action")))
+            return _json(200, control(body.get("action"), body))
         if method in ("GET", "HEAD") and not path.startswith("/api/"):
             return _page()            # any other GET is the dashboard
         if method == "POST" and path == "/api/channels":
@@ -251,7 +251,7 @@ def snapshot():
             SELECT LEAST(
               (SELECT MIN(date_trunc('month', v.end_time)::date)
                  FROM ingest_jobs j JOIN videos v USING (video_id), floor f
-                WHERE j.status NOT IN ('done','skipped')
+                WHERE j.status NOT IN ('done','failed','skipped')
                   AND v.end_time >= f.ts),
               (SELECT MIN(u.observed_month) FROM user_data_current u, floor f
                 WHERE u.observed_month >= date_trunc('month', f.ts)::date
@@ -306,12 +306,44 @@ def snapshot():
             "stalled": r[3] == "downloading" and (r[9] or 0) > stale_after,
         } for r in cur.fetchall()]
         cur.execute("""
-            SELECT video_id, channel_id, attempts, LEFT(last_error, 160), updated_at
-            FROM ingest_jobs WHERE status = 'failed'
-            ORDER BY updated_at DESC LIMIT 15""")
+            SELECT j.video_id, j.channel_id, j.attempts,
+                   LEFT(j.last_error, 500), j.updated_at, v.end_time
+            FROM ingest_jobs j
+            LEFT JOIN videos v USING (video_id)
+            WHERE j.status = 'failed'
+            ORDER BY v.end_time DESC NULLS LAST, j.updated_at DESC""")
         out["failed"] = [{"video_id": r[0], "channel_id": r[1], "attempts": r[2],
-                          "error": r[3], "updated_at": str(r[4])}
+                          "error": r[3], "updated_at": str(r[4]),
+                          "end_time": (r[5].isoformat(sep=" ", timespec="minutes")
+                                       if r[5] else None)}
                          for r in cur.fetchall()]
+        cur.execute("""
+            SELECT s.observed_month,
+                   COUNT(j.video_id) FILTER (WHERE j.video_id IS NOT NULL),
+                   MIN(j.completed_at), MAX(j.completed_at)
+            FROM service_config marker
+            JOIN monthly_merge_state s
+              ON marker.key = 'late_data_month:' || s.observed_month::text
+             AND marker.value = 'pending'
+            LEFT JOIN service_config published
+              ON published.key = 'late_data_published:' || s.observed_month::text
+            LEFT JOIN videos v
+              ON v.end_time >= (s.observed_month::timestamp AT TIME ZONE 'UTC')
+             AND v.end_time < ((s.observed_month + INTERVAL '1 month')::timestamp
+                                AT TIME ZONE 'UTC')
+            LEFT JOIN ingest_jobs j
+             ON j.video_id = v.video_id AND j.status = 'done'
+             AND j.completed_at > COALESCE(
+                 NULLIF(published.value, '')::timestamptz, s.merged_at,
+                 '-infinity'::timestamptz)
+            WHERE s.status = 'merged'
+            GROUP BY s.observed_month
+            ORDER BY s.observed_month""")
+        out["late_months"] = [{
+            "month": str(r[0]), "new_logs": int(r[1]),
+            "first_completed_at": str(r[2]) if r[2] else None,
+            "last_completed_at": str(r[3]) if r[3] else None,
+        } for r in cur.fetchall()]
         cur.execute("""
             SELECT video_id, channel_id, message_count, completed_at
             FROM ingest_jobs WHERE status = 'done'
@@ -402,8 +434,10 @@ def _rule_state():
 # --------------------------------------------------------------------------- #
 # write side
 # --------------------------------------------------------------------------- #
-def control(action):
-    if action not in ("start", "stop", "scan_now", "retry_failed"):
+def control(action, body=None):
+    body = body or {}
+    if action not in ("start", "stop", "scan_now", "retry_failed",
+                      "retry_job", "republish_month"):
         return {"ok": False, "error": f"unknown action {action!r}"}
     if action in ("start", "stop"):
         want_running = action == "start"
@@ -418,7 +452,16 @@ def control(action):
                                 InvocationType="Event",
                                 Payload=json.dumps({"force": True}).encode())
         return {"ok": True, "action": action, "note": "discover invoked with force"}
-    return {"ok": True, "action": action, "requeued": _retry_failed()}
+    if action == "republish_month":
+        return _republish_month(body.get("month"))
+    video_id = body.get("video_id") if action == "retry_job" else None
+    if action == "retry_job" and not video_id:
+        return {"ok": False, "error": "retry_job requires video_id"}
+    retried = _retry_failed(video_id)
+    if action == "retry_job" and retried["matched"] == 0:
+        return {"ok": False, "error": f"failed job {video_id!r} not found",
+                **retried}
+    return {"ok": True, "action": action, **retried}
 def _set_paused(paused):
     conn = get_conn()
     with conn.cursor() as cur:
@@ -450,23 +493,90 @@ def _set_schedule(enabled):
         return "ENABLED" if enabled else "DISABLED"
     except Exception as e:
         return f"unsupported ({type(e).__name__})"
-def _retry_failed():
+def _retry_failed(video_id=None):
     conn, sqs = get_conn(), client("sqs")
     with conn.cursor() as cur:
-        cur.execute("""UPDATE ingest_jobs
-                       SET status = 'pending', attempts = 0, last_error = NULL,
-                           updated_at = NOW()
-                       WHERE status = 'failed'
-                       RETURNING video_id, channel_id""")
-        rows = cur.fetchall()
+        cur.execute("""SELECT video_id, channel_id, last_error,
+                              part_count, continuation
+                       FROM ingest_jobs
+                       WHERE status='failed'
+                         AND (%s IS NULL OR video_id=%s)
+                       FOR UPDATE""", (video_id, video_id))
+        failed_rows = cur.fetchall()
+        rows = []
+        reset_markers = ("corrupt raw chat part", "unterminated string",
+                         "jsondecodeerror", "400 client error", "bad request")
+        for job_id, channel_id, error, part_count, continuation in failed_rows:
+            reset = any(marker in (error or "").lower()
+                        for marker in reset_markers)
+            # A failure after download completion can retry ingestion directly
+            # when its raw parts are known-good. Other failures return to the
+            # downloader, preserving a valid continuation when possible.
+            target = ("downloaded" if not reset and part_count > 0
+                      and continuation is None else "pending")
+            cur.execute("""UPDATE ingest_jobs
+                           SET status=%s, attempts=0,
+                               continuation=CASE WHEN %s THEN NULL
+                                                 ELSE continuation END,
+                               part_count=CASE WHEN %s THEN 0 ELSE part_count END,
+                               last_offset_s=CASE WHEN %s THEN 0
+                                                  ELSE last_offset_s END,
+                               messages_downloaded=CASE WHEN %s THEN 0
+                                                        ELSE messages_downloaded END,
+                               last_error=NULL, completed_at=NULL,
+                               dispatched_at=NOW(), updated_at=NOW()
+                           WHERE video_id=%s""",
+                        (target, reset, reset, reset, reset, job_id))
+            rows.append((job_id, channel_id, target, 0 if reset else part_count))
     conn.commit()
-    url = os.environ["DOWNLOAD_QUEUE_URL"]
-    for video_id, channel_id in rows:
-        sqs.send_message(QueueUrl=url,
-                         MessageBody=json.dumps({"video_id": video_id,
-                                                 "channel_id": channel_id,
-                                                 "attempt": 0}))
-    return len(rows)
+    send_failures = []
+    for job_id, channel_id, target, part_count in rows:
+        try:
+            ingest_retry = target == "downloaded"
+            sqs.send_message(
+                QueueUrl=os.environ["INGEST_QUEUE_URL" if ingest_retry
+                                    else "DOWNLOAD_QUEUE_URL"],
+                MessageBody=json.dumps({"video_id": job_id,
+                                        "channel_id": channel_id,
+                                        "part_count": part_count,
+                                        "attempt": 0,
+                                        "source": "manual"}))
+        except Exception:
+            send_failures.append(job_id)
+            log.exception("manual retry enqueue failed", extra={"video_id": job_id})
+    if send_failures:
+        with conn.cursor() as cur:
+            cur.execute("""UPDATE ingest_jobs
+                           SET status='failed', dispatched_at=NULL,
+                               last_error='admin retry could not enqueue',
+                               updated_at=NOW()
+                           WHERE video_id = ANY(%s)""", (send_failures,))
+        conn.commit()
+    conn.close()
+    return {"matched": len(rows),
+            "requeued": len(rows) - len(send_failures),
+            "enqueue_failed": len(send_failures)}
+
+def _republish_month(value):
+    month = str(value or "")
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])-01", month):
+        return {"ok": False, "error": "month must use YYYY-MM-01"}
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""SELECT 1 FROM service_config
+                       WHERE key=%s AND value='pending'""",
+                    (f"late_data_month:{month}",))
+        pending = cur.fetchone() is not None
+    conn.rollback()
+    conn.close()
+    if not pending:
+        return {"ok": False, "error": f"no unpublished late logs for {month}"}
+    client("lambda").invoke(
+        FunctionName=f"{APP}-refresh", InvocationType="Event",
+        Payload=json.dumps({"publish_months": [month]}).encode())
+    log.info("late month re-publication requested", extra={"month": month})
+    return {"ok": True, "action": "republish_month", "month": month,
+            "note": "refresh and cache invalidation queued"}
 # --------------------------------------------------------------------------- #
 # the page
 # --------------------------------------------------------------------------- #
@@ -562,7 +672,6 @@ PAGE = r"""<!doctype html>
   <button id="btn-start" class="go">▶ Start ingestion</button>
   <button id="btn-stop" class="halt">■ Stop ingestion</button>
   <button id="btn-scan">Scan now</button>
-  <button id="btn-retry">Retry failed</button>
   <span id="meta">—</span>
 </header>
 <main>
@@ -594,10 +703,21 @@ PAGE = r"""<!doctype html>
     <table><thead><tr><th>Video</th><th class="num">Messages</th>
       <th>Finished</th></tr></thead><tbody id="recent"></tbody></table>
   </section>
-  <section>
-    <h2>Failed</h2>
-    <table><thead><tr><th>Video</th><th class="num">Try</th>
-      <th>Error</th></tr></thead><tbody id="failed"></tbody></table>
+  <section style="grid-column:1/-1">
+    <h2>Failed <button id="btn-retry-all" class="small">Retry all</button></h2>
+    <p class="hint">Failed jobs do not block month publication. Retry only
+      after correcting the underlying problem.</p>
+    <table><thead><tr><th>Video</th><th>Stream ended (UTC)</th>
+      <th class="num">Try</th><th>Error</th><th>Actions</th></tr></thead>
+      <tbody id="failed"></tbody></table>
+  </section>
+  <section style="grid-column:1/-1">
+    <h2>Published months with late logs</h2>
+    <p class="hint">Late chat logs are stored safely. Re-publishing refreshes
+      derived datasets and invalidates affected caches for that month.</p>
+    <table><thead><tr><th>Month</th><th class="num">New logs</th>
+      <th>Latest ingest</th><th>Actions</th></tr></thead>
+      <tbody id="late-months"></tbody></table>
   </section>
   <section style="grid-column:1/-1">
     <h2>Channels <button id="btn-add-chan" class="go small">+ Add channel</button></h2>
@@ -670,7 +790,7 @@ document.addEventListener("click", async ev => {
   setTimeout(() => { btn.textContent = "⧉"; btn.classList.remove("ok"); }, 1200);
 });
 let busy = false;
-async function act(action) {
+async function act(action, fields = {}) {
   if (busy) return;
   busy = true;
   document.querySelectorAll("header button").forEach(b => b.disabled = true);
@@ -678,7 +798,7 @@ async function act(action) {
     const r = await fetch("api/control", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action })
+      body: JSON.stringify({ action, ...fields })
     });
     const j = await r.json();
     if (!j.ok) alert("Action failed: " + (j.error || r.status));
@@ -689,7 +809,9 @@ async function act(action) {
 $("btn-start").onclick = () => act("start");
 $("btn-stop").onclick  = () => act("stop");
 $("btn-scan").onclick  = () => act("scan_now");
-$("btn-retry").onclick = () => { if (confirm("Re-queue every failed job?")) act("retry_failed"); };
+$("btn-retry-all").onclick = () => {
+  if (confirm("Re-queue every failed job?")) act("retry_failed");
+};
 let newsDirty = false;
 async function loadNews() {
   $("news-state").textContent = "loadingâ€¦";
@@ -779,11 +901,23 @@ async function readdChan(ch) {
 }
 // expose for the inline handlers below
 let CHANNELS = [];
+let FAILED = [];
+let LATE_MONTHS = [];
 window.chanAction = (i, what) => {
   const ch = CHANNELS[i];
   if (what === "edit") openChan("edit", ch);
   else if (what === "remove") removeChan(ch);
   else if (what === "readd") readdChan(ch);
+};
+window.retryFailed = i => {
+  const job = FAILED[i];
+  if (job && confirm(`Retry download ${job.video_id}?`))
+    act("retry_job", { video_id: job.video_id });
+};
+window.republishMonth = i => {
+  const item = LATE_MONTHS[i];
+  if (item && confirm(`Re-publish ${item.month} and invalidate its caches?`))
+    act("republish_month", { month: item.month });
 };
 function render(d) {
   const c = d.control;
@@ -794,8 +928,8 @@ function render(d) {
     $("btn-start").disabled = c.running;
     $("btn-stop").disabled  = c.paused;
     $("btn-scan").disabled  = false;
-    $("btn-retry").disabled = !(d.jobs.failed > 0);
   }
+  $("btn-retry-all").disabled = busy || !(d.jobs.failed > 0);
   const j = d.jobs, q = d.queues;
   const backlog = (j.pending||0) + (j.downloading||0) + (j.downloaded||0) + (j.ingesting||0);
   $("kpis").innerHTML = [
@@ -839,9 +973,20 @@ function render(d) {
       <td class="num">${(r.messages ?? 0).toLocaleString()}</td>
       <td>${esc((r.completed_at || "").slice(0, 19))}</td></tr>`).join("")
     || `<tr><td colspan="3">nothing yet</td></tr>`;
-  $("failed").innerHTML = d.failed.map(f => `<tr><td><code>${esc(f.video_id)}</code></td>
-      <td class="num">${f.attempts}</td><td class="err">${esc(f.error)}</td></tr>`).join("")
-    || `<tr><td colspan="3">none 🎉</td></tr>`;
+  FAILED = d.failed || [];
+  $("failed").innerHTML = FAILED.map((f, i) => `<tr>
+      <td><code>${esc(f.video_id)}</code></td>
+      <td class="ts">${esc(f.end_time || "unknown")}</td>
+      <td class="num">${f.attempts}</td><td class="err">${esc(f.error)}</td>
+      <td><button class="small" onclick="retryFailed(${i})">Retry</button></td></tr>`).join("")
+    || `<tr><td colspan="5">none 🎉</td></tr>`;
+  LATE_MONTHS = d.late_months || [];
+  $("late-months").innerHTML = LATE_MONTHS.map((m, i) => `<tr>
+      <td class="ts">${esc(m.month)}</td>
+      <td class="num">${m.new_logs.toLocaleString()}</td>
+      <td class="ts">${esc((m.last_completed_at || "—").slice(0, 19))}</td>
+      <td><button class="small go" onclick="republishMonth(${i})">Re-publish</button></td></tr>`).join("")
+    || `<tr><td colspan="4">no late logs awaiting publication</td></tr>`;
   CHANNELS = d.channels;
   $("channels").innerHTML = d.channels.map((ch, i) => `
     <tr class="${ch.active ? "" : "inactive"}">

@@ -5,8 +5,9 @@ This lambda moves a month's rows into `user_data` once the month is genuinely
 finished:
   1. the month is over, plus service_config.merge_grace_hours;
   2. every video whose end_time falls in the month has a terminal job
-     (done/skipped) -- nothing pending/downloading/downloaded/ingesting, and
-     nothing failed (unless merge_ignore_failed=true);
+     (done/failed/skipped) -- nothing pending/downloading/downloaded/ingesting;
+     failed jobs remain visible for an explicit operator retry but do not hold
+     publication indefinitely;
   3. every active channel has been scanned at least once *after* the month
      ended, including channels for which discovery found no videos. This is
      the publication barrier that proves the month is complete globally.
@@ -31,13 +32,12 @@ def handler(event, context):
     dry_run = bool(event.get("dry_run"))
     cfg = settings(force=True)
     grace = int(cfg.get("merge_grace_hours", 24))
-    ignore_failed = str(cfg.get("merge_ignore_failed", "false")).lower() == "true"
     conn = get_conn()
     months = ([_as_month(m) for m in event["months"]] if event.get("months")
               else _staged_months(conn))
     merged, skipped, rows_total = [], [], 0
     for month in months:
-        state = _month_state(conn, month, grace, ignore_failed)
+        state = _month_state(conn, month, grace)
         if not state["complete"] and not force:
             log.info("month not ready to merge",
                      extra={"month": str(month), **state})
@@ -82,7 +82,7 @@ def _staged_months(conn):
         months = [r[0] for r in cur.fetchall()]
     conn.rollback()
     return months
-def _month_state(conn, month, grace_hours, ignore_failed):
+def _month_state(conn, month, grace_hours):
     start, end = _bounds(month)
     month_over = datetime.now(timezone.utc) >= end + timedelta(hours=grace_hours)
     with conn.cursor() as cur:
@@ -110,8 +110,6 @@ def _month_state(conn, month, grace_hours, ignore_failed):
         reasons.append("month still open (or inside merge_grace_hours)")
     if in_flight:
         reasons.append(f"{in_flight} job(s) still in flight")
-    if failed and not ignore_failed:
-        reasons.append(f"{failed} failed job(s) -- fix or set merge_ignore_failed")
     if unscanned:
         reasons.append(f"{unscanned} channel(s) not rescanned since month end")
     return {"complete": not reasons, "month_over": month_over,

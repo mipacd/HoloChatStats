@@ -24,7 +24,7 @@ def work_months(conn, video_id):
                            'month', v.end_time AT TIME ZONE 'UTC')::date) m
                 FROM ingest_jobs j JOIN videos v USING (video_id), floor f
                 WHERE v.end_time >= f.ts
-                  AND j.status NOT IN ('done', 'skipped')
+                  AND j.status NOT IN ('done', 'failed', 'skipped')
             ), unpublished AS (
                 SELECT MIN(u.observed_month) m
                 FROM user_data_current u, floor f
@@ -41,4 +41,3 @@ def work_months(conn, video_id):
         row = cur.fetchone()
     conn.rollback()
     return row if row else (None, None)
-
