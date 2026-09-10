@@ -20,9 +20,8 @@ RETRY_QUEUE = os.environ.get("DOWNLOAD_RETRY_QUEUE_URL")
 PERMANENT = ("members", "not available", "removed", "private", "no chat replay",
              "no continuation", "live event", "will begin", "age-restricted",
              "age restricted", "confirm your age")
-# Chat replay pagination ending is the authoritative completion signal.  The
-# last message need not be near the end of the video (outros and post-stream
-# screens are often quiet), so only flag a very large unexplained gap.
+# Chat replay pagination ending is the authoritative completion signal. This
+# threshold only controls a diagnostic warning; quiet tails never fail a job.
 REPLAY_END_SILENCE_SECONDS = 15 * 60
 class LeaseLost(Exception):
     """Our row was reassigned (reaper decided we were dead). Stop immediately:
@@ -151,7 +150,8 @@ def _process(msg, context):
         replay = ChatReplay(video_id,
                             continuation=continuation,
                             video_start_ts=(msg.get("video_start_ts")
-                                            or stored_start_ts))
+                                            or stored_start_ts),
+                            duration=duration)
     except Exception as e:
         return _handle_error(conn, sqs, video_id, channel_id, msg, e)
     if not duration and getattr(replay, "duration", None):
@@ -219,10 +219,11 @@ def _process(msg, context):
         part_count += 1
     if (duration and last_offset
             and last_offset < (duration - REPLAY_END_SILENCE_SECONDS)):
-        return _handle_error(
-            conn, sqs, video_id, channel_id, msg,
-            RuntimeError(f"truncated: last message at {int(last_offset)}s "
-                         f"of {int(duration)}s"))
+        log.warning("chat replay ended with a quiet tail; accepting completion",
+                    extra={"video_id": video_id,
+                           "last_message_s": int(last_offset),
+                           "video_duration_s": int(duration),
+                           "quiet_tail_s": int(duration - last_offset)})
     with conn.cursor() as cur:
         cur.execute("""UPDATE ingest_jobs
                        SET status='downloaded', continuation=NULL, part_count=%s,

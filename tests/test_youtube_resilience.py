@@ -108,6 +108,19 @@ class YoutubeResponseTests(unittest.TestCase):
         self.assertEqual(ydl_cls.call_count, 2)
         sleep.assert_called_once()
 
+    @mock.patch.object(
+        youtube, "_fetch_params",
+        return_value=("key", "version", {"continuation": "initial-token"}))
+    @mock.patch.object(youtube, "_extract_video_info")
+    def test_replay_uses_discovery_metadata_without_yt_dlp(
+            self, extract_info, _fetch_params):
+        replay = youtube.ChatReplay(
+            "video-id", video_start_ts=1234.0, duration=5678)
+        self.assertEqual(replay.video_start_ts, 1234.0)
+        self.assertEqual(replay.duration, 5678)
+        self.assertEqual(replay.continuation, "initial-token")
+        extract_info.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

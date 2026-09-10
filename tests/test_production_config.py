@@ -122,6 +122,11 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn('"confirm your age"', download)
         self.assertIn('"video_start_ts": replay.video_start_ts', download)
         self.assertIn("video_start_ts=(msg.get", download)
+        self.assertIn("duration=duration", download)
+        self.assertIn("quiet tail; accepting completion", download)
+        self.assertNotIn('RuntimeError(f"truncated: last message', download)
+        self.assertNotIn("video_start_ts is None or continuation is None",
+                         youtube)
         self.assertIn('"page needs to be reloaded"', youtube)
         for marker in ("503 Server Error", "Service Unavailable",
                        "truncated: last message", "will begin",

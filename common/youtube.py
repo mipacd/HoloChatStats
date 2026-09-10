@@ -574,16 +574,21 @@ class ChatReplay:
     and can expire, so we refresh them on every cold resume and only persist
     the continuation token + start ts.
     """
-    def __init__(self, video_id, continuation=None, video_start_ts=None):
+    def __init__(self, video_id, continuation=None, video_start_ts=None,
+                 duration=None):
         self.video_id = video_id
         url = f"https://www.youtube.com/watch?v={video_id}"
-        if video_start_ts is None or continuation is None:
+        # Discovery already records the video's end time and duration.  Use
+        # that metadata even for the first replay page so chat downloads do
+        # not unnecessarily enter yt-dlp's media-player JS challenge path.
+        # Keep yt-dlp as a fallback for old/manual jobs without metadata.
+        if video_start_ts is None:
             info = _extract_video_info(url)
-            self.duration = info.get("duration") or 0
+            self.duration = info.get("duration") or duration or 0
             self.video_start_ts = (info.get("release_timestamp")
                                    or info.get("timestamp") or 0)
         else:
-            self.duration = None
+            self.duration = duration or 0
             self.video_start_ts = video_start_ts
         self.api_key, self.version, yid = _fetch_params(url)
         if not yid:
