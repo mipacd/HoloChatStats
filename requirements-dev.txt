@@ -4,4 +4,4 @@ redis
 sqlalchemy
 requests
 yt-dlp
-psycopg2
+psycopg2-binary
