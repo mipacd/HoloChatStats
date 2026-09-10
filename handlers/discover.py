@@ -161,6 +161,10 @@ def _eligible_channels(cfg, only=None, force=False):
         rows = cur.fetchall()
     conn.rollback()
     eligible = [(r[0], r[1]) for r in rows]
+    # A targeted request (notably the month-publication barrier) names an
+    # already bounded set and must not silently leave its tail unscanned.
+    if only:
+        return eligible
     return eligible[:limit] if limit > 0 else eligible
 
 def _apply_concurrency(cfg):

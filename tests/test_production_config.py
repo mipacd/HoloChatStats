@@ -9,6 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 class ProductionConfigTests(unittest.TestCase):
     def test_floci_owns_postgres_and_uses_pgvector(self):
         compose = (ROOT / "infra" / "docker-compose.yml").read_text()
+        self.assertIn("restart: unless-stopped", compose)
         self.assertIn(
             "FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: pgvector/pgvector:pg16",
             compose)
@@ -338,10 +339,12 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("late_data_published:", refresh)
         self.assertIn('event.get("publish_months")', refresh)
         admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
-        self.assertIn('"late_months"', admin)
+        self.assertIn('out["months"]', admin)
         self.assertIn('"republish_month"', admin)
-        self.assertIn('id="late-months"', admin)
+        self.assertIn('id="months"', admin)
         self.assertIn("Re-publish", admin)
+        self.assertIn('"publish_month"', admin)
+        self.assertIn("Channel checks", admin)
 
     def test_failed_jobs_are_terminal_until_an_admin_retry(self):
         download = (ROOT / "handlers" / "download.py").read_text()
@@ -362,6 +365,20 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertNotIn('id="btn-retry"', admin)
         self.assertNotIn('stack.run_migrate("retry_cookie_failures")', deploy)
 
+    def test_month_barrier_targets_every_unscanned_channel(self):
+        merge = (ROOT / "handlers" / "merge.py").read_text()
+        discover = (ROOT / "handlers" / "discover.py").read_text()
+        self.assertIn("_unscanned_channel_ids", merge)
+        self.assertIn("_request_barrier_scan", merge)
+        self.assertIn('"force": True, "channels": channel_ids', merge)
+        self.assertIn("merge_barrier_scan:", merge)
+        self.assertIn("INTERVAL '30 minutes'", merge)
+        targeted = discover.split("def _eligible_channels", 1)[1].split(
+            "def _apply_concurrency", 1)[0]
+        self.assertIn("if only:", targeted)
+        self.assertLess(targeted.index("if only:"),
+                        targeted.index("eligible[:limit]"))
+
     def test_home_shows_next_month_publication_backlog_only_when_behind(self):
         api = (ROOT / "web" / "api.py").read_text(encoding="utf-8")
         home = (ROOT / "frontend" / "src" / "pages" /
@@ -371,6 +388,8 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("MAX(observed_month)", endpoint)
         self.assertIn("latest + INTERVAL '1 month'", endpoint)
         self.assertIn("j.status NOT IN ('done', 'failed', 'skipped')", endpoint)
+        self.assertNotIn("remaining_channel_checks", endpoint)
+        self.assertNotIn("channel_watermarks", endpoint)
         decorators = api.split(
             "@api_bp.route('/api/get_publication_progress'", 1)[1].split(
                 "def get_publication_progress", 1)[0]
@@ -378,6 +397,8 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn('api.get("/get_publication_progress")', home)
         self.assertIn("publication?.behind", home)
         self.assertIn("remaining_chat_logs", home)
+        self.assertNotIn("remaining_channel_checks", home)
+        self.assertNotIn("{{channels}} channel checks", home)
 
     def test_home_coverage_is_fenced_to_published_months_and_cached(self):
         api = (ROOT / "web" / "api.py").read_text(encoding="utf-8")

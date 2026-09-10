@@ -17,6 +17,8 @@ Manual use:
     {"dry_run": true}                           -- report, change nothing
     {"months": ["2025-05-01"], "force": true}   -- merge regardless of gates
 """
+import json
+import os
 import time
 from datetime import date, datetime, timedelta, timezone
 from common.config import settings
@@ -24,6 +26,7 @@ from common.db import get_conn
 from common.logging_utils import get_logger
 from common.metrics import emit, COUNT, SECONDS
 from common.cache_invalidation import invalidate_finalized_month_caches
+from common.aws import client
 log = get_logger("merge")
 def handler(event, context):
     event = event or {}
@@ -38,7 +41,13 @@ def handler(event, context):
     merged, skipped, rows_total = [], [], 0
     for month in months:
         state = _month_state(conn, month, grace)
+        unscanned_ids = state.pop("_unscanned_channel_ids")
         if not state["complete"] and not force:
+            if (state["month_over"] and not state["jobs_in_flight"]
+                    and unscanned_ids and not dry_run
+                    and str(cfg.get("paused", "false")).lower() != "true"):
+                state["barrier_scan"] = _request_barrier_scan(
+                    conn, month, unscanned_ids)
             log.info("month not ready to merge",
                      extra={"month": str(month), **state})
             skipped.append({"month": str(month), **state})
@@ -95,12 +104,14 @@ def _month_state(conn, month, grace_hours):
         """, (start, end))
         failed, in_flight = cur.fetchone()
         cur.execute("""
-            SELECT COUNT(*) FROM channels c
+            SELECT c.channel_id FROM channels c
             LEFT JOIN channel_watermarks w USING (channel_id)
             WHERE c.active
               AND (w.last_scanned_at IS NULL OR w.last_scanned_at < %s)
+            ORDER BY c.channel_id
         """, (end,))
-        unscanned = cur.fetchone()[0]
+        unscanned_ids = [r[0] for r in cur.fetchall()]
+        unscanned = len(unscanned_ids)
         cur.execute("SELECT COUNT(*) FROM user_data_current "
                     "WHERE observed_month = %s", (month,))
         staged = cur.fetchone()[0]
@@ -115,7 +126,43 @@ def _month_state(conn, month, grace_hours):
     return {"complete": not reasons, "month_over": month_over,
             "jobs_in_flight": in_flight, "jobs_failed": failed,
             "channels_not_rescanned": unscanned, "staged_rows": staged,
-            "blockers": reasons}
+            "blockers": reasons,
+            "_unscanned_channel_ids": unscanned_ids}
+
+def _request_barrier_scan(conn, month, channel_ids):
+    """Kick the missing post-boundary scans without normal backlog pressure.
+
+    The durable throttle prevents repeated merge/dispatcher invocations from
+    filling SQS with duplicate channel scans while the first request runs.
+    Targeted discovery scans every supplied channel and remains resumable, so
+    a never-scanned restored channel still walks back through July safely.
+    """
+    key = f"merge_barrier_scan:{month}"
+    with conn.cursor() as cur:
+        cur.execute("""INSERT INTO service_config (key, value, updated_at)
+                       VALUES (%s, 'requested', NOW())
+                       ON CONFLICT (key) DO UPDATE
+                         SET value='requested', updated_at=NOW()
+                       WHERE service_config.updated_at <
+                             NOW() - INTERVAL '30 minutes'
+                       RETURNING updated_at""", (key,))
+        should_invoke = cur.fetchone() is not None
+    conn.commit()
+    if not should_invoke:
+        return {"requested": 0, "throttled": True}
+    try:
+        client("lambda").invoke(
+            FunctionName=f"{os.environ.get('APP_NAME', 'chat-ingest')}-discover",
+            InvocationType="Event",
+            Payload=json.dumps({"force": True, "channels": channel_ids}).encode())
+    except Exception:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM service_config WHERE key=%s", (key,))
+        conn.commit()
+        raise
+    log.info("requested missing month-barrier channel scans",
+             extra={"month": str(month), "channels": len(channel_ids)})
+    return {"requested": len(channel_ids), "throttled": False}
 def _merge_month(conn, month):
     with conn.cursor() as cur:
         cur.execute("SELECT merge_month_into_user_data(%s::date)", (month,))
@@ -123,6 +170,8 @@ def _merge_month(conn, month):
         # Summary table is keyed on last_message_at's month; recompute both the
         # merged month and the next one (streams that crossed the boundary).
         cur.execute("CALL refresh_membership_data_for_month(%s::date)", (month,))
+        cur.execute("DELETE FROM service_config WHERE key=%s",
+                    (f"merge_barrier_scan:{month}",))
     conn.commit()
     return rows
 

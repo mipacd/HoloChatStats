@@ -3,6 +3,7 @@ services:
   floci:
     image: floci/floci:latest
     container_name: floci
+    restart: unless-stopped
     ports:
       - "4566:4566"              # AWS API edge
       - "7001-7099:7001-7099"    # RDS proxy

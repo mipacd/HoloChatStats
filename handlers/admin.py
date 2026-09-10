@@ -318,31 +318,81 @@ def snapshot():
                                        if r[5] else None)}
                          for r in cur.fetchall()]
         cur.execute("""
-            SELECT s.observed_month,
-                   COUNT(j.video_id) FILTER (WHERE j.video_id IS NOT NULL),
-                   MIN(j.completed_at), MAX(j.completed_at)
-            FROM service_config marker
-            JOIN monthly_merge_state s
-              ON marker.key = 'late_data_month:' || s.observed_month::text
-             AND marker.value = 'pending'
-            LEFT JOIN service_config published
-              ON published.key = 'late_data_published:' || s.observed_month::text
-            LEFT JOIN videos v
-              ON v.end_time >= (s.observed_month::timestamp AT TIME ZONE 'UTC')
-             AND v.end_time < ((s.observed_month + INTERVAL '1 month')::timestamp
-                                AT TIME ZONE 'UTC')
-            LEFT JOIN ingest_jobs j
-             ON j.video_id = v.video_id AND j.status = 'done'
-             AND j.completed_at > COALESCE(
-                 NULLIF(published.value, '')::timestamptz, s.merged_at,
-                 '-infinity'::timestamptz)
-            WHERE s.status = 'merged'
-            GROUP BY s.observed_month
-            ORDER BY s.observed_month""")
-        out["late_months"] = [{
-            "month": str(r[0]), "new_logs": int(r[1]),
-            "first_completed_at": str(r[2]) if r[2] else None,
-            "last_completed_at": str(r[3]) if r[3] else None,
+            WITH bounds AS (
+              SELECT date_trunc('month', COALESCE(NULLIF(%s, '')::timestamptz,
+                         '2026-07-01 00:00:00+00'::timestamptz)
+                         AT TIME ZONE 'UTC')::date AS first_month,
+                     date_trunc('month', NOW() AT TIME ZONE 'UTC')::date
+                         AS current_month
+            ), months AS (
+              SELECT generate_series(first_month::timestamp,
+                                     current_month::timestamp,
+                                     INTERVAL '1 month')::date AS month,
+                     current_month
+              FROM bounds
+            ), job_stats AS (
+              SELECT m.month, m.current_month,
+                     COUNT(j.video_id) AS total,
+                     COUNT(j.video_id) FILTER (
+                       WHERE j.status IN ('pending', 'downloading')) AS pending,
+                     COUNT(j.video_id) FILTER (
+                       WHERE j.status IN ('downloaded', 'ingesting'))
+                         AS downloaded,
+                     COUNT(j.video_id) FILTER (WHERE j.status = 'done') AS done,
+                     COUNT(j.video_id) FILTER (WHERE j.status = 'failed') AS failed,
+                     COUNT(j.video_id) FILTER (WHERE j.status = 'skipped') AS skipped
+              FROM months m
+              LEFT JOIN videos v
+                ON v.end_time >= (m.month::timestamp AT TIME ZONE 'UTC')
+               AND v.end_time < ((m.month + INTERVAL '1 month')::timestamp
+                                  AT TIME ZONE 'UTC')
+              LEFT JOIN ingest_jobs j ON j.video_id = v.video_id
+              GROUP BY m.month, m.current_month
+            )
+            SELECT js.month, js.total, js.pending, js.downloaded, js.done,
+                   js.failed, js.skipped,
+                   COALESCE(s.status,
+                     CASE WHEN js.month = js.current_month THEN 'open'
+                          ELSE 'unpublished' END) AS merge_status,
+                   s.merged_at,
+                   CASE WHEN js.month < js.current_month THEN
+                     (SELECT COUNT(*)
+                        FROM channels c
+                        LEFT JOIN channel_watermarks w USING (channel_id)
+                       WHERE c.active
+                         AND (w.last_scanned_at IS NULL
+                              OR w.last_scanned_at <
+                                 ((js.month + INTERVAL '1 month')::timestamp
+                                  AT TIME ZONE 'UTC')))
+                   ELSE 0 END AS channel_checks,
+                   COALESCE((
+                     SELECT COUNT(j2.video_id)
+                       FROM service_config marker
+                       LEFT JOIN service_config published
+                         ON published.key = 'late_data_published:' || js.month::text
+                       JOIN videos v2
+                         ON v2.end_time >= (js.month::timestamp AT TIME ZONE 'UTC')
+                        AND v2.end_time < ((js.month + INTERVAL '1 month')::timestamp
+                                           AT TIME ZONE 'UTC')
+                       JOIN ingest_jobs j2
+                         ON j2.video_id = v2.video_id AND j2.status = 'done'
+                        AND j2.completed_at > COALESCE(
+                            NULLIF(published.value, '')::timestamptz,
+                            s.merged_at, '-infinity'::timestamptz)
+                      WHERE marker.key = 'late_data_month:' || js.month::text
+                        AND marker.value = 'pending'
+                   ), 0) AS late_logs,
+                   js.current_month
+              FROM job_stats js
+              LEFT JOIN monthly_merge_state s ON s.observed_month = js.month
+             ORDER BY js.month DESC""", (cfg.get("backlog_floor", ""),))
+        out["months"] = [{
+            "month": str(r[0]), "total": int(r[1]), "pending": int(r[2]),
+            "downloaded": int(r[3]), "done": int(r[4]), "failed": int(r[5]),
+            "skipped": int(r[6]), "merge_status": r[7],
+            "merged_at": str(r[8]) if r[8] else None,
+            "channel_checks": int(r[9]), "late_logs": int(r[10]),
+            "closed": r[0] < r[11],
         } for r in cur.fetchall()]
         cur.execute("""
             SELECT video_id, channel_id, message_count, completed_at
@@ -437,7 +487,7 @@ def _rule_state():
 def control(action, body=None):
     body = body or {}
     if action not in ("start", "stop", "scan_now", "retry_failed",
-                      "retry_job", "republish_month"):
+                      "retry_job", "publish_month", "republish_month"):
         return {"ok": False, "error": f"unknown action {action!r}"}
     if action in ("start", "stop"):
         want_running = action == "start"
@@ -452,6 +502,8 @@ def control(action, body=None):
                                 InvocationType="Event",
                                 Payload=json.dumps({"force": True}).encode())
         return {"ok": True, "action": action, "note": "discover invoked with force"}
+    if action == "publish_month":
+        return _publish_month(body.get("month"))
     if action == "republish_month":
         return _republish_month(body.get("month"))
     video_id = body.get("video_id") if action == "retry_job" else None
@@ -557,9 +609,40 @@ def _retry_failed(video_id=None):
             "requeued": len(rows) - len(send_failures),
             "enqueue_failed": len(send_failures)}
 
-def _republish_month(value):
+def _valid_month(value):
     month = str(value or "")
     if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])-01", month):
+        return None
+    return month
+
+def _publish_month(value):
+    month = _valid_month(value)
+    if month is None:
+        return {"ok": False, "error": "month must use YYYY-MM-01"}
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""SELECT %s::date < date_trunc(
+                         'month', NOW() AT TIME ZONE 'UTC')::date,
+                              EXISTS (SELECT 1 FROM monthly_merge_state
+                               WHERE observed_month=%s::date AND status='merged')""",
+                    (month, month))
+        closed, merged = cur.fetchone()
+    conn.rollback()
+    conn.close()
+    if not closed:
+        return {"ok": False, "error": "the current month cannot be published"}
+    if merged:
+        return {"ok": False, "error": f"{month} is already published"}
+    client("lambda").invoke(
+        FunctionName=f"{APP}-merge", InvocationType="Event",
+        Payload=json.dumps({"months": [month], "force": True}).encode())
+    log.warning("manual month publication requested", extra={"month": month})
+    return {"ok": True, "action": "publish_month", "month": month,
+            "note": "forced publication and cache invalidation queued"}
+
+def _republish_month(value):
+    month = _valid_month(value)
+    if month is None:
         return {"ok": False, "error": "month must use YYYY-MM-01"}
     conn = get_conn()
     with conn.cursor() as cur:
@@ -712,12 +795,17 @@ PAGE = r"""<!doctype html>
       <tbody id="failed"></tbody></table>
   </section>
   <section style="grid-column:1/-1">
-    <h2>Published months with late logs</h2>
-    <p class="hint">Late chat logs are stored safely. Re-publishing refreshes
-      derived datasets and invalidates affected caches for that month.</p>
-    <table><thead><tr><th>Month</th><th class="num">New logs</th>
-      <th>Latest ingest</th><th>Actions</th></tr></thead>
-      <tbody id="late-months"></tbody></table>
+    <h2>Monthly publication</h2>
+    <p class="hint">Channel checks are publication-barrier scans. Manual
+      publication overrides pending work and channel checks; use it only when
+      accepting incomplete coverage. Re-publish applies late logs and
+      invalidates that month's caches.</p>
+    <table><thead><tr><th>Month</th><th class="num">Known</th>
+      <th class="num">Pending</th><th class="num">Downloaded</th>
+      <th class="num">Ingested</th><th class="num">Failed</th>
+      <th class="num">Skipped</th><th class="num">Channel checks</th>
+      <th>Merge status</th><th class="num">Late logs</th><th>Actions</th></tr></thead>
+      <tbody id="months"></tbody></table>
   </section>
   <section style="grid-column:1/-1">
     <h2>Channels <button id="btn-add-chan" class="go small">+ Add channel</button></h2>
@@ -902,7 +990,7 @@ async function readdChan(ch) {
 // expose for the inline handlers below
 let CHANNELS = [];
 let FAILED = [];
-let LATE_MONTHS = [];
+let MONTHS = [];
 window.chanAction = (i, what) => {
   const ch = CHANNELS[i];
   if (what === "edit") openChan("edit", ch);
@@ -915,9 +1003,18 @@ window.retryFailed = i => {
     act("retry_job", { video_id: job.video_id });
 };
 window.republishMonth = i => {
-  const item = LATE_MONTHS[i];
+  const item = MONTHS[i];
   if (item && confirm(`Re-publish ${item.month} and invalidate its caches?`))
     act("republish_month", { month: item.month });
+};
+window.publishMonth = i => {
+  const item = MONTHS[i];
+  if (!item) return;
+  const warning = `Publish ${item.month} now?\n\n`
+    + `This overrides ${item.pending} pending download(s), ${item.failed} failed job(s), `
+    + `and ${item.channel_checks} outstanding channel check(s). `
+    + `The month may have incomplete coverage.`;
+  if (confirm(warning)) act("publish_month", { month: item.month });
 };
 function render(d) {
   const c = d.control;
@@ -980,13 +1077,24 @@ function render(d) {
       <td class="num">${f.attempts}</td><td class="err">${esc(f.error)}</td>
       <td><button class="small" onclick="retryFailed(${i})">Retry</button></td></tr>`).join("")
     || `<tr><td colspan="5">none 🎉</td></tr>`;
-  LATE_MONTHS = d.late_months || [];
-  $("late-months").innerHTML = LATE_MONTHS.map((m, i) => `<tr>
-      <td class="ts">${esc(m.month)}</td>
-      <td class="num">${m.new_logs.toLocaleString()}</td>
-      <td class="ts">${esc((m.last_completed_at || "—").slice(0, 19))}</td>
-      <td><button class="small go" onclick="republishMonth(${i})">Re-publish</button></td></tr>`).join("")
-    || `<tr><td colspan="4">no late logs awaiting publication</td></tr>`;
+  MONTHS = d.months || [];
+  $("months").innerHTML = MONTHS.map((m, i) => {
+    const publish = m.closed && m.merge_status !== "merged"
+      ? `<button class="small go" onclick="publishMonth(${i})">Publish</button>` : "";
+    const republish = m.merge_status === "merged" && m.late_logs > 0
+      ? `<button class="small go" onclick="republishMonth(${i})">Re-publish</button>` : "";
+    return `<tr><td class="ts">${esc(m.month)}</td>
+      <td class="num">${m.total.toLocaleString()}</td>
+      <td class="num">${m.pending.toLocaleString()}</td>
+      <td class="num">${m.downloaded.toLocaleString()}</td>
+      <td class="num">${m.done.toLocaleString()}</td>
+      <td class="num">${m.failed.toLocaleString()}</td>
+      <td class="num">${m.skipped.toLocaleString()}</td>
+      <td class="num">${m.channel_checks.toLocaleString()}</td>
+      <td class="s-${esc(m.merge_status)}" title="${esc(m.merged_at || "")}">${esc(m.merge_status)}</td>
+      <td class="num">${m.late_logs.toLocaleString()}</td>
+      <td>${publish}${republish || (!publish ? "—" : "")}</td></tr>`;
+  }).join("") || `<tr><td colspan="11">no months configured</td></tr>`;
   CHANNELS = d.channels;
   $("channels").innerHTML = d.channels.map((ch, i) => `
     <tr class="${ch.active ? "" : "inactive"}">
