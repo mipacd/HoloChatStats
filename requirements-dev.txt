@@ -1,7 +1,9 @@
+-r requirements.txt
+
+# Deployment helpers and mocked AWS clients used by the test suite.
 boto3
 botocore
-redis
+
+# Imported by web.cache_warmer during cache behavior tests. The full web
+# dependency set is intentionally not installed in the lightweight CI job.
 sqlalchemy
-requests
-yt-dlp
-psycopg2-binary

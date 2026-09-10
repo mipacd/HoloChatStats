@@ -104,6 +104,13 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("_stop_orphaned_emulator_frontends", frontend)
         self.assertIn('startswith("floci-ecs-")', frontend)
 
+    def test_dev_requirements_cover_runtime_modules_imported_by_tests(self):
+        dev = (ROOT / "requirements-dev.txt").read_text().lower()
+        self.assertIn("-r requirements.txt", dev)
+        self.assertIn("boto3", dev)
+        self.assertIn("botocore", dev)
+        self.assertIn("sqlalchemy", dev)
+
     def test_replay_transients_and_quiet_outros_do_not_stall_a_month(self):
         youtube = (ROOT / "common" / "youtube.py").read_text(
             encoding="utf-8")
