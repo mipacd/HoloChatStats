@@ -4,3 +4,4 @@ redis
 sqlalchemy
 requests
 yt-dlp
+psycopg2
