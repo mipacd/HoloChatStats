@@ -6,6 +6,8 @@ import json
 import time
 import sys
 import logging
+import copy
+import hashlib
 import requests
 from yt_dlp import YoutubeDL
 from common.config import secret
@@ -177,16 +179,72 @@ def _extract_params(html):
         raise decode_error
     return api_key, version, yid
 
+def _extract_innertube_context(html, version):
+    """Extract the complete client context YouTube issued with the page.
+
+    Replay requests increasingly require fields such as visitorData in
+    addition to the client version. Keep the minimal context only as a
+    compatibility fallback for unusual watch-page variants.
+    """
+    merged = {}
+    for marker in re.finditer(r'ytcfg\.set\s*\(\s*', html):
+        start = html.find("{", marker.end())
+        if start < 0:
+            continue
+        try:
+            value, _end = json.JSONDecoder().raw_decode(html[start:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            merged.update(value)
+    context = merged.get("INNERTUBE_CONTEXT")
+    if isinstance(context, dict) and isinstance(context.get("client"), dict):
+        return context
+    return {"client": {"clientName": "WEB", "clientVersion": version}}
+
 
 def _fetch_params(url, attempts=8):
     """Fetch and decode watch-page parameters, retrying truncated HTML."""
     for attempt in range(attempts):
         try:
-            return _extract_params(_fetch_html(url))
+            html = _fetch_html(url)
+            api_key, version, yid = _extract_params(html)
+            return api_key, version, yid, _extract_innertube_context(html, version)
         except json.JSONDecodeError:
             if attempt + 1 >= attempts:
                 raise
             time.sleep(2 ** attempt)
+
+_CONTINUATION_KINDS = (
+    "liveChatReplayContinuationData", "reloadContinuationData",
+    "timedContinuationData", "invalidationContinuationData",
+)
+
+def _continuation_from_entries(entries):
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            continue
+        for kind in _CONTINUATION_KINDS:
+            data = entry.get(kind)
+            if isinstance(data, dict) and data.get("continuation"):
+                return data["continuation"]
+    return None
+
+def _find_live_chat_renderer(value):
+    if isinstance(value, dict):
+        renderer = value.get("liveChatRenderer")
+        if isinstance(renderer, dict):
+            return renderer
+        for child in value.values():
+            found = _find_live_chat_renderer(child)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = _find_live_chat_renderer(child)
+            if found is not None:
+                return found
+    return None
 
 def _find_continuation(ytInitialData):
     """
@@ -203,6 +261,12 @@ def _find_continuation(ytInitialData):
     Raises:
         None
     """
+    renderer = _find_live_chat_renderer(ytInitialData)
+    if renderer is not None:
+        # Do not fall through to an unrelated comments/recommendations token
+        # when a live-chat renderer is present.
+        return _continuation_from_entries(renderer.get("continuations"))
+
     def walk(d):
         # Check if current element is a dictionary and search for continuation key
         if isinstance(d, dict):
@@ -226,7 +290,8 @@ def _find_continuation(ytInitialData):
         return None
     return walk(ytInitialData)
 
-def _fetch_chat(api_key, version, continuation):
+def _fetch_chat(api_key, version, continuation, context=None,
+                player_offset_ms=None, click_tracking=None):
     """
     Makes a POST request to YouTube's API endpoint to retrieve live chat replay data. Uses the
     continuation token to paginate through chat messages. Includes proper headers and context for authentication.
@@ -247,10 +312,62 @@ def _fetch_chat(api_key, version, continuation):
         json.JSONDecodeError: If response is not valid JSON
     """
     url = f"https://www.youtube.com/youtubei/v1/live_chat/get_live_chat_replay?key={api_key}"
-    data = {
-        "context": {"client": {"clientName": "WEB", "clientVersion": version}},
-        "continuation": continuation,
+    request_context = copy.deepcopy(context) if context else {
+        "client": {"clientName": "WEB", "clientVersion": version}}
+    if click_tracking:
+        request_context["clickTracking"] = {
+            "clickTrackingParams": click_tracking}
+    data = {"context": request_context, "continuation": continuation}
+    if player_offset_ms is not None:
+        data["currentPlayerState"] = {
+            "playerOffsetMs": str(max(int(player_offset_ms) - 5000, 0))}
+    headers = {
+        "Content-Type": "application/json",
+        "Origin": "https://www.youtube.com",
+        "X-Origin": "https://www.youtube.com",
+        "Referer": ("https://www.youtube.com/live_chat_replay?continuation="
+                    + continuation),
+        "X-Youtube-Client-Name": ("1" if request_context.get(
+            "client", {}).get("clientName") == "WEB" else str(
+                request_context.get("client", {}).get("clientName", "1"))),
+        "X-Youtube-Client-Version": version,
+        "X-Goog-AuthUser": "0",
     }
+    visitor_data = request_context.get("client", {}).get("visitorData")
+    if visitor_data:
+        headers["X-Goog-Visitor-Id"] = visitor_data
+    session = _auth()["session"]
+    cookie_values = {}
+    try:
+        cookies = iter(session.cookies)
+    except TypeError:
+        cookies = iter(())
+    for cookie in cookies:
+        if cookie.name in ("SAPISID", "__Secure-1PAPISID",
+                           "__Secure-3PAPISID", "LOGIN_INFO"):
+            cookie_values[cookie.name] = cookie.value
+    # Match YouTube's current cookie authentication. SAPISIDHASH falls back
+    # to the 3P cookie when SAPISID is absent; the dedicated 1P/3P hashes are
+    # also sent when those cookies exist. Cookie values never enter logs.
+    auth_cookies = (
+        ("SAPISIDHASH", cookie_values.get("SAPISID")
+         or cookie_values.get("__Secure-3PAPISID")),
+        ("SAPISID1PHASH", cookie_values.get("__Secure-1PAPISID")),
+        ("SAPISID3PHASH", cookie_values.get("__Secure-3PAPISID")),
+    )
+    if any(value for _scheme, value in auth_cookies):
+        timestamp = round(time.time())
+        authorization = []
+        for scheme, value in auth_cookies:
+            if not value:
+                continue
+            digest = hashlib.sha1(
+                f"{timestamp} {value} https://www.youtube.com".encode()
+            ).hexdigest()
+            authorization.append(f"{scheme} {timestamp}_{digest}")
+        headers["Authorization"] = " ".join(authorization)
+    if cookie_values.get("LOGIN_INFO"):
+        headers["X-Youtube-Bootstrap-Logged-In"] = "true"
     retryable = (
         requests.exceptions.Timeout,
         requests.exceptions.ConnectionError,
@@ -264,8 +381,8 @@ def _fetch_chat(api_key, version, continuation):
     # hit the same continuation again.  Keep retries local to the page.
     for attempt in range(8):
         try:
-            r = _auth()["session"].post(
-                url, headers={"Content-Type": "application/json"}, json=data,
+            r = session.post(
+                url, headers=headers, json=data,
                 timeout=60)
             r.raise_for_status()
             # Decode with the stdlib so every malformed/truncated response has
@@ -419,6 +536,33 @@ def _parse_messages(actions, video_start_ts):
     return msgs
 
 
+def _live_chat_continuation(obj):
+    if not isinstance(obj, dict):
+        return None
+    return (obj.get("continuationContents", {})
+            .get("liveChatContinuation"))
+
+def _extract_unfiltered_cont(obj):
+    """Return YouTube's 'Live chat replay' selector rather than Top chat."""
+    return _extract_unfiltered_cont_data(obj)[0]
+
+def _extract_unfiltered_cont_data(obj):
+    """Return the unfiltered replay token and its click-tracking value."""
+    live = _live_chat_continuation(obj) or {}
+    items = (live.get("header", {}).get("liveChatHeaderRenderer", {})
+             .get("viewSelector", {}).get("sortFilterSubMenuRenderer", {})
+             .get("subMenuItems", []))
+    # yt-dlp uses the second item; prefer it but tolerate reordered variants.
+    ordered = (items[1:] + items[:1]) if len(items) > 1 else items
+    for item in ordered:
+        data = (item.get("continuation", {}).get("reloadContinuationData", {})
+                if isinstance(item, dict) else {})
+        if data.get("continuation"):
+            return (data["continuation"],
+                    data.get("clickTrackingParams")
+                    or data.get("trackingParams"))
+    return None, None
+
 def _extract_next_cont(obj):
     """
     Recursively searches through a nested data structure to find the next continuation token for
@@ -434,6 +578,13 @@ def _extract_next_cont(obj):
     Raises:
         None
     """
+    live = _live_chat_continuation(obj)
+    if isinstance(live, dict):
+        # Restrict selection to the live-chat continuation list. The response
+        # can also contain unrelated continuations for menus and banners.
+        return _continuation_from_entries(live.get("continuations"))
+
+    # Compatibility fallback for saved fixtures and older response shapes.
     # Check if object is dictionary and search for continuation key
     if isinstance(obj, dict):
         # Iterate through all key-value pairs in the dictionary
@@ -454,6 +605,50 @@ def _extract_next_cont(obj):
             if res:
                 return res
     return None
+
+def _extract_next_cont_data(obj):
+    """Return the replay token plus its optional click-tracking parameter."""
+    live = _live_chat_continuation(obj)
+    if isinstance(live, dict):
+        for entry in live.get("continuations") or []:
+            if not isinstance(entry, dict):
+                continue
+            for kind in _CONTINUATION_KINDS:
+                data = entry.get(kind)
+                if isinstance(data, dict) and data.get("continuation"):
+                    return data["continuation"], data.get("clickTrackingParams")
+        return None, None
+    return _extract_next_cont(obj), None
+
+def _fetch_initial_chat(continuation):
+    """Load the replay bootstrap page before using the InnerTube POST API."""
+    url = "https://www.youtube.com/live_chat_replay"
+    for attempt in range(8):
+        try:
+            response = _auth()["session"].get(
+                url, params={"continuation": continuation}, timeout=60)
+            response.raise_for_status()
+            _key, _version, initial = _extract_params(response.text)
+            if initial:
+                return initial
+            decoded = json.loads(response.content)
+            if not isinstance(decoded, dict):
+                raise json.JSONDecodeError("YouTube response is not an object",
+                                           response.text, 0)
+            return decoded
+        except (requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.HTTPError,
+                json.JSONDecodeError) as exc:
+            response = getattr(exc, "response", None)
+            status = getattr(response, "status_code", None)
+            if (isinstance(exc, requests.exceptions.HTTPError)
+                    and status != 429 and (status is None or status < 500)):
+                raise
+            if attempt == 7:
+                raise
+            time.sleep(min(2 ** attempt, 30))
 
 def iter_youtube_chat(video_id):
     """
@@ -477,7 +672,7 @@ def iter_youtube_chat(video_id):
     duration = info.get("duration", 0)
     video_start_ts = info.get("release_timestamp") or info.get("timestamp") or 0
 
-    api_key, version, yid = _fetch_params(url)
+    api_key, version, yid, context = _fetch_params(url)
     # Check if initial data was found, raise error if missing
     if not yid:
         raise RuntimeError("ytInitialData not found — possibly need cookies")
@@ -487,6 +682,11 @@ def iter_youtube_chat(video_id):
     if not continuation:
         raise RuntimeError("No continuation found")
 
+    # YouTube's first replay request is an HTML bootstrap endpoint. It yields
+    # the unfiltered live-chat token used by subsequent JSON API requests.
+    first = _fetch_initial_chat(continuation)
+    continuation = (_extract_unfiltered_cont(first)
+                    or _extract_next_cont(first))
     seen = set()
     # Continue fetching chat pages while continuation tokens are available
     while continuation:
@@ -495,7 +695,7 @@ def iter_youtube_chat(video_id):
             break
         seen.add(continuation)
 
-        data = _fetch_chat(api_key, version, continuation)
+        data = _fetch_chat(api_key, version, continuation, context=context)
         actions = data.get("actions") or data.get("continuationContents", {}).get(
             "liveChatContinuation", {}
         ).get("actions")
@@ -575,7 +775,7 @@ class ChatReplay:
     the continuation token + start ts.
     """
     def __init__(self, video_id, continuation=None, video_start_ts=None,
-                 duration=None):
+                 duration=None, player_offset_s=None):
         self.video_id = video_id
         url = f"https://www.youtube.com/watch?v={video_id}"
         # Discovery already records the video's end time and duration.  Use
@@ -590,25 +790,60 @@ class ChatReplay:
         else:
             self.duration = duration or 0
             self.video_start_ts = video_start_ts
-        self.api_key, self.version, yid = _fetch_params(url)
+        params = _fetch_params(url)
+        self.api_key, self.version, yid = params[:3]
+        self.context = (params[3] if len(params) > 3 else {
+            "client": {"clientName": "WEB", "clientVersion": self.version}})
         if not yid:
             raise RuntimeError("ytInitialData not found — possibly need cookies")
+        self._needs_bootstrap = continuation is None
         self.continuation = continuation or _find_continuation(yid)
         if not self.continuation:
             raise RuntimeError("No continuation found")
+        self.player_offset_ms = (int(float(player_offset_s) * 1000)
+                                 if player_offset_s is not None else 0)
+        self.click_tracking = None
         self._seen = set()
     def pages(self):
         """Yield (messages, continuation_after_this_page). Caller decides when
         to stop; `continuation` is the token to persist to resume here."""
+        if self._needs_bootstrap:
+            data = _fetch_initial_chat(self.continuation)
+            unfiltered, tracking = _extract_unfiltered_cont_data(data)
+            if unfiltered:
+                self.continuation = unfiltered
+                self.click_tracking = tracking
+            else:
+                live = _live_chat_continuation(data) or {}
+                nxt, self.click_tracking = _extract_next_cont_data(data)
+                messages = _parse_messages(live.get("actions"),
+                                           self.video_start_ts)
+                if messages:
+                    self.player_offset_ms = max(
+                        self.player_offset_ms,
+                        int((messages[-1]["timestamp"]
+                             - self.video_start_ts) * 1000))
+                yield messages, nxt
+                self.continuation = nxt
+            self._needs_bootstrap = False
         while self.continuation:
             if self.continuation in self._seen:
                 return
             self._seen.add(self.continuation)
-            data = _fetch_chat(self.api_key, self.version, self.continuation)
+            data = _fetch_chat(
+                self.api_key, self.version, self.continuation,
+                context=self.context, player_offset_ms=self.player_offset_ms,
+                click_tracking=self.click_tracking)
             actions = data.get("actions") or data.get("continuationContents", {}) \
                 .get("liveChatContinuation", {}).get("actions")
-            nxt = _extract_next_cont(data)
-            yield _parse_messages(actions, self.video_start_ts), nxt
+            nxt, self.click_tracking = _extract_next_cont_data(data)
+            messages = _parse_messages(actions, self.video_start_ts)
+            if messages:
+                self.player_offset_ms = max(
+                    self.player_offset_ms,
+                    int((messages[-1]["timestamp"]
+                         - self.video_start_ts) * 1000))
+            yield messages, nxt
             self.continuation = nxt
             time.sleep(0.08)
 

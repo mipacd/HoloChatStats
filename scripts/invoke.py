@@ -16,6 +16,8 @@ def main():
     p.add_argument("--app", default="chat-ingest")
     p.add_argument("--endpoint", default="http://localhost:4566")
     p.add_argument("--region", default="us-east-1")
+    p.add_argument("--require-stage", action="append", default=[],
+                   help="exit nonzero unless this ping stage reports ok")
     args = p.parse_args()
     payload = {}
     if args.action:
@@ -33,10 +35,17 @@ def main():
                       InvocationType="RequestResponse",
                       Payload=json.dumps(payload).encode())
     body = resp["Payload"].read().decode()
+    parsed = None
     try:
-        print(json.dumps(json.loads(body), indent=2, ensure_ascii=False))
+        parsed = json.loads(body)
+        print(json.dumps(parsed, indent=2, ensure_ascii=False))
     except json.JSONDecodeError:
         print(body)
-    sys.exit(1 if resp.get("FunctionError") else 0)
+    failed_stage = next((name for name in args.require_stage
+                         if not (parsed or {}).get("stages", {}).get(name, {})
+                         .get("ok")), None)
+    if failed_stage:
+        print(f"required stage {failed_stage!r} is unhealthy", file=sys.stderr)
+    sys.exit(1 if resp.get("FunctionError") or failed_stage else 0)
 if __name__ == "__main__":
     main()

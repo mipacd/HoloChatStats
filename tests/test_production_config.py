@@ -147,6 +147,11 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("FOR UPDATE OF j", download)
         self.assertIn("invalid replay continuation; restarting", download)
         self.assertIn("reset_checkpoint=stale_checkpoint", download)
+        self.assertIn("_find_live_chat_renderer", youtube)
+        self.assertIn("_fetch_initial_chat", youtube)
+        self.assertIn("INNERTUBE_CONTEXT", youtube)
+        self.assertIn("X-Goog-Visitor-Id", youtube)
+        self.assertIn("currentPlayerState", youtube)
         self.assertIn("class RawPartCorrupt", (ROOT / "handlers" /
                                                "ingest.py").read_text())
         self.assertIn("corrupt raw part; awaiting operator retry",
@@ -232,13 +237,35 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn('fetch("/api/metrics/page-view"', app)
         self.assertIn("[pathname]", app)
         self.assertIn("def page_view_metric", server)
-        self.assertIn("record_page_view(body.get", server)
+        self.assertIn("if not is_public_page(path)", server)
+        self.assertIn('"stored": record_page_view(path)', server)
         self.assertIn('METRICS_NAMESPACE = "v2"', utils)
         for internal in ("/api/", "/static/", "/socket.io/", "/admin/",
                          "/health", "/favicon.ico"):
             self.assertIn(internal, utils)
         self.assertIn("is_public_page(page)", utils)
         self.assertIn("scan_iter", utils)
+
+    def test_redis_outage_is_fast_and_does_not_break_web_or_llm(self):
+        utils = (ROOT / "web" / "utils.py").read_text(encoding="utf-8")
+        rate_limit = (ROOT / "llm_chat" / "rate_limit.py").read_text(
+            encoding="utf-8")
+        migrate = (ROOT / "handlers" / "migrate.py").read_text(
+            encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" /
+                    "deploy.yml").read_text(encoding="utf-8")
+        invoke = (ROOT / "scripts" / "invoke.py").read_text(encoding="utf-8")
+        self.assertIn('REDIS_IO_TIMEOUT_SECONDS", "0.5"', utils)
+        self.assertIn("_redis_down_until", utils)
+        self.assertIn("_local_cache", utils)
+        self.assertIn("except redis.RedisError", rate_limit)
+        self.assertIn("return False", rate_limit)
+        self.assertIn("return settings.LLM_DAILY_LIMIT", rate_limit)
+        self.assertIn('stage("redis", _redis)', migrate)
+        self.assertIn("floci-valkey-", workflow)
+        self.assertIn("--restart unless-stopped", workflow)
+        self.assertIn("--require-stage postgres --require-stage redis", workflow)
+        self.assertIn('"--require-stage"', invoke)
 
     def test_month_finalize_invalidates_only_aggregate_web_caches(self):
         invalidation = (ROOT / "common" /

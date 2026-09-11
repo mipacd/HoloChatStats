@@ -152,7 +152,8 @@ def _process(msg, context):
                             continuation=continuation,
                             video_start_ts=(msg.get("video_start_ts")
                                             or stored_start_ts),
-                            duration=duration)
+                            duration=duration,
+                            player_offset_s=last_offset)
     except Exception as e:
         return _handle_error(conn, sqs, video_id, channel_id, msg, e)
     if not duration and getattr(replay, "duration", None):

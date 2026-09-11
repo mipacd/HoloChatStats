@@ -183,10 +183,31 @@ jobs:
             chat-ingest-restore-renderer \
             chat-ingest-restore-loader 2>/dev/null || true
 
+      - name: Persist data-service restart policies
+        run: |
+          set -euo pipefail
+          mapfile -t DATA_CONTAINERS < <(
+            {
+              docker ps -aq --filter 'name=floci-valkey-'
+              docker ps -aq --filter 'name=floci-rds-db-'
+            } | sort -u
+          )
+          if ((${#DATA_CONTAINERS[@]})); then
+            docker update --restart unless-stopped "${DATA_CONTAINERS[@]}"
+            docker start "${DATA_CONTAINERS[@]}" >/dev/null
+            docker inspect \
+              --format '{{.Name}} restart={{.HostConfig.RestartPolicy.Name}} state={{.State.Status}}' \
+              "${DATA_CONTAINERS[@]}"
+          else
+            echo 'No Floci data-service containers found.'
+            exit 1
+          fi
+
       - name: Verify deployed schema and dependencies
         run: |
           python scripts/invoke.py migrate --action verify_schema
-          python scripts/invoke.py migrate --action ping
+          python scripts/invoke.py migrate --action ping \
+            --require-stage postgres --require-stage redis
 
       - name: Publish deployment summary
         if: always()

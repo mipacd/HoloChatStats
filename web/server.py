@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from utils import (
     setup_logging, resolve_hostname, get_sqlite_connection,
     get_redis_connection, get_locale, track_metrics, get_metrics,
-    record_page_view,
+    record_page_view, is_public_page,
     SUSPICIOUS_PATHS, get_database_uri, SQLALCHEMY_ENGINE_OPTIONS
 )
 from api import api_bp
@@ -63,9 +63,12 @@ db.init_app(app)
 def page_view_metric():
     """Receive same-origin SPA navigation events; retain no raw client IP."""
     body = request.get_json(silent=True) or {}
-    if not record_page_view(body.get("path")):
+    path = body.get("path")
+    if not is_public_page(path):
         return {"ok": False, "error": "invalid page path"}, 400
-    return {"ok": True}, 202
+    # A Redis outage can drop a metric, but must not turn a valid navigation
+    # into a misleading validation error in the browser console.
+    return {"ok": True, "stored": record_page_view(path)}, 202
 
 # Initialize Babel
 babel = Babel(app)
@@ -198,7 +201,7 @@ def metrics_updates():
                 socketio.emit("metrics_update", json.dumps(get_metrics()))
         except Exception:
             app.logger.exception("Unable to publish site metrics update")
-        socketio.sleep(5)
+        socketio.sleep(float(os.getenv("METRICS_REFRESH_SECONDS", "10")))
 
 
 @socketio.on('connect')

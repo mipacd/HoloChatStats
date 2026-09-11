@@ -698,7 +698,8 @@ def ping():
         "env": {k: os.environ.get(k) for k in
                 ("INGEST_ENDPOINT_URL", "AWS_ENDPOINT_URL", "AWS_REGION",
                  "DB_SECRET_ID", "CONFIG_BUCKET", "RAW_BUCKET",
-                 "DOWNLOAD_QUEUE_URL", "APP_NAME")},
+                 "DOWNLOAD_QUEUE_URL", "REDIS_HOST", "REDIS_PORT",
+                 "APP_NAME")},
         "stages": {},
     }
     def stage(name, fn):
@@ -738,6 +739,17 @@ def ping():
         return {"database": db, "version": ver.split(",")[0],
                 "schema_migrations_exists": migrated}
     stage("postgres", _db)
+    def _redis():
+        import redis
+        host = os.environ.get("REDIS_HOST") or os.environ.get("ELASTICACHE_HOST")
+        port = int(os.environ.get("REDIS_PORT")
+                   or os.environ.get("ELASTICACHE_PORT", "6379"))
+        if not host:
+            raise RuntimeError("REDIS_HOST/ELASTICACHE_HOST is not configured")
+        store = redis.Redis(host=host, port=port, socket_connect_timeout=1,
+                            socket_timeout=1, retry_on_timeout=False)
+        return {"host": host, "port": port, "pong": bool(store.ping())}
+    stage("redis", _redis)
     stage("s3", lambda: len(client("s3").list_objects_v2(
         Bucket=os.environ["CONFIG_BUCKET"]).get("Contents", [])))
     stage("sqs", lambda: client("sqs").get_queue_attributes(
@@ -751,6 +763,10 @@ def ping():
         out["diagnosis"] = (f"{creds['host']}:{creds['port']} resolves but "
                             f"refuses connections -- wrong port, or the lambda "
                             f"containers are on a different docker network")
+    elif not out["stages"].get("redis", {}).get("ok"):
+        out["diagnosis"] = ("ElastiCache is unavailable from Lambda; verify the "
+                            "floci-valkey container is running and attached to "
+                            "the Floci Compose network")
     elif all(s["ok"] for s in out["stages"].values()):
         out["diagnosis"] = "all dependencies reachable"
     return out

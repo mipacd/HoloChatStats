@@ -1,9 +1,13 @@
 from datetime import datetime, timedelta
 from config import settings
+import logging
 import redis
 
 # Standard Redis connection
-r = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True)
+log = logging.getLogger(__name__)
+r = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT,
+                decode_responses=True, socket_connect_timeout=0.5,
+                socket_timeout=0.5, retry_on_timeout=False)
 
 def is_rate_limited(user_key: str, admin: bool = False) -> bool:
     """
@@ -33,7 +37,15 @@ def is_rate_limited(user_key: str, admin: bool = False) -> bool:
     
     # Execute the pipeline and get the results
     # The result of INCR will be at index 0
-    current_usage, _ = pipe.execute()
+    try:
+        current_usage, _ = pipe.execute()
+    except redis.RedisError as exc:
+        # Availability wins over quota enforcement during a cache restart.
+        # The proxy still supplies a hashed user key; no prompt content is
+        # logged or persisted here.
+        log.warning("LLM rate-limit store unavailable; failing open: %s",
+                    type(exc).__name__)
+        return False
 
     # Return True if the user is over their limit
     return int(current_usage) > settings.LLM_DAILY_LIMIT
@@ -53,7 +65,12 @@ def get_remaining_prompts(user_key: str, exempt: bool = False) -> int:
     today = datetime.utcnow().strftime("%Y-%m-%d")
     redis_key = f"llm_usage:{user_key}:{today}"
     
-    current_usage = r.get(redis_key)
+    try:
+        current_usage = r.get(redis_key)
+    except redis.RedisError as exc:
+        log.warning("LLM quota store unavailable; returning full quota: %s",
+                    type(exc).__name__)
+        return settings.LLM_DAILY_LIMIT
     
     if current_usage is None:
         return settings.LLM_DAILY_LIMIT

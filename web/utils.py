@@ -5,6 +5,7 @@ import re
 import socket
 import sqlite3
 import logging
+import threading
 import redis
 import pytz
 import json
@@ -46,6 +47,13 @@ REDIS_CONFIG = {
     "host": REDIS_HOST,
     "port": REDIS_PORT,
 }
+REDIS_IO_TIMEOUT_SECONDS = float(os.getenv("REDIS_IO_TIMEOUT_SECONDS", "0.5"))
+REDIS_RETRY_SECONDS = float(os.getenv("REDIS_RETRY_SECONDS", "15"))
+LOCAL_CACHE_SECONDS = float(os.getenv("LOCAL_CACHE_SECONDS", "60"))
+LOCAL_CACHE_MAX_ITEMS = int(os.getenv("LOCAL_CACHE_MAX_ITEMS", "512"))
+_redis_down_until = 0.0
+_local_cache = {}
+_local_cache_lock = threading.Lock()
 LANGUAGES = {
     'en': 'English',
     'ja': '日本語',
@@ -116,8 +124,9 @@ def get_redis_connection():
             host=REDIS_CONFIG["host"],
             port=REDIS_CONFIG["port"],
             decode_responses=True,
-            socket_connect_timeout=5,
-            socket_timeout=5,
+            socket_connect_timeout=REDIS_IO_TIMEOUT_SECONDS,
+            socket_timeout=REDIS_IO_TIMEOUT_SECONDS,
+            retry_on_timeout=False,
         )
     return g.redis_conn
 def get_locale():
@@ -145,6 +154,8 @@ def get_previous_two_months():
     prev2_month = (prev_month.replace(day=1)) - timedelta(days=1)
     return [prev2_month.strftime('%Y-%m'), prev_month.strftime('%Y-%m')]
 def inc_cache_hit_count():
+    if time.monotonic() < _redis_down_until:
+        return
     try:
         redis_conn = g.redis_conn
         today = datetime.now(pytz.utc).strftime("%Y-%m-%d")
@@ -152,6 +163,8 @@ def inc_cache_hit_count():
     except Exception:
         pass
 def inc_cache_miss_count():
+    if time.monotonic() < _redis_down_until:
+        return
     try:
         redis_conn = g.redis_conn
         today = datetime.now(pytz.utc).strftime("%Y-%m-%d")
@@ -207,39 +220,56 @@ def track_metrics(response):
     record_page_view(request.path)
     return response
 def get_metrics():
-    redis_conn = redis.StrictRedis(
-        host=REDIS_CONFIG["host"],
-        port=REDIS_CONFIG["port"],
-        decode_responses=True,
-    )
     today = datetime.now(pytz.utc)
     dates = [(today - relativedelta(days=i)).strftime("%Y-%m-%d") for i in range(30)]
-    metrics = {}
-    page_totals = {}
-    for d in dates:
-        for page, count in redis_conn.hgetall(
-                f"{METRICS_NAMESPACE}:page_views:{d}").items():
-            if is_public_page(page):
-                page_totals[page] = page_totals.get(page, 0) + int(count)
-    metrics["page_views"] = page_totals
-    country_counts = {}
-    for d in dates:
-        pattern = f"{METRICS_NAMESPACE}:unique_visitors_country:*:{d}"
-        for key in redis_conn.scan_iter(match=pattern, count=100):
-            cc = key.split(":")[2]
-            country_counts[cc] = country_counts.get(cc, 0) + redis_conn.scard(key)
-    metrics["country_visits"] = dict(sorted(country_counts.items(), key=lambda x: x[1], reverse=True))
-    metrics["unique_visitors"] = {
-        d: redis_conn.scard(f"{METRICS_NAMESPACE}:unique_visitors:{d}")
-        for d in dates
+    metrics = {
+        "page_views": {}, "country_visits": {},
+        "unique_visitors": {d: 0 for d in dates},
+        "cache_data": {d: {"cache_hits": 0, "cache_misses": 0}
+                       for d in dates},
     }
-    metrics["cache_data"] = {
-        d: {
-            "cache_hits": int(redis_conn.get(f"cache_hits:{d}") or 0),
-            "cache_misses": int(redis_conn.get(f"cache_misses:{d}") or 0),
-        }
-        for d in dates
-    }
+    try:
+        redis_conn = get_redis_connection()
+        pipe = redis_conn.pipeline(transaction=False)
+        for d in dates:
+            pipe.hgetall(f"{METRICS_NAMESPACE}:page_views:{d}")
+            pipe.scard(f"{METRICS_NAMESPACE}:unique_visitors:{d}")
+            pipe.get(f"cache_hits:{d}")
+            pipe.get(f"cache_misses:{d}")
+        daily = pipe.execute()
+        page_totals = {}
+        for index, d in enumerate(dates):
+            page_views, visitors, hits, misses = daily[index * 4:index * 4 + 4]
+            for page, count in page_views.items():
+                if is_public_page(page):
+                    page_totals[page] = page_totals.get(page, 0) + int(count)
+            metrics["unique_visitors"][d] = int(visitors or 0)
+            metrics["cache_data"][d] = {
+                "cache_hits": int(hits or 0), "cache_misses": int(misses or 0)}
+        metrics["page_views"] = page_totals
+        valid_dates = set(dates)
+        country_keys = []
+        for key in redis_conn.scan_iter(
+                match=f"{METRICS_NAMESPACE}:unique_visitors_country:*",
+                count=200):
+            parts = key.split(":")
+            if len(parts) == 4 and parts[3] in valid_dates:
+                country_keys.append(key)
+        country_counts = {}
+        if country_keys:
+            pipe = redis_conn.pipeline(transaction=False)
+            for key in country_keys:
+                pipe.scard(key)
+            for key, count in zip(country_keys, pipe.execute()):
+                cc = key.split(":")[2]
+                country_counts[cc] = country_counts.get(cc, 0) + int(count)
+        metrics["country_visits"] = dict(sorted(
+            country_counts.items(), key=lambda x: x[1], reverse=True))
+    except redis.RedisError:
+        # Keep the Socket.IO payload well-formed during a cache restart. Page
+        # traffic and LLM requests must not fail merely because metrics are
+        # temporarily unavailable.
+        logging.debug("Redis unavailable while reading site metrics")
     return metrics
 def timeout(seconds=5):
     def decorator(f):
@@ -417,17 +447,34 @@ def fetch_past_videos(youtube, channel_id, limit):
         videos.append(video_data)
     return videos
 def get_or_compute_cached(redis_key, compute_fn):
-    try:
-        cached_data = g.redis_conn.get(redis_key)
-    except Exception:
-        cached_data = None
+    global _redis_down_until
+    now = time.monotonic()
+    cached_data = None
+    redis_conn = None
+    redis_ok = False
+    if now >= _redis_down_until:
+        try:
+            redis_conn = get_redis_connection()
+            cached_data = redis_conn.get(redis_key)
+            redis_ok = True
+            _redis_down_until = 0.0
+        except redis.RedisError:
+            _redis_down_until = now + REDIS_RETRY_SECONDS
+    if not redis_ok:
+        with _local_cache_lock:
+            local = _local_cache.get(redis_key)
+            if local and local[0] > now:
+                cached_data = local[1]
+            elif local:
+                _local_cache.pop(redis_key, None)
     if cached_data:
         inc_cache_hit_count()
         try:
             # Convert entries created by older releases with a TTL to the new
             # durable analytics-cache policy.
-            g.redis_conn.persist(redis_key)
-        except Exception:
+            if redis_ok:
+                redis_conn.persist(redis_key)
+        except redis.RedisError:
             pass
         return jsonify(json.loads(cached_data))
     inc_cache_miss_count()
@@ -435,10 +482,20 @@ def get_or_compute_cached(redis_key, compute_fn):
     if isinstance(result, tuple):
         return result
     try:
+        encoded = json.dumps(result)
+        with _local_cache_lock:
+            if len(_local_cache) >= LOCAL_CACHE_MAX_ITEMS:
+                oldest = min(_local_cache, key=lambda key: _local_cache[key][0])
+                _local_cache.pop(oldest, None)
+            _local_cache[redis_key] = (time.monotonic() + LOCAL_CACHE_SECONDS,
+                                       encoded)
         # Analytics caches are durable. Finalized-month keys are immutable;
         # rolling/aggregate keys are explicitly invalidated after publication.
-        g.redis_conn.set(redis_key, json.dumps(result))
-    except Exception:
+        if redis_ok:
+            redis_conn.set(redis_key, encoded)
+    except redis.RedisError:
+        _redis_down_until = time.monotonic() + REDIS_RETRY_SECONDS
+    except TypeError:
         pass
     return jsonify(result)
 def cached_json(key_func):

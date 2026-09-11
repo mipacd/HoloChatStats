@@ -1,6 +1,7 @@
 import json
 import unittest
 from unittest import mock
+from types import SimpleNamespace
 
 import requests
 
@@ -47,8 +48,10 @@ class YoutubeResponseTests(unittest.TestCase):
             'var ytInitialData = {"nested":"unterminated};',
             'var ytInitialData = {"ok":true};',
         ]
-        _key, _version, decoded = youtube._fetch_params("https://example.test")
+        _key, _version, decoded, context = youtube._fetch_params(
+            "https://example.test")
         self.assertEqual(decoded, {"ok": True})
+        self.assertEqual(context["client"]["clientName"], "WEB")
         self.assertEqual(fetch.call_count, 2)
 
     @mock.patch.object(youtube.time, "sleep")
@@ -89,6 +92,100 @@ class YoutubeResponseTests(unittest.TestCase):
             youtube._fetch_chat("key", "version", "continuation")
         self.assertEqual(session.post.call_count, 1)
         sleep.assert_not_called()
+
+    def test_live_chat_continuation_wins_over_unrelated_page_token(self):
+        initial = {
+            "continuation": "wrong-comments-token",
+            "contents": {"twoColumnWatchNextResults": {
+                "conversationBar": {"liveChatRenderer": {
+                    "continuations": [{"reloadContinuationData": {
+                        "continuation": "right-chat-token"}}]
+                }}}},
+        }
+        self.assertEqual(youtube._find_continuation(initial),
+                         "right-chat-token")
+
+    def test_ytcfg_context_keeps_visitor_data(self):
+        html = ('ytcfg.set({"INNERTUBE_CONTEXT":{"client":'
+                '{"clientName":"WEB","clientVersion":"1.2",'
+                '"visitorData":"visitor-token"}}});')
+        context = youtube._extract_innertube_context(html, "fallback")
+        self.assertEqual(context["client"]["visitorData"], "visitor-token")
+
+    @mock.patch.object(youtube, "_auth")
+    def test_chat_post_uses_full_context_and_player_state(self, auth):
+        session = mock.Mock()
+        session.cookies = []
+        session.post.return_value = self._response(200, '{"actions": []}')
+        auth.return_value = {"session": session}
+        context = {"client": {"clientName": "WEB", "clientVersion": "1.2",
+                              "visitorData": "visitor-token"}}
+        youtube._fetch_chat("key", "1.2", "chat-token", context=context,
+                            player_offset_ms=9000)
+        kwargs = session.post.call_args.kwargs
+        self.assertEqual(kwargs["json"]["context"], context)
+        self.assertEqual(kwargs["json"]["currentPlayerState"]["playerOffsetMs"],
+                         "4000")
+        self.assertEqual(kwargs["headers"]["X-Goog-Visitor-Id"],
+                         "visitor-token")
+
+    @mock.patch.object(youtube.time, "time", return_value=1234.4)
+    @mock.patch.object(youtube, "_auth")
+    def test_chat_post_authenticates_cookie_session(self, auth, _time):
+        session = mock.Mock()
+        session.cookies = [SimpleNamespace(
+            name="__Secure-3PAPISID", value="secret-cookie")]
+        session.post.return_value = self._response(200, '{"actions": []}')
+        auth.return_value = {"session": session}
+        youtube._fetch_chat("key", "1.2", "chat-token")
+        header = session.post.call_args.kwargs["headers"]["Authorization"]
+        self.assertTrue(header.startswith("SAPISIDHASH 1234_"))
+        self.assertIn("SAPISID3PHASH 1234_", header)
+
+    def test_unfiltered_replay_keeps_selector_tracking(self):
+        response = {"continuationContents": {"liveChatContinuation": {
+            "header": {"liveChatHeaderRenderer": {"viewSelector": {
+                "sortFilterSubMenuRenderer": {"subMenuItems": [
+                    {"continuation": {"reloadContinuationData": {
+                        "continuation": "top"}}},
+                    {"continuation": {"reloadContinuationData": {
+                        "continuation": "live",
+                        "trackingParams": "tracked"}}},
+                ]}}}}}}}
+        self.assertEqual(
+            youtube._extract_unfiltered_cont_data(response),
+            ("live", "tracked"))
+
+    @mock.patch.object(youtube.time, "sleep")
+    @mock.patch.object(youtube, "_fetch_chat")
+    @mock.patch.object(youtube, "_fetch_initial_chat")
+    @mock.patch.object(youtube, "_fetch_params")
+    def test_replay_bootstraps_unfiltered_chat_before_posting(
+            self, params, initial_chat, fetch_chat, _sleep):
+        context = {"client": {"clientName": "WEB",
+                              "clientVersion": "1.2"}}
+        params.return_value = (
+            "key", "1.2", {"continuation": "watch-token"}, context)
+        initial_chat.return_value = {"continuationContents": {
+            "liveChatContinuation": {"header": {"liveChatHeaderRenderer": {
+                "viewSelector": {"sortFilterSubMenuRenderer": {
+                    "subMenuItems": [
+                        {"continuation": {"reloadContinuationData": {
+                            "continuation": "top-chat-token"}}},
+                        {"continuation": {"reloadContinuationData": {
+                            "continuation": "live-chat-token"}}},
+                    ]
+                }}
+            }}}}}
+        fetch_chat.return_value = {"continuationContents": {
+            "liveChatContinuation": {"actions": [], "continuations": []}}}
+        replay = youtube.ChatReplay(
+            "video-id", video_start_ts=1234.0, duration=20)
+        self.assertEqual(list(replay.pages()), [([], None)])
+        initial_chat.assert_called_once_with("watch-token")
+        self.assertEqual(fetch_chat.call_args.args[:3],
+                         ("key", "1.2", "live-chat-token"))
+        self.assertEqual(fetch_chat.call_args.kwargs["context"], context)
 
     @mock.patch.object(youtube.time, "sleep")
     @mock.patch.object(youtube, "_ydl_options", return_value={"quiet": True})
