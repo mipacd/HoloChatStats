@@ -33,6 +33,12 @@ class YoutubeResponseTests(unittest.TestCase):
         self.assertEqual((key, version), ("key", "1.2"))
         self.assertEqual(decoded, payload)
 
+    def test_replay_window_initial_data_assignment_is_supported(self):
+        payload = {"continuationContents": {"liveChatContinuation": {}}}
+        html = f'window["ytInitialData"] = {json.dumps(payload)};'
+        _key, _version, decoded = youtube._extract_params(html)
+        self.assertEqual(decoded, payload)
+
     def test_initial_data_skips_an_earlier_malformed_candidate(self):
         html = (
             'ytInitialData = {"broken":"unterminated}; '
@@ -155,6 +161,18 @@ class YoutubeResponseTests(unittest.TestCase):
         self.assertEqual(
             youtube._extract_unfiltered_cont_data(response),
             ("live", "tracked"))
+
+    @mock.patch.object(youtube, "_auth")
+    def test_non_json_bootstrap_has_stage_specific_diagnostic(self, auth):
+        response = self._response(200, "<html>interstitial</html>")
+        response.headers = {"Content-Type": "text/html"}
+        session = mock.Mock()
+        session.get.return_value = response
+        auth.return_value = {"session": session}
+        with self.assertRaisesRegex(
+                youtube.YoutubePayloadError,
+                r"live-chat replay bootstrap returned non-JSON payload .*bytes=25"):
+            youtube._fetch_initial_chat("watch-token", attempts=1)
 
     @mock.patch.object(youtube.time, "sleep")
     @mock.patch.object(youtube, "_fetch_chat")

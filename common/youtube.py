@@ -15,6 +15,30 @@ from common.config import secret
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
 _AUTH = None
 log = logging.getLogger("youtube")
+_YID_ASSIGNMENT_RE = re.compile(
+    r'(?:window\s*\[\s*["\']ytInitialData["\']\s*\]'
+    r'|["\']?ytInitialData["\']?)\s*[:=]\s*')
+
+
+class YoutubePayloadError(RuntimeError):
+    """A successful YouTube HTTP response did not contain expected data."""
+
+
+def _payload_diagnostic(response, stage):
+    """Describe an unusable response without logging cookies or page text."""
+    content = response.content or b""
+    content_type = response.headers.get("Content-Type", "unknown")
+    sample = content[:4096].lower()
+    kind = "empty" if not content.strip() else "non-JSON"
+    if b"consent.youtube" in sample or b"before you continue" in sample:
+        kind = "YouTube consent page"
+    elif b"accounts.google" in sample or b"sign in" in sample:
+        kind = "YouTube sign-in page"
+    elif b"unusual traffic" in sample or b"automated queries" in sample:
+        kind = "YouTube bot-check page"
+    return (f"{stage} returned {kind} payload "
+            f"(HTTP {response.status_code}, content-type={content_type!r}, "
+            f"bytes={len(content)})")
 
 def _auth():
     """Materialize the Secrets Manager cookie only in Lambda's private /tmp."""
@@ -163,7 +187,7 @@ def _extract_params(html):
     # A watch page can mention ytInitialData before the real assignment.  Try
     # every candidate instead of letting one incidental/truncated match hide a
     # later valid object.
-    for yid_m in re.finditer(r'ytInitialData["\']?\s*[:=]\s*', html):
+    for yid_m in _YID_ASSIGNMENT_RE.finditer(html):
         start = html.find("{", yid_m.end())
         if start >= 0:
             try:
@@ -373,6 +397,7 @@ def _fetch_chat(api_key, version, continuation, context=None,
         requests.exceptions.ConnectionError,
         requests.exceptions.ChunkedEncodingError,
         json.JSONDecodeError,
+        YoutubePayloadError,
         requests.exceptions.HTTPError,
     )
     # A replay can contain thousands of pages.  YouTube occasionally returns a
@@ -387,10 +412,15 @@ def _fetch_chat(api_key, version, continuation, context=None,
             r.raise_for_status()
             # Decode with the stdlib so every malformed/truncated response has
             # the same exception type across requests releases.
-            decoded = json.loads(r.content)
+            try:
+                decoded = json.loads(r.content)
+            except json.JSONDecodeError as exc:
+                raise YoutubePayloadError(
+                    _payload_diagnostic(r, "InnerTube replay API")) from exc
             if not isinstance(decoded, dict):
-                raise json.JSONDecodeError("YouTube response is not an object",
-                                           r.text, 0)
+                raise YoutubePayloadError(
+                    "InnerTube replay API returned a JSON value that is not "
+                    "an object")
             return decoded
         except retryable as exc:
             response = getattr(exc, "response", None)
@@ -620,10 +650,10 @@ def _extract_next_cont_data(obj):
         return None, None
     return _extract_next_cont(obj), None
 
-def _fetch_initial_chat(continuation):
+def _fetch_initial_chat(continuation, attempts=8):
     """Load the replay bootstrap page before using the InnerTube POST API."""
     url = "https://www.youtube.com/live_chat_replay"
-    for attempt in range(8):
+    for attempt in range(attempts):
         try:
             response = _auth()["session"].get(
                 url, params={"continuation": continuation}, timeout=60)
@@ -631,22 +661,29 @@ def _fetch_initial_chat(continuation):
             _key, _version, initial = _extract_params(response.text)
             if initial:
                 return initial
-            decoded = json.loads(response.content)
+            try:
+                decoded = json.loads(response.content)
+            except json.JSONDecodeError as exc:
+                raise YoutubePayloadError(
+                    _payload_diagnostic(response,
+                                        "live-chat replay bootstrap")) from exc
             if not isinstance(decoded, dict):
-                raise json.JSONDecodeError("YouTube response is not an object",
-                                           response.text, 0)
+                raise YoutubePayloadError(
+                    "live-chat replay bootstrap returned a JSON value that "
+                    "is not an object")
             return decoded
         except (requests.exceptions.Timeout,
                 requests.exceptions.ConnectionError,
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.HTTPError,
-                json.JSONDecodeError) as exc:
+                json.JSONDecodeError,
+                YoutubePayloadError) as exc:
             response = getattr(exc, "response", None)
             status = getattr(response, "status_code", None)
             if (isinstance(exc, requests.exceptions.HTTPError)
                     and status != 429 and (status is None or status < 500)):
                 raise
-            if attempt == 7:
+            if attempt + 1 >= attempts:
                 raise
             time.sleep(min(2 ** attempt, 30))
 
