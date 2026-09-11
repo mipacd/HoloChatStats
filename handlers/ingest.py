@@ -76,9 +76,10 @@ def _route(cur, video_id, fallback_ts):
     month = row[0] if row and row[0] else _month_of_ts(fallback_ts)
     if setting("current_month_staging", "true").lower() != "true":
         return MAIN_TABLE, month
-    cur.execute("""SELECT 1 FROM monthly_merge_state
-                   WHERE observed_month = %s AND status = 'merged'""", (month,))
-    merged = cur.fetchone() is not None
+    cur.execute("""SELECT status FROM monthly_merge_state
+                   WHERE observed_month = %s FOR SHARE""", (month,))
+    state = cur.fetchone()
+    merged = bool(state and state[0] == "merged")
     return (MAIN_TABLE if merged else STAGING_TABLE), month
 
 def _ingest(msg):

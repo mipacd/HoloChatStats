@@ -18,6 +18,8 @@ work.
 import json
 import os
 import re
+from datetime import datetime, timedelta, timezone
+import redis
 from common.aws import client
 from common.config import settings
 from common.db import get_conn
@@ -352,7 +354,11 @@ def snapshot():
             SELECT js.month, js.total, js.pending, js.downloaded, js.done,
                    js.failed, js.skipped,
                    COALESCE(s.status,
-                     CASE WHEN js.month = js.current_month THEN 'open'
+                     CASE WHEN EXISTS (
+                            SELECT 1 FROM service_config hold
+                             WHERE hold.key='publication_hold:' || js.month::text
+                               AND hold.value='true') THEN 'held'
+                          WHEN js.month = js.current_month THEN 'open'
                           ELSE 'unpublished' END) AS merge_status,
                    s.merged_at,
                    CASE WHEN js.month < js.current_month THEN
@@ -382,7 +388,10 @@ def snapshot():
                       WHERE marker.key = 'late_data_month:' || js.month::text
                         AND marker.value = 'pending'
                    ), 0) AS late_logs,
-                   js.current_month
+                   js.current_month,
+                   js.month = (SELECT MAX(observed_month)
+                                 FROM monthly_merge_state
+                                WHERE status='merged') AS can_unpublish
               FROM job_stats js
               LEFT JOIN monthly_merge_state s ON s.observed_month = js.month
              ORDER BY js.month DESC""", (cfg.get("backlog_floor", ""),))
@@ -392,7 +401,7 @@ def snapshot():
             "skipped": int(r[6]), "merge_status": r[7],
             "merged_at": str(r[8]) if r[8] else None,
             "channel_checks": int(r[9]), "late_logs": int(r[10]),
-            "closed": r[0] < r[11],
+            "closed": r[0] < r[11], "can_unpublish": bool(r[12]),
         } for r in cur.fetchall()]
         cur.execute("""
             SELECT video_id, channel_id, message_count, completed_at
@@ -464,8 +473,41 @@ def snapshot():
         "stale_after_s": stale_after
     }
     out["refresh_seconds"] = REFRESH_SECONDS
+    out["eri_usage"] = _eri_usage()
     
     return out
+
+
+def _eri_usage():
+    """Aggregate accepted Eri prompts without exposing per-user counters."""
+    now = datetime.now(timezone.utc).date()
+    month_start = now.replace(day=1)
+    first = min(month_start, now - timedelta(days=6))
+    dates = []
+    day = first
+    while day <= now:
+        dates.append(day)
+        day += timedelta(days=1)
+    keys = [f"llm_usage_total:{day.isoformat()}" for day in dates]
+    try:
+        store = redis.Redis(
+            host=os.environ.get("REDIS_HOST", "localhost"),
+            port=int(os.environ.get("REDIS_PORT", "6379")),
+            decode_responses=True, socket_connect_timeout=0.5,
+            socket_timeout=0.5, retry_on_timeout=False)
+        values = [int(v or 0) for v in store.mget(keys)]
+        counts = dict(zip(dates, values))
+        return {
+            "available": True,
+            "day": counts.get(now, 0),
+            "week": sum(v for d, v in counts.items()
+                        if d >= now - timedelta(days=6)),
+            "month": sum(v for d, v in counts.items() if d >= month_start),
+        }
+    except redis.RedisError as exc:
+        log.warning("Eri usage counters unavailable",
+                    extra={"error": type(exc).__name__})
+        return {"available": False, "day": 0, "week": 0, "month": 0}
 def _esm_states():
     ssm, lam = client("ssm"), client("lambda")
     states = {}
@@ -487,7 +529,8 @@ def _rule_state():
 def control(action, body=None):
     body = body or {}
     if action not in ("start", "stop", "scan_now", "retry_failed",
-                      "retry_job", "publish_month", "republish_month"):
+                      "retry_job", "publish_month", "republish_month",
+                      "unpublish_month"):
         return {"ok": False, "error": f"unknown action {action!r}"}
     if action in ("start", "stop"):
         want_running = action == "start"
@@ -506,6 +549,8 @@ def control(action, body=None):
         return _publish_month(body.get("month"))
     if action == "republish_month":
         return _republish_month(body.get("month"))
+    if action == "unpublish_month":
+        return _unpublish_month(body.get("month"))
     video_id = body.get("video_id") if action == "retry_job" else None
     if action == "retry_job" and not video_id:
         return {"ok": False, "error": "retry_job requires video_id"}
@@ -660,6 +705,34 @@ def _republish_month(value):
     log.info("late month re-publication requested", extra={"month": month})
     return {"ok": True, "action": "republish_month", "month": month,
             "note": "refresh and cache invalidation queued"}
+
+
+def _unpublish_month(value):
+    month = _valid_month(value)
+    if month is None:
+        return {"ok": False, "error": "month must use YYYY-MM-01"}
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""SELECT EXISTS (
+                         SELECT 1 FROM monthly_merge_state
+                          WHERE observed_month=%s::date AND status='merged'),
+                              %s::date = (SELECT MAX(observed_month)
+                                FROM monthly_merge_state WHERE status='merged')""",
+                    (month, month))
+        published, newest = cur.fetchone()
+    conn.rollback()
+    conn.close()
+    if not published:
+        return {"ok": False, "error": f"{month} is not published"}
+    if not newest:
+        return {"ok": False,
+                "error": "only the newest published month can be unpublished"}
+    client("lambda").invoke(
+        FunctionName=f"{APP}-merge", InvocationType="Event",
+        Payload=json.dumps({"unpublish_months": [month]}).encode())
+    log.warning("month unpublication requested", extra={"month": month})
+    return {"ok": True, "action": "unpublish_month", "month": month,
+            "note": "month is being returned to staging and held"}
 # --------------------------------------------------------------------------- #
 # the page
 # --------------------------------------------------------------------------- #
@@ -690,9 +763,14 @@ PAGE = r"""<!doctype html>
   button:disabled { opacity:.45; cursor:not-allowed; }
   button.go   { background:#17502f; border-color:#1e6b41; }
   button.halt { background:#55191b; border-color:#7a2226; }
-  main { padding:18px 20px 40px; display:grid; gap:18px;
-         grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); }
-  section { background:#171a21; border:1px solid #262b36; border-radius:10px; padding:14px 16px; }
+  main { box-sizing:border-box; max-width:1440px; margin:0 auto;
+         padding:12px 14px 28px; display:grid; gap:12px;
+         grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),440px));
+         justify-content:start; align-items:start; }
+  section { box-sizing:border-box; background:#171a21; border:1px solid #262b36;
+            border-radius:9px; padding:11px 13px; min-width:0; }
+  section.wide { grid-column:1/-1; width:min(100%,1180px); }
+  section.medium { grid-column:1/-1; width:min(100%,900px); }
   section h2 { font-size:13px; letter-spacing:.08em; text-transform:uppercase;
                color:#8a93a6; margin:0 0 10px; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -746,6 +824,19 @@ PAGE = r"""<!doctype html>
   td.ts { font-family:ui-monospace,Menlo,monospace; font-size:12px; color:#9aa3b4;
           white-space:nowrap; }
   .approx { color:#ffd666; }
+  .table-scroll { overflow:auto; border:1px solid #222733; border-radius:6px; }
+  .table-scroll.months { max-height:330px; }
+  .table-scroll.channels { max-height:520px; }
+  .table-scroll.failed { max-height:420px; }
+  .table-scroll table { min-width:820px; }
+  .table-scroll th { position:sticky; top:0; z-index:1; background:#171a21; }
+  .actions { display:flex; align-items:center; gap:5px; white-space:nowrap; }
+  .actions button.small { margin-left:0; }
+  @media (max-width:700px) {
+    header { padding:10px 12px; gap:8px; }
+    main { padding:9px; }
+    section.wide, section.medium { grid-column:auto; width:100%; }
+  }
 </style>
 </head>
 <body>
@@ -758,7 +849,7 @@ PAGE = r"""<!doctype html>
   <span id="meta">—</span>
 </header>
 <main>
-  <section style="grid-column:1/-1">
+  <section class="wide">
     <h2>Pipeline</h2>
     <div class="kpis" id="kpis"></div>
   </section>
@@ -773,7 +864,11 @@ PAGE = r"""<!doctype html>
     <table><thead><tr><th>Status</th><th class="num">Count</th></tr></thead>
       <tbody id="jobs"></tbody></table>
   </section>
-  <section style="grid-column:1/-1">
+  <section>
+    <h2>Eri usage <span class="hint">accepted prompts, UTC</span></h2>
+    <div class="kpis" id="eri-usage"></div>
+  </section>
+  <section class="wide">
     <h2>In progress</h2>
     <table><thead><tr><th>Video</th><th>Channel</th><th>Stream ended (UTC)</th>
       <th>Phase</th><th class="num">Try</th><th>Progress</th>
@@ -786,35 +881,36 @@ PAGE = r"""<!doctype html>
     <table><thead><tr><th>Video</th><th class="num">Messages</th>
       <th>Finished</th></tr></thead><tbody id="recent"></tbody></table>
   </section>
-  <section style="grid-column:1/-1">
+  <section class="medium">
     <h2>Failed <button id="btn-retry-all" class="small">Retry all</button></h2>
     <p class="hint">Failed jobs do not block month publication. Retry only
       after correcting the underlying problem.</p>
-    <table><thead><tr><th>Video</th><th>Stream ended (UTC)</th>
+    <div class="table-scroll failed"><table><thead><tr><th>Video</th><th>Stream ended (UTC)</th>
       <th class="num">Try</th><th>Error</th><th>Actions</th></tr></thead>
-      <tbody id="failed"></tbody></table>
+      <tbody id="failed"></tbody></table></div>
   </section>
-  <section style="grid-column:1/-1">
+  <section class="wide">
     <h2>Monthly publication</h2>
     <p class="hint">Channel checks are publication-barrier scans. Manual
       publication overrides pending work and channel checks; use it only when
-      accepting incomplete coverage. Re-publish applies late logs and
-      invalidates that month's caches.</p>
-    <table><thead><tr><th>Month</th><th class="num">Known</th>
+      accepting incomplete coverage. Unpublish returns a month to staging and
+      holds automatic publication until Publish is clicked. Re-publish applies
+      late logs and invalidates that month's caches.</p>
+    <div class="table-scroll months"><table><thead><tr><th>Month</th><th class="num">Known</th>
       <th class="num">Pending</th><th class="num">Downloaded</th>
       <th class="num">Ingested</th><th class="num">Failed</th>
       <th class="num">Skipped</th><th class="num">Channel checks</th>
       <th>Merge status</th><th class="num">Late logs</th><th>Actions</th></tr></thead>
-      <tbody id="months"></tbody></table>
+      <tbody id="months"></tbody></table></div>
   </section>
-  <section style="grid-column:1/-1">
+  <section class="wide">
     <h2>Channels <button id="btn-add-chan" class="go small">+ Add channel</button></h2>
-    <table><thead><tr><th>Channel</th><th>Group</th><th>State</th>
+    <div class="table-scroll channels"><table><thead><tr><th>Channel</th><th>Group</th><th>State</th>
       <th class="num">Queued</th><th class="num">Videos</th>
       <th>Last scanned</th><th>Watermark</th><th>Error</th>
-      <th>Actions</th></tr></thead><tbody id="channels"></tbody></table>
+      <th>Actions</th></tr></thead><tbody id="channels"></tbody></table></div>
   </section>
-  <section style="grid-column:1/-1">
+  <section class="medium">
     <h2>Homepage news</h2>
     <p class="hint">One item per line using <code>Date: message</code>. Changes
       are stored in S3 and appear after the homepage is refreshed.</p>
@@ -1007,6 +1103,14 @@ window.republishMonth = i => {
   if (item && confirm(`Re-publish ${item.month} and invalidate its caches?`))
     act("republish_month", { month: item.month });
 };
+window.unpublishMonth = i => {
+  const item = MONTHS[i];
+  if (!item) return;
+  const warning = `Unpublish ${item.month}?\n\n`
+    + `Its rows will return to staging, public coverage caches will be cleared, `
+    + `and automatic publication will be held. Click Publish when the month is ready.`;
+  if (confirm(warning)) act("unpublish_month", { month: item.month });
+};
 window.publishMonth = i => {
   const item = MONTHS[i];
   if (!item) return;
@@ -1038,6 +1142,11 @@ function render(d) {
     ["Msgs / hr", d.throughput.messages_last_hour.toLocaleString()],
     ["DLQ", (q.download_dlq && q.download_dlq.visible) || 0],
   ].map(([k, v]) => `<div class="kpi"><div class="v">${esc(v)}</div><div class="k">${k}</div></div>`).join("");
+  const eu = d.eri_usage || { available:false, day:0, week:0, month:0 };
+  $("eri-usage").innerHTML = eu.available
+    ? [["Today", eu.day], ["Last 7 days", eu.week], ["This month", eu.month]]
+        .map(([k, v]) => `<div class="kpi"><div class="v">${Number(v).toLocaleString()}</div><div class="k">${k}</div></div>`).join("")
+    : `<span class="err">usage store unavailable</span>`;
   $("queues").innerHTML = Object.entries(q).map(([n, v]) => v.error
     ? `<tr><td>${esc(n)}</td><td colspan="3" class="err">${esc(v.error)}</td></tr>`
     : `<tr><td>${esc(n)}</td><td class="num">${v.visible}</td>
@@ -1083,6 +1192,9 @@ function render(d) {
       ? `<button class="small go" onclick="publishMonth(${i})">Publish</button>` : "";
     const republish = m.merge_status === "merged" && m.late_logs > 0
       ? `<button class="small go" onclick="republishMonth(${i})">Re-publish</button>` : "";
+    const unpublish = m.merge_status === "merged" && m.can_unpublish
+      ? `<button class="small danger" onclick="unpublishMonth(${i})">Unpublish</button>` : "";
+    const actions = publish + republish + unpublish;
     return `<tr><td class="ts">${esc(m.month)}</td>
       <td class="num">${m.total.toLocaleString()}</td>
       <td class="num">${m.pending.toLocaleString()}</td>
@@ -1093,7 +1205,7 @@ function render(d) {
       <td class="num">${m.channel_checks.toLocaleString()}</td>
       <td class="s-${esc(m.merge_status)}" title="${esc(m.merged_at || "")}">${esc(m.merge_status)}</td>
       <td class="num">${m.late_logs.toLocaleString()}</td>
-      <td>${publish}${republish || (!publish ? "—" : "")}</td></tr>`;
+      <td><div class="actions">${actions || "—"}</div></td></tr>`;
   }).join("") || `<tr><td colspan="11">no months configured</td></tr>`;
   CHANNELS = d.channels;
   $("channels").innerHTML = d.channels.map((ch, i) => `

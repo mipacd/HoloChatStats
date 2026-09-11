@@ -31,11 +31,14 @@ log = get_logger("merge")
 def handler(event, context):
     event = event or {}
     t0 = time.time()
+    if event.get("unpublish_months"):
+        return _unpublish(event["unpublish_months"], t0)
     force = bool(event.get("force"))
     dry_run = bool(event.get("dry_run"))
     cfg = settings(force=True)
     grace = int(cfg.get("merge_grace_hours", 24))
     conn = get_conn()
+    _retry_unpublish_caches(conn)
     months = ([_as_month(m) for m in event["months"]] if event.get("months")
               else _staged_months(conn))
     merged, skipped, rows_total = [], [], 0
@@ -115,6 +118,11 @@ def _month_state(conn, month, grace_hours):
         cur.execute("SELECT COUNT(*) FROM user_data_current "
                     "WHERE observed_month = %s", (month,))
         staged = cur.fetchone()[0]
+        cur.execute("""SELECT EXISTS (
+                         SELECT 1 FROM service_config
+                          WHERE key=%s AND value='true')""",
+                    (f"publication_hold:{month}",))
+        publication_held = bool(cur.fetchone()[0])
     conn.rollback()
     reasons = []
     if not month_over:
@@ -123,6 +131,8 @@ def _month_state(conn, month, grace_hours):
         reasons.append(f"{in_flight} job(s) still in flight")
     if unscanned:
         reasons.append(f"{unscanned} channel(s) not rescanned since month end")
+    if publication_held:
+        reasons.append("publication held by operator")
     return {"complete": not reasons, "month_over": month_over,
             "jobs_in_flight": in_flight, "jobs_failed": failed,
             "channels_not_rescanned": unscanned, "staged_rows": staged,
@@ -172,8 +182,149 @@ def _merge_month(conn, month):
         cur.execute("CALL refresh_membership_data_for_month(%s::date)", (month,))
         cur.execute("DELETE FROM service_config WHERE key=%s",
                     (f"merge_barrier_scan:{month}",))
+        cur.execute("DELETE FROM service_config WHERE key=%s",
+                    (f"publication_hold:{month}",))
     conn.commit()
     return rows
+
+
+def _unpublish(values, started_at):
+    """Return finalized months to staging and place an automatic-merge hold.
+
+    Locking the merge-state row coordinates with ingest._route: an ingest that
+    began first commits before its rows are moved, while a later ingest waits
+    and observes the month as no longer merged.
+    """
+    conn = get_conn()
+    results = []
+    removed_total = 0
+    for value in values:
+        month = _as_month(value)
+        with conn.cursor() as cur:
+            cur.execute("""SELECT status FROM monthly_merge_state
+                           WHERE observed_month=%s FOR UPDATE""", (month,))
+            row = cur.fetchone()
+            cur.execute("""SELECT EXISTS (
+                             SELECT 1 FROM service_config
+                              WHERE key=%s AND value='true')""",
+                        (f"publication_hold:{month}",))
+            already_held = bool(cur.fetchone()[0])
+            if not row or row[0] != "merged":
+                conn.rollback()
+                if already_held:
+                    removed = _finish_unpublish_cache(conn, month)
+                    removed_total += removed
+                    results.append({"month": str(month), "unpublished": True,
+                                    "rows_staged": 0,
+                                    "cache_keys_removed": removed,
+                                    "resumed": True})
+                else:
+                    results.append({"month": str(month), "unpublished": False,
+                                    "reason": "month is not published"})
+                continue
+            cur.execute("""UPDATE monthly_merge_state SET status='open',
+                              updated_at=NOW() WHERE observed_month=%s""",
+                        (month,))
+            cur.execute("""
+                WITH src AS (
+                  DELETE FROM user_data u USING videos v
+                   WHERE u.video_id=v.video_id
+                     AND v.end_time >= %s
+                     AND v.end_time < %s
+                  RETURNING u.user_id, u.channel_id, u.last_message_at,
+                            u.video_id, u.membership_rank, u.jp_count,
+                            u.kr_count, u.ru_count, u.emoji_count,
+                            u.es_en_id_count, u.total_message_count, u.is_gift
+                ), moved AS (
+                  INSERT INTO user_data_current (
+                    user_id, channel_id, last_message_at, video_id,
+                    membership_rank, jp_count, kr_count, ru_count, emoji_count,
+                    es_en_id_count, total_message_count, is_gift, observed_month)
+                  SELECT src.*, %s::date FROM src
+                  ON CONFLICT (user_id, channel_id, last_message_at, video_id)
+                  DO UPDATE SET
+                    membership_rank=COALESCE(EXCLUDED.membership_rank,
+                                             user_data_current.membership_rank),
+                    jp_count=EXCLUDED.jp_count, kr_count=EXCLUDED.kr_count,
+                    ru_count=EXCLUDED.ru_count, emoji_count=EXCLUDED.emoji_count,
+                    es_en_id_count=EXCLUDED.es_en_id_count,
+                    total_message_count=EXCLUDED.total_message_count,
+                    is_gift=EXCLUDED.is_gift,
+                    observed_month=EXCLUDED.observed_month
+                  RETURNING 1
+                ) SELECT COUNT(*) FROM moved
+            """, (*_bounds(month), month))
+            moved = int(cur.fetchone()[0])
+            cur.execute("DELETE FROM monthly_merge_state WHERE observed_month=%s",
+                        (month,))
+            cur.execute("""DELETE FROM service_config
+                           WHERE key IN (%s, %s, %s)""",
+                        (f"merge_barrier_scan:{month}",
+                         f"late_data_month:{month}",
+                         f"late_data_published:{month}"))
+            cur.execute("""INSERT INTO service_config (key, value, updated_at)
+                           VALUES (%s, 'true', NOW())
+                           ON CONFLICT (key) DO UPDATE
+                             SET value='true', updated_at=NOW()""",
+                        (f"publication_hold:{month}",))
+            cur.execute("""INSERT INTO service_config (key, value, updated_at)
+                           VALUES (%s, 'pending', NOW())
+                           ON CONFLICT (key) DO UPDATE
+                             SET value='pending', updated_at=NOW()""",
+                        (f"unpublish_cache_pending:{month}",))
+        conn.commit()
+        removed = _finish_unpublish_cache(conn, month)
+        removed_total += removed
+        results.append({"month": str(month), "unpublished": True,
+                        "rows_staged": moved, "cache_keys_removed": removed})
+        log.warning("month unpublished and held",
+                    extra={"month": str(month), "rows_staged": moved,
+                           "cache_keys_removed": removed})
+    conn.close()
+    emit({"MonthsUnpublished": (
+              len([r for r in results if r["unpublished"]]), COUNT),
+          "RowsUnpublished": (sum(r.get("rows_staged", 0)
+                                   for r in results), COUNT),
+          "CacheKeysInvalidated": (removed_total, COUNT),
+          "MergeSeconds": (time.time() - started_at, SECONDS)})
+    return {"unpublished": results, "cache_keys_removed": removed_total}
+
+
+def _finish_unpublish_cache(conn, month):
+    """Invalidate public data and reset the merge watermark idempotently."""
+    removed = invalidate_finalized_month_caches(finalized_month=month)
+    # Roll the normal publication watermark back to the newest remaining
+    # published month. A later manual publish will invalidate again.
+    with conn.cursor() as cur:
+        cur.execute("""SELECT MAX(observed_month) FROM monthly_merge_state
+                       WHERE status='merged'""")
+        newest = cur.fetchone()[0]
+        if newest:
+            cur.execute("""INSERT INTO service_config
+                             (key, value, updated_at) VALUES (%s, %s, NOW())
+                           ON CONFLICT (key) DO UPDATE SET
+                             value=EXCLUDED.value, updated_at=NOW()""",
+                        ("cache_finalized_month", str(newest)))
+        else:
+            cur.execute("DELETE FROM service_config WHERE key=%s",
+                        ("cache_finalized_month",))
+        cur.execute("DELETE FROM service_config WHERE key=%s",
+                    (f"unpublish_cache_pending:{month}",))
+    conn.commit()
+    return removed
+
+
+def _retry_unpublish_caches(conn):
+    """Finish cache invalidation after an interrupted unpublish operation."""
+    with conn.cursor() as cur:
+        cur.execute("""SELECT split_part(key, ':', 2)::date
+                       FROM service_config
+                       WHERE key LIKE 'unpublish_cache_pending:%'
+                         AND value='pending' ORDER BY 1""")
+        months = [row[0] for row in cur.fetchall()]
+    conn.rollback()
+    for month in months:
+        _finish_unpublish_cache(conn, month)
 
 def _sync_cache_invalidation(conn):
     """Invalidate once per newest published month, retrying until successful."""

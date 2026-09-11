@@ -20,7 +20,7 @@ from langgraph.graph import END, StateGraph
 from config import settings
 from llm.model import call_openrouter
 from llm.planner import plan_api_calls
-from rate_limit import is_rate_limited, get_remaining_prompts
+from rate_limit import is_rate_limited, get_remaining_prompts, record_prompt_usage
 from tools import call_hcs_api, close_api_client, close_db_pool, get_api_tools
 from tool_store import tool_store
 from charts import generate_chart, CHARTS_DIR, cleanup_old_charts
@@ -523,6 +523,7 @@ async def chat(request: Request):
                 "message": "Daily LLM limit reached",
             },
         )
+    record_prompt_usage()
 
     inputs = {
         "input": message,

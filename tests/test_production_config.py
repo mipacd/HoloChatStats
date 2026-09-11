@@ -377,6 +377,29 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn('"publish_month"', admin)
         self.assertIn("Channel checks", admin)
 
+    def test_admin_can_safely_unpublish_and_reports_eri_usage(self):
+        admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
+        merge = (ROOT / "handlers" / "merge.py").read_text(encoding="utf-8")
+        ingest = (ROOT / "handlers" / "ingest.py").read_text(encoding="utf-8")
+        llm = (ROOT / "llm_chat" / "rate_limit.py").read_text(
+            encoding="utf-8")
+        self.assertIn('"unpublish_month"', admin)
+        self.assertIn("unpublishMonth", admin)
+        self.assertIn('id="eri-usage"', admin)
+        self.assertIn('class="table-scroll months"', admin)
+        self.assertIn('class="table-scroll channels"', admin)
+        self.assertIn("max-height:330px", admin)
+        self.assertIn("max-height:520px", admin)
+        self.assertIn('event.get("unpublish_months")', merge)
+        self.assertIn("publication_hold:", merge)
+        self.assertIn("unpublish_cache_pending:", merge)
+        self.assertIn("_retry_unpublish_caches(conn)", merge)
+        self.assertIn("DELETE FROM user_data u USING videos v", merge)
+        self.assertIn("INSERT INTO user_data_current", merge)
+        self.assertIn("FOR SHARE", ingest)
+        self.assertIn("llm_usage_total:", llm)
+        self.assertIn("timedelta(days=62)", llm)
+
     def test_failed_jobs_are_terminal_until_an_admin_retry(self):
         download = (ROOT / "handlers" / "download.py").read_text()
         ingest = (ROOT / "handlers" / "ingest.py").read_text()

@@ -77,3 +77,21 @@ def get_remaining_prompts(user_key: str, exempt: bool = False) -> int:
     
     remaining = settings.LLM_DAILY_LIMIT - int(current_usage)
     return max(0, remaining)
+
+
+def record_prompt_usage() -> None:
+    """Record one accepted Eri prompt in an aggregate UTC daily counter.
+
+    This deliberately contains no user identifier or prompt content. Retain
+    enough daily buckets for the admin dashboard's current-month total.
+    """
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    key = f"llm_usage_total:{today}"
+    try:
+        pipe = r.pipeline()
+        pipe.incr(key)
+        pipe.expire(key, timedelta(days=62))
+        pipe.execute()
+    except redis.RedisError as exc:
+        # Usage telemetry must never make the assistant unavailable.
+        log.warning("Eri usage counter unavailable: %s", type(exc).__name__)
