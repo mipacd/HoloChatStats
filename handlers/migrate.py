@@ -764,9 +764,12 @@ def ping():
                             f"refuses connections -- wrong port, or the lambda "
                             f"containers are on a different docker network")
     elif not out["stages"].get("redis", {}).get("ok"):
-        out["diagnosis"] = ("ElastiCache is unavailable from Lambda; verify the "
-                            "floci-valkey container is running and attached to "
-                            "the Floci Compose network")
+        out["diagnosis"] = (
+            f"ElastiCache is unavailable from Lambda at "
+            f"{os.environ.get('REDIS_HOST')}:{os.environ.get('REDIS_PORT')}; "
+            "for Floci this must be the floci-valkey-<replication-group> "
+            "container DNS name, and that container must be attached to the "
+            "Floci Compose network")
     elif all(s["ok"] for s in out["stages"].values()):
         out["diagnosis"] = "all dependencies reachable"
     return out

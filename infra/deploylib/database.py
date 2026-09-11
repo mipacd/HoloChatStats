@@ -2,7 +2,6 @@
 import json
 import sys
 import time
-from urllib.parse import urlparse
 import botocore.exceptions
 import dbmigrate
 import dbrestore
@@ -135,11 +134,16 @@ class DatabaseMixin:
                 report=lambda: print("  waiting for ElastiCache ...")) \
                 or ("localhost", 6379)
         host, port = endpoint
-        # floci reports 'localhost', which is useless to other containers on the
-        # docker network; rewrite to the floci hostname.
-        if host in ("localhost", "127.0.0.1") and self.internal_endpoint():
-            host = urlparse(self.internal_endpoint()).hostname
-            print(f"  ElastiCache reported localhost; rewriting to {host}:{port}")
+        if self.emulated:
+            # Floci runs Valkey as a sibling container. Its advertised
+            # localhost/floci endpoint describes the emulator host, but Floci
+            # does not proxy Redis on its own port 6379. Lambda, EC2 and ECS
+            # containers share FLOCI_SERVICES_DOCKER_NETWORK and must resolve
+            # the spawned Valkey container directly by its stable name.
+            reported = f"{host}:{port}"
+            host, port = f"floci-valkey-{gid}", 6379
+            print(f"  emulator ElastiCache endpoint {reported}; using "
+                  f"container DNS {host}:{port}")
         self.elasticache = {"host": host, "port": port}
         self.put_params({f"/{C.APP}/elasticache/host": host,
                          f"/{C.APP}/elasticache/port": port})

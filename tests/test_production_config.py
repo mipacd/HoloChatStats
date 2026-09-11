@@ -262,6 +262,10 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("return False", rate_limit)
         self.assertIn("return settings.LLM_DAILY_LIMIT", rate_limit)
         self.assertIn('stage("redis", _redis)', migrate)
+        database = (ROOT / "infra" / "deploylib" / "database.py").read_text(
+            encoding="utf-8")
+        self.assertIn('f"floci-valkey-{gid}"', database)
+        self.assertNotIn("urlparse(self.internal_endpoint()).hostname", database)
         self.assertIn("floci-valkey-", workflow)
         self.assertIn("--restart unless-stopped", workflow)
         self.assertIn("--require-stage postgres --require-stage redis", workflow)
