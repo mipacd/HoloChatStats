@@ -32,6 +32,8 @@ BUCKETS = {
     "frontend": f"{APP}-frontend",     # only used in bootstrap image mode
 }
 RAW_RETENTION_DAYS = 90
+LEGACY_IMPORT_PREFIX = "legacy-stream-stats-import/"
+LEGACY_IMPORT_RETENTION_DAYS = 1
 # ----------------------------------------------------------------- queues ----
 QUEUES = {
     "scan-q":           {"visibility": 1000, "dlq": "scan-dlq",     "max_receive": 3},
@@ -49,6 +51,8 @@ FUNCTIONS = {
     "scan":     {"handler": "handlers.scan.handler",     "timeout": 900, "memory": 512,  "rc": 3},
     "download": {"handler": "handlers.download.handler", "timeout": 900, "memory": 1024, "rc": 1},
     "ingest":   {"handler": "handlers.ingest.handler",   "timeout": 900, "memory": 1024, "rc": 1},
+    "legacy-stats-import": {"handler": "handlers.legacy_stats_import.handler",
+                            "timeout": 900, "memory": 1024, "rc": 1},
     "refresh":  {"handler": "handlers.refresh.handler",  "timeout": 900, "memory": 512,  "rc": 1},
     "merge":    {"handler": "handlers.merge.handler",    "timeout": 900, "memory": 512,  "rc": 1},
     "status":   {"handler": "handlers.status.handler",   "timeout": 30,  "memory": 256,  "rc": None},

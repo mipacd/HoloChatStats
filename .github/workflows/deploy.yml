@@ -62,7 +62,7 @@ jobs:
 
       - name: Validate repository
         run: |
-          python -m compileall -q common handlers infra llm_chat web
+          python -m compileall -q common handlers infra llm_chat scripts web
           python -m unittest discover -s tests -v
           docker compose -f infra/docker-compose.yml config --quiet
 

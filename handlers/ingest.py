@@ -12,7 +12,7 @@ from common.metrics import emit, COUNT
 from common.control import paused, requeue_all
 from common.channels import is_active, cancel_job
 from common.month_order import work_months
-from common.stream_stats import StreamStatsAccumulator
+from common.stream_stats import StreamStatsAccumulator, upsert_stream_stats
 
 
 log = get_logger("ingest")
@@ -210,7 +210,7 @@ def _ingest(msg):
                            SET status='done', message_count=%s, completed_at=NOW(),
                                updated_at=NOW(), last_error=NULL
                            WHERE video_id=%s""", (total, video_id))
-            _upsert_stream_stats(cur, video_id, aggregate)
+            upsert_stream_stats(cur, video_id, aggregate)
             if late_finalized:
                 # An operator-triggered re-publication consumes this durable
                 # marker only after rebuilding derived data and invalidating
@@ -271,45 +271,6 @@ def _video_timing(conn, video_id):
     return int(row[0] or 0), float(row[1]) if row[1] is not None else None
 
 
-def _upsert_stream_stats(cur, video_id, aggregate):
-    """Persist only aggregate values; no message/user fields are accepted."""
-    cur.execute("""INSERT INTO video_stream_stats (
-                     video_id, schema_version, status, message_count,
-                     unique_chatters, member_chatters, member_percentage,
-                     category_counts,
-                     membership_rank_counts, histogram_bin_seconds,
-                     histogram_counts, funny_moments, word_counts,
-                     first_message_at, last_error, computed_at, updated_at)
-                   VALUES (%s,%s,'ready',%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,
-                           %s::jsonb,%s::jsonb,%s::jsonb,to_timestamp(%s),
-                           NULL,NOW(),NOW())
-                   ON CONFLICT (video_id) DO UPDATE SET
-                     schema_version=EXCLUDED.schema_version,
-                     status='ready', message_count=EXCLUDED.message_count,
-                     unique_chatters=EXCLUDED.unique_chatters,
-                     member_chatters=EXCLUDED.member_chatters,
-                     member_percentage=EXCLUDED.member_percentage,
-                     category_counts=EXCLUDED.category_counts,
-                     membership_rank_counts=EXCLUDED.membership_rank_counts,
-                     histogram_bin_seconds=EXCLUDED.histogram_bin_seconds,
-                     histogram_counts=EXCLUDED.histogram_counts,
-                     funny_moments=EXCLUDED.funny_moments,
-                     word_counts=EXCLUDED.word_counts,
-                     first_message_at=EXCLUDED.first_message_at,
-                     last_error=NULL, computed_at=NOW(), updated_at=NOW()""",
-                (video_id, aggregate["schema_version"],
-                 aggregate["message_count"], aggregate["unique_chatters"],
-                 aggregate["member_chatters"],
-                 aggregate["member_percentage"],
-                 json.dumps(aggregate["category_counts"]),
-                 json.dumps(aggregate["membership_rank_counts"]),
-                 aggregate["histogram_bin_seconds"],
-                 json.dumps(aggregate["histogram_counts"]),
-                 json.dumps(aggregate["funny_moments"]),
-                 json.dumps(aggregate["word_counts"]),
-                 aggregate["first_message_at"]))
-
-
 def _missing_raw(exc):
     response = getattr(exc, "response", {}) or {}
     code = str((response.get("Error") or {}).get("Code", ""))
@@ -358,7 +319,7 @@ def _backfill_stream_stats(msg):
         for message in _iter_messages(s3, channel_id, video_id, part_count):
             accumulator.add(message)
         with conn.cursor() as cur:
-            _upsert_stream_stats(cur, video_id, accumulator.finish())
+            upsert_stream_stats(cur, video_id, accumulator.finish())
         conn.commit()
         emit({"StreamStatsBackfilled": (1, COUNT)}, {"Stage": "ingest"},
              video_id=video_id)

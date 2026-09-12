@@ -508,7 +508,7 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS video_stream_stats", migration)
         for forbidden in ("username", "user_id", "message_text"):
             self.assertNotIn(forbidden, migration)
-        self.assertIn("_upsert_stream_stats(cur, video_id, aggregate)", ingest)
+        self.assertIn("upsert_stream_stats(cur, video_id, aggregate)", ingest)
         self.assertIn("stream_stats_backfill_enabled", ingest)
         self.assertIn('request.path.startswith("/api/stream-stats")', api)
         self.assertIn('"groups": sorted(', api)
@@ -527,6 +527,8 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn('InvocationType="Event"', ingest)
         self.assertIn('"ingest":   {"handler": "handlers.ingest.handler",   '
                       '"timeout": 900, "memory": 1024, "rc": 1}', config)
+        self.assertIn('"legacy-stats-import": {"handler": '
+                      '"handlers.legacy_stats_import.handler"', config)
         for parameter in ("month", "channel", "group", "page", "page_size"):
             self.assertIn(f'request.args.get("{parameter}"', api)
         self.assertIn("/api/stream-stats/<video_id>", api)

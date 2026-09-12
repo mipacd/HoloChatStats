@@ -1,4 +1,5 @@
 """Privacy-preserving, per-video aggregates computed while raw chat exists."""
+import json
 import math
 import re
 from collections import Counter, defaultdict
@@ -12,6 +13,7 @@ WORD_LIMIT = 200
 WORD_MIN_COUNT = 5
 HISTOGRAM_SECONDS = 60
 HUMOR_SECONDS = 30
+KNOWN_CATEGORIES = frozenset(("emoji", "jp", "kr", "ru", "number", "es_en_id"))
 _WORD_RE = re.compile(
     r"[A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff]+"
     r"(?:['\u2019-][A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff]+)*"
@@ -125,6 +127,51 @@ class StreamStatsAccumulator:
             if has_humor(text):
                 self.humor[int(offset // HUMOR_SECONDS)] += 1
 
+    def add_legacy(self, message):
+        """Consume one flattened legacy row without retaining its identity/text."""
+        user_id = message.get("user_id")
+        if not isinstance(user_id, str) or not user_id:
+            return False
+        self.users.add(user_id)
+        try:
+            timestamp = float(message.get("timestamp") or 0)
+        except (TypeError, ValueError):
+            timestamp = 0.0
+        if abs(timestamp) >= 1_000_000_000_000:
+            timestamp /= 1_000_000
+        if timestamp and (self.first_timestamp is None
+                          or timestamp < self.first_timestamp):
+            self.first_timestamp = timestamp
+        try:
+            rank = int(message.get("membership_rank", -1))
+        except (TypeError, ValueError):
+            rank = -1
+        message_type = message.get("message_type", "chat")
+        if message_type in ("new_member", "gift_member"):
+            self.ranks[user_id] = (-2 if message_type == "gift_member"
+                                   and rank < 0 else rank)
+            return True
+        text = message.get("message")
+        if not isinstance(text, str) or not text.strip():
+            return True
+        category = message.get("message_category")
+        if category not in KNOWN_CATEGORIES:
+            category = categorize_message(text)
+        if not category:
+            return True
+        self.message_count += 1
+        self.categories[category] += 1
+        self.ranks[user_id] = rank
+        self.words.update(_words(text))
+        if self.start is not None and timestamp >= self.start:
+            offset = timestamp - self.start
+            minute = int(offset // HISTOGRAM_SECONDS)
+            if 0 <= minute < len(self.histogram):
+                self.histogram[minute] += 1
+            if has_humor(text):
+                self.humor[int(offset // HUMOR_SECONDS)] += 1
+        return True
+
     def finish(self):
         rank_counts = Counter(self.ranks.values())
         members = sum(count for rank, count in rank_counts.items() if rank >= 0)
@@ -149,3 +196,46 @@ class StreamStatsAccumulator:
             "word_counts": [[word, count] for word, count in words[:WORD_LIMIT]],
             "first_message_at": self.first_timestamp,
         }
+
+
+def upsert_stream_stats(cur, video_id, aggregate, *, preserve_ready=False):
+    """Write one complete aggregate. Only aggregate fields cross this boundary."""
+    conflict = ("DO UPDATE SET "
+                "schema_version=EXCLUDED.schema_version, status='ready', "
+                "message_count=EXCLUDED.message_count, "
+                "unique_chatters=EXCLUDED.unique_chatters, "
+                "member_chatters=EXCLUDED.member_chatters, "
+                "member_percentage=EXCLUDED.member_percentage, "
+                "category_counts=EXCLUDED.category_counts, "
+                "membership_rank_counts=EXCLUDED.membership_rank_counts, "
+                "histogram_bin_seconds=EXCLUDED.histogram_bin_seconds, "
+                "histogram_counts=EXCLUDED.histogram_counts, "
+                "funny_moments=EXCLUDED.funny_moments, "
+                "word_counts=EXCLUDED.word_counts, "
+                "first_message_at=EXCLUDED.first_message_at, "
+                "last_error=NULL, computed_at=NOW(), updated_at=NOW()")
+    if preserve_ready:
+        conflict += " WHERE video_stream_stats.status <> 'ready'"
+    cur.execute(f"""INSERT INTO video_stream_stats (
+                     video_id, schema_version, status, message_count,
+                     unique_chatters, member_chatters, member_percentage,
+                     category_counts, membership_rank_counts,
+                     histogram_bin_seconds, histogram_counts, funny_moments,
+                     word_counts, first_message_at, last_error,
+                     computed_at, updated_at)
+                   VALUES (%s,%s,'ready',%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,
+                           %s::jsonb,%s::jsonb,%s::jsonb,to_timestamp(%s),
+                           NULL,NOW(),NOW())
+                   ON CONFLICT (video_id) {conflict}""",
+                (video_id, aggregate["schema_version"],
+                 aggregate["message_count"], aggregate["unique_chatters"],
+                 aggregate["member_chatters"],
+                 aggregate["member_percentage"],
+                 json.dumps(aggregate["category_counts"]),
+                 json.dumps(aggregate["membership_rank_counts"]),
+                 aggregate["histogram_bin_seconds"],
+                 json.dumps(aggregate["histogram_counts"]),
+                 json.dumps(aggregate["funny_moments"]),
+                 json.dumps(aggregate["word_counts"]),
+                 aggregate["first_message_at"]))
+    return cur.rowcount > 0

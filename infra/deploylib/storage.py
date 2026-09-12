@@ -24,17 +24,7 @@ class StorageMixin:
     def ensure_buckets(self):
         for name in C.BUCKETS.values():
             self.ensure_bucket(name)
-        self.s3.put_bucket_lifecycle_configuration(
-            Bucket=C.BUCKETS["raw"],
-            LifecycleConfiguration={"Rules": [{
-                "ID": f"expire-raw-chat-{C.RAW_RETENTION_DAYS}d",
-                "Status": "Enabled",
-                "Filter": {"Prefix": ""},
-                "Expiration": {"Days": C.RAW_RETENTION_DAYS},
-                "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 7},
-            }]})
-        print(f"lifecycle: {C.BUCKETS['raw']} objects expire after "
-              f"{C.RAW_RETENTION_DAYS} days")
+        self.ensure_raw_lifecycle()
         if self.args.channels_file:
             self.s3.put_object(
                 Bucket=C.BUCKETS["config"], Key="channels.json",
@@ -43,6 +33,27 @@ class StorageMixin:
             print(f"uploaded {self.args.channels_file} -> "
                   f"s3://{C.BUCKETS['config']}/channels.json")
         self.ensure_news_seed()
+
+    def ensure_raw_lifecycle(self):
+        self.s3.put_bucket_lifecycle_configuration(
+            Bucket=C.BUCKETS["raw"],
+            LifecycleConfiguration={"Rules": [{
+                "ID": f"expire-raw-chat-{C.RAW_RETENTION_DAYS}d",
+                "Status": "Enabled",
+                "Filter": {"Prefix": ""},
+                "Expiration": {"Days": C.RAW_RETENTION_DAYS},
+                "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 7},
+            }, {
+                "ID": ("expire-legacy-stream-stats-import-"
+                       f"{C.LEGACY_IMPORT_RETENTION_DAYS}d"),
+                "Status": "Enabled",
+                "Filter": {"Prefix": C.LEGACY_IMPORT_PREFIX},
+                "Expiration": {"Days": C.LEGACY_IMPORT_RETENTION_DAYS},
+                "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1},
+            }]})
+        print(f"lifecycle: {C.BUCKETS['raw']} objects expire after "
+              f"{C.RAW_RETENTION_DAYS} days; legacy import staging expires "
+              f"after {C.LEGACY_IMPORT_RETENTION_DAYS} day")
     def ensure_news_seed(self):
         """Create the editable news object once; never overwrite admin edits."""
         key = "news.txt"

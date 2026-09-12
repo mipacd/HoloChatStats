@@ -43,6 +43,7 @@ def deploy_code(stack, args):
     check_db_config(stack, args)
     stack.ensure_secrets()
     stack.ensure_news_seed()
+    stack.ensure_raw_lifecycle()
     stack.ensure_queues()
     stack.ensure_elasticache()
     # Reapply function configuration as well as code so concurrency and newly
