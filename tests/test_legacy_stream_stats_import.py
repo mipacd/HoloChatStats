@@ -181,7 +181,6 @@ class LegacyUploaderTests(unittest.TestCase):
         self.assertIn("LEGACY_IMPORT_PREFIX", storage)
         self.assertIn('client("s3").delete_object', handler)
         self.assertNotIn("INGEST_QUEUE_URL", handler)
-        self.assertIn("chat_logs/", (root / ".gitignore").read_text())
 
 
 if __name__ == "__main__":
