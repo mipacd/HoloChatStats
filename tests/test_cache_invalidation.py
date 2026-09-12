@@ -82,5 +82,16 @@ class CacheInvalidationTests(unittest.TestCase):
         self.assertEqual(fake.values["cache_warm:requested_month"],
                          "2026-07-01")
 
+    def test_unpublished_month_is_invalidated_without_rewarming(self):
+        fake = FakeRedis({"group_membership_data_Hololive_2026-07"})
+        with mock.patch.dict("os.environ", {"REDIS_HOST": "redis"},
+                             clear=False), mock.patch.object(
+                                 cache_invalidation.redis, "Redis",
+                                 return_value=fake):
+            removed = cache_invalidation.invalidate_finalized_month_caches(
+                finalized_month="2026-07-01", request_warm=False)
+        self.assertEqual(removed, 1)
+        self.assertNotIn("cache_warm:requested_month", fake.values)
+
 if __name__ == "__main__":
     unittest.main()

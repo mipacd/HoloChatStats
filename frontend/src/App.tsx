@@ -31,6 +31,7 @@ import HighlightSearch from "@/pages/HighlightSearch"
 import Eri from "@/pages/eri/Eri"
 import SiteMetrics from "@/pages/SiteMetrics"
 import StreamFrequencyPage from "@/pages/StreamFrequencyPage"
+import StreamStats from "@/pages/StreamStats"
 
 function PaddedLayout() {
   return (
@@ -85,6 +86,8 @@ export default function App() {
             <Route path="/streaming_hours_diff" element={<StreamingHoursDiff />} />
             <Route path="/monthly_streaming_hours" element={<MonthlyStreamingHours />} />
             <Route path="/stream_freq" element={<StreamFrequencyPage />} />
+            <Route path="/stream_stats" element={<StreamStats />} />
+            <Route path="/stream_stats/:videoId" element={<StreamStats />} />
             <Route path="/funniest_timestamps" element={<FunniestTimestamps />} />
             <Route path="/highlights" element={<Highlights />} />
             <Route path="/highlight_search" element={<HighlightSearch />} />

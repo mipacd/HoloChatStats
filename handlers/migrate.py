@@ -35,6 +35,7 @@ UPSERT_KEYS = [
     ("channel_watermarks", ["channel_id"]),
     ("service_config", ["key"]),
     ("schema_migrations", ["filename"]),
+    ("video_stream_stats", ["video_id"]),
     ("monthly_merge_state", ["observed_month"]),
     ("membership_data_summary",
      ["channel_name", "observed_month", "membership_rank"]),

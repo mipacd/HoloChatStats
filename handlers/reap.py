@@ -31,6 +31,9 @@ def handler(event, context):
         "downloads": _reap_downloads(cfg, limit, dry),
         "ingests": _reap_ingests(cfg, limit, dry),
         "orphaned_downloaded": _reap_downloaded(cfg, limit, dry),
+        "stream_stats_backfill": (_dispatch_stream_stats_backfill(cfg, dry)
+                                  if not dry else {"dispatched": 0,
+                                                   "reason": "dry run"}),
     }
     total = sum(len(v["recovered"]) for v in
                 (out["downloads"], out["ingests"], out["orphaned_downloaded"]))
@@ -41,6 +44,76 @@ def handler(event, context):
                                               "abandoned": out["downloads"]["abandoned"]})
     out["dispatch"] = dispatch.run(cfg)
     return out
+
+
+def _dispatch_stream_stats_backfill(cfg, dry=False):
+    """Admit at most one low-priority aggregate job to the ingest queue."""
+    del dry
+    if str(cfg.get("stream_stats_backfill_enabled", "false")).lower() != "true":
+        return {"dispatched": 0, "reason": "paused"}
+    if str(cfg.get("paused", "false")).lower() == "true":
+        return {"dispatched": 0, "reason": "ingestion paused"}
+    conn = get_conn()
+    with conn.cursor() as cur:
+        # Recover a worker/container that vanished while aggregating.
+        cur.execute("""UPDATE video_stream_stats
+                       SET status='pending', last_error='backfill worker stalled',
+                           updated_at=NOW()
+                       WHERE status='processing'
+                         AND updated_at < NOW() - INTERVAL '30 minutes'""")
+        cur.execute("""SELECT EXISTS (
+                                WITH active AS (
+                                  SELECT MIN(date_trunc('month', v.end_time)) month
+                                  FROM ingest_jobs j JOIN videos v USING (video_id)
+                                  WHERE j.status IN ('pending','downloading',
+                                                     'downloaded','ingesting'))
+                                SELECT 1 FROM ingest_jobs j
+                                LEFT JOIN videos v USING (video_id), active a
+                                WHERE j.status='ingesting'
+                                   OR (j.status='downloaded'
+                                       AND date_trunc('month', v.end_time)=a.month)),
+                              EXISTS (SELECT 1 FROM video_stream_stats
+                                      WHERE status IN ('queued','processing'))""")
+        live_ingest, already_active = cur.fetchone()
+        if live_ingest or already_active:
+            conn.commit()
+            conn.close()
+            return {"dispatched": 0,
+                    "reason": "normal ingest waiting" if live_ingest
+                              else "backfill already active"}
+        cur.execute("""SELECT s.video_id, j.channel_id
+                       FROM video_stream_stats s
+                       JOIN ingest_jobs j USING (video_id)
+                       WHERE s.status IN ('pending','failed')
+                         AND s.attempts < 3 AND j.status='done'
+                       ORDER BY j.completed_at DESC NULLS LAST
+                       LIMIT 1 FOR UPDATE OF s SKIP LOCKED""")
+        row = cur.fetchone()
+        if not row:
+            conn.commit()
+            conn.close()
+            return {"dispatched": 0, "reason": "no eligible work"}
+        video_id, channel_id = row
+        cur.execute("""UPDATE video_stream_stats SET status='queued',
+                           updated_at=NOW() WHERE video_id=%s""", (video_id,))
+    conn.commit()
+    try:
+        client("sqs").send_message(
+            QueueUrl=os.environ["INGEST_QUEUE_URL"], DelaySeconds=30,
+            MessageBody=json.dumps({"action": "backfill_stream_stats",
+                                    "video_id": video_id,
+                                    "channel_id": channel_id}))
+    except Exception:
+        with conn.cursor() as cur:
+            cur.execute("""UPDATE video_stream_stats SET status='pending',
+                               last_error='could not enqueue backfill',
+                               updated_at=NOW() WHERE video_id=%s""", (video_id,))
+        conn.commit()
+        conn.close()
+        raise
+    conn.close()
+    log.info("stream statistics backfill queued", extra={"video_id": video_id})
+    return {"dispatched": 1, "video_id": video_id}
 def _stale_preview(conn, status, minutes, limit):
     with conn.cursor() as cur:
         cur.execute(f"""

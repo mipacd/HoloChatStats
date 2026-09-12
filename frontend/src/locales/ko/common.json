@@ -294,5 +294,19 @@
   "No data available for the selected user.": "선택한 기준에 대한 데이터가 없습니다.",
   "Common User Channel Clusters": "공통 사용자 채널 클러스터",
   "Channel Clusters by Common Users": "공통 사용자 기반 채널 클러스터",
-  "Highlights": "하이라이트"
+  "Highlights": "하이라이트",
+  "Language Percentages / Rates": "언어 비율 / 속도",
+  "Per-Stream Statistics": "방송별 통계",
+  "Aggregate chat statistics become available after each stream is ingested.": "각 방송의 수집이 완료되면 집계된 채팅 통계가 표시됩니다.",
+  "All groups": "모든 그룹", "All channels": "모든 채널", "Find a stream": "방송 찾기",
+  "Title, video ID, or YouTube URL": "제목, 동영상 ID 또는 YouTube URL", "Streams found": "방송 수",
+  "messages": "메시지", "chatters": "채팅 참여자", "No stream statistics found.": "방송 통계가 없습니다.",
+  "Previous": "이전", "Next": "다음", "Stream statistics unavailable": "방송 통계를 사용할 수 없습니다",
+  "Back to streams": "방송 목록으로", "Watch on YouTube": "YouTube에서 보기",
+  "Chat messages": "채팅 메시지", "Avg. message rate": "평균 메시지 속도", "Unique chatters": "고유 채팅 참여자",
+  "Member percentage": "멤버 비율", "Message categories": "메시지 범주", "Membership ranks": "멤버십 기간",
+  "Non-members": "비멤버", "Gift only": "선물만", "New members": "신규 멤버", "months": "개월",
+  "Chat velocity": "채팅 속도", "Messages per minute. Click a bar to open YouTube at that point.": "분당 메시지 수입니다. 막대를 누르면 YouTube의 해당 시점을 엽니다.",
+  "No funny moments detected.": "재미있는 순간이 감지되지 않았습니다.", "Word cloud": "워드 클라우드",
+  "Only normalized words used at least five times are retained; original messages are not stored here.": "5회 이상 사용된 정규화된 단어만 보관하며 원본 메시지는 저장하지 않습니다."
 }

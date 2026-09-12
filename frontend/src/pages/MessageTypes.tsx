@@ -58,14 +58,14 @@ export default function MessageTypes() {
   } satisfies ChartConfig
   return (
     <ChartShell
-      title={t("Message Percentages and Rates by Language")}
+      title={t("Language Percentages / Rates")}
       infoText={t("Emote messages are excluded from the total count. Total duration is computed using only streams with available chat logs.")}
       loading={loading}
       hasData={rows.length > 0}
       emptyText={channel ? t("No data available for the selected channel and language.") : t("Please select a channel.")}
       chartMinWidth={rows.length * 50}
       png={{
-        title: `Message Percentages and Rates By Language - ${channel} (${language}) - holochatstats.info`,
+        title: `Language Percentages / Rates - ${channel} (${language}) - holochatstats.info`,
         filename: "message_types.png",
       }}
       controls={

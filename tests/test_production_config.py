@@ -205,6 +205,7 @@ class ProductionConfigTests(unittest.TestCase):
     def test_locale_default_and_site_metrics_websocket(self):
         navbar = (ROOT / "frontend" / "src" / "components" /
                   "Navbar.tsx").read_text(encoding="utf-8")
+        admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
         nginx = (ROOT / "infra" / "deploylib" / "frontend.py").read_text()
         webapi = (ROOT / "infra" / "deploylib" / "webapi.py").read_text()
         server = (ROOT / "web" / "server.py").read_text(encoding="utf-8")
@@ -469,6 +470,54 @@ class ProductionConfigTests(unittest.TestCase):
             "@api_bp.route('/api/get_publication_progress'", 1)[1].split(
                 "def get_publication_progress", 1)[0]
         self.assertNotIn("@cached_json", progress_decorators)
+
+    def test_public_month_analytics_are_fenced_by_merge_watermark(self):
+        api = (ROOT / "web" / "api.py").read_text(encoding="utf-8")
+        picker = (ROOT / "frontend" / "src" / "components" / "ui" /
+                  "month-picker.tsx").read_text(encoding="utf-8")
+        merge = (ROOT / "handlers" / "merge.py").read_text(encoding="utf-8")
+        self.assertIn("@api_bp.before_request", api)
+        self.assertIn('"code": "month_not_published"', api)
+        self.assertIn("MAX(observed_month)", api)
+        self.assertIn("disabled={isUnpublished}", picker)
+        self.assertIn("request_warm=False", merge)
+
+    def test_stream_stats_are_aggregate_only_and_public_on_ingest(self):
+        migration = (ROOT / "migrations" / "009_video_stream_stats.sql").read_text(
+            encoding="utf-8")
+        ingest = (ROOT / "handlers" / "ingest.py").read_text(encoding="utf-8")
+        api = (ROOT / "web" / "api.py").read_text(encoding="utf-8")
+        reaper = (ROOT / "handlers" / "reap.py").read_text(encoding="utf-8")
+        config = (ROOT / "infra" / "deploylib" / "config.py").read_text(
+            encoding="utf-8")
+        app = (ROOT / "frontend" / "src" / "App.tsx").read_text(encoding="utf-8")
+        navbar = (ROOT / "frontend" / "src" / "components" /
+                  "Navbar.tsx").read_text(encoding="utf-8")
+        admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
+        self.assertIn("CREATE TABLE IF NOT EXISTS video_stream_stats", migration)
+        for forbidden in ("username", "user_id", "message_text"):
+            self.assertNotIn(forbidden, migration)
+        self.assertIn("_upsert_stream_stats(cur, video_id, aggregate)", ingest)
+        self.assertIn("stream_stats_backfill_enabled", ingest)
+        self.assertIn('request.path.startswith("/api/stream-stats")', api)
+        self.assertIn('"groups": sorted(', api)
+        self.assertIn("_retained_stream_video_ids()", admin)
+        self.assertIn('Delimiter="/"', admin)
+        for action in ("stream_stats_backfill_start",
+                       "stream_stats_backfill_pause",
+                       "stream_stats_backfill_retry"):
+            self.assertIn(action, admin)
+        self.assertIn("LIMIT 1 FOR UPDATE OF s SKIP LOCKED", reaper)
+        self.assertIn("s.attempts < 3", reaper)
+        self.assertIn('"unavailable" if unavailable else "failed"', ingest)
+        self.assertIn('"ingest":   {"handler": "handlers.ingest.handler",   '
+                      '"timeout": 900, "memory": 1024, "rc": 1}', config)
+        for parameter in ("month", "channel", "group", "page", "page_size"):
+            self.assertIn(f'request.args.get("{parameter}"', api)
+        self.assertIn("/api/stream-stats/<video_id>", api)
+        self.assertIn('/stream_stats/:videoId', app)
+        self.assertIn('t("Language Percentages / Rates")', navbar)
+        self.assertIn("whitespace-nowrap", navbar)
 
 
 if __name__ == "__main__":

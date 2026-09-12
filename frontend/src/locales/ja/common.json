@@ -276,5 +276,21 @@
   "Est. Revenue": "推定収益",
   "Time": "時間",
   "Please enter a YouTube URL": "YouTubeのURLを入力してください",
-  "Invalid YouTube URL": "無効なYouTube URLです"
+  "Invalid YouTube URL": "無効なYouTube URLです",
+  "Language Percentages / Rates": "言語の割合 / レート",
+  "Per-Stream Statistics": "配信別統計",
+  "Aggregate chat statistics become available after each stream is ingested.": "各配信の取り込み完了後に集計チャット統計が表示されます。",
+  "All groups": "すべてのグループ", "All channels": "すべてのチャンネル",
+  "Find a stream": "配信を検索", "Title, video ID, or YouTube URL": "タイトル、動画ID、YouTube URL",
+  "Streams found": "配信数", "messages": "メッセージ", "chatters": "チャット参加者",
+  "No stream statistics found.": "配信統計がありません。", "Previous": "前へ", "Next": "次へ",
+  "Stream statistics unavailable": "配信統計は利用できません", "Back to streams": "配信一覧に戻る",
+  "Watch on YouTube": "YouTubeで視聴", "Chat messages": "チャットメッセージ",
+  "Avg. message rate": "平均メッセージ率", "Unique chatters": "ユニーク参加者",
+  "Member percentage": "メンバー比率", "Message categories": "メッセージカテゴリ",
+  "Membership ranks": "メンバー期間", "Non-members": "非メンバー", "Gift only": "ギフトのみ",
+  "New members": "新規メンバー", "months": "か月", "Chat velocity": "チャット速度",
+  "Messages per minute. Click a bar to open YouTube at that point.": "1分あたりのメッセージ数。バーをクリックするとYouTubeの該当位置を開きます。",
+  "No funny moments detected.": "面白い瞬間は検出されませんでした。", "Word cloud": "ワードクラウド",
+  "Only normalized words used at least five times are retained; original messages are not stored here.": "5回以上使われた正規化済みの単語のみ保存し、元のメッセージは保存しません。"
 }

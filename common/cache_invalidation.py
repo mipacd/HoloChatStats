@@ -54,7 +54,8 @@ FINALIZED_MONTH_KEY_TEMPLATES = (
 )
 
 
-def invalidate_finalized_month_caches(batch_size=200, finalized_month=None):
+def invalidate_finalized_month_caches(batch_size=200, finalized_month=None,
+                                      request_warm=True):
     """Delete aggregate web caches with SCAN, returning the number removed.
 
     Errors intentionally propagate. The merge handler only advances its
@@ -83,6 +84,6 @@ def invalidate_finalized_month_caches(batch_size=200, finalized_month=None):
                 pending.clear()
     if pending:
         removed += client.delete(*pending)
-    if finalized_month is not None:
+    if finalized_month is not None and request_warm:
         client.set("cache_warm:requested_month", str(finalized_month))
     return removed

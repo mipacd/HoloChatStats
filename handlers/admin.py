@@ -20,6 +20,7 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 import redis
+from psycopg2.extras import execute_values
 from common.aws import client
 from common.config import settings
 from common.db import get_conn
@@ -417,6 +418,18 @@ def snapshot():
         videos_1h, msgs_1h = cur.fetchone()
         out["throughput"] = {"videos_last_hour": videos_1h,
                              "messages_last_hour": int(msgs_1h)}
+        cur.execute("""SELECT status, COUNT(*) FROM video_stream_stats
+                       GROUP BY status""")
+        stats_counts = dict(cur.fetchall())
+        out["stream_stats_backfill"] = {
+            "enabled": str(cfg.get("stream_stats_backfill_enabled", "false")).lower() == "true",
+            "pending": int(stats_counts.get("pending", 0)),
+            "queued": int(stats_counts.get("queued", 0)),
+            "processing": int(stats_counts.get("processing", 0)),
+            "ready": int(stats_counts.get("ready", 0)),
+            "unavailable": int(stats_counts.get("unavailable", 0)),
+            "failed": int(stats_counts.get("failed", 0)),
+        }
         cur.execute("""
             SELECT c.channel_id, c.channel_name,
                    COALESCE(c.channel_group, '—') AS channel_group,
@@ -530,7 +543,9 @@ def control(action, body=None):
     body = body or {}
     if action not in ("start", "stop", "scan_now", "retry_failed",
                       "retry_job", "publish_month", "republish_month",
-                      "unpublish_month"):
+                      "unpublish_month", "stream_stats_backfill_start",
+                      "stream_stats_backfill_pause",
+                      "stream_stats_backfill_retry"):
         return {"ok": False, "error": f"unknown action {action!r}"}
     if action in ("start", "stop"):
         want_running = action == "start"
@@ -551,6 +566,8 @@ def control(action, body=None):
         return _republish_month(body.get("month"))
     if action == "unpublish_month":
         return _unpublish_month(body.get("month"))
+    if action.startswith("stream_stats_backfill_"):
+        return _stream_stats_backfill_control(action)
     video_id = body.get("video_id") if action == "retry_job" else None
     if action == "retry_job" and not video_id:
         return {"ok": False, "error": "retry_job requires video_id"}
@@ -559,6 +576,69 @@ def control(action, body=None):
         return {"ok": False, "error": f"failed job {video_id!r} not found",
                 **retried}
     return {"ok": True, "action": action, **retried}
+
+
+def _stream_stats_backfill_control(action):
+    enabled = action != "stream_stats_backfill_pause"
+    retained = (_retained_stream_video_ids()
+                if action == "stream_stats_backfill_start" else [])
+    conn = get_conn()
+    with conn.cursor() as cur:
+        if action == "stream_stats_backfill_start":
+            if retained:
+                execute_values(cur, """
+                    INSERT INTO video_stream_stats (video_id, status)
+                    SELECT raw.video_id, 'pending'
+                    FROM (VALUES %s) AS raw(video_id)
+                    JOIN ingest_jobs j USING (video_id)
+                    WHERE j.status='done' AND j.part_count > 0
+                    ON CONFLICT (video_id) DO NOTHING""",
+                    [(video_id,) for video_id in retained])
+                seeded = cur.rowcount
+            else:
+                seeded = 0
+        elif action == "stream_stats_backfill_retry":
+            cur.execute("""UPDATE video_stream_stats SET status='pending',
+                               attempts=0, last_error=NULL, updated_at=NOW()
+                           WHERE status='failed'""")
+            seeded = cur.rowcount
+        else:
+            seeded = 0
+        cur.execute("""INSERT INTO service_config (key, value, updated_at)
+                       VALUES ('stream_stats_backfill_enabled', %s, NOW())
+                       ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value,
+                                                       updated_at=NOW()""",
+                    ("true" if enabled else "false",))
+    conn.commit()
+    conn.close()
+    settings(force=True)
+    if enabled:
+        client("lambda").invoke(FunctionName=f"{APP}-reap",
+                                InvocationType="Event", Payload=b"{}")
+    log.info("stream statistics backfill control",
+             extra={"action": action, "matched": seeded})
+    return {"ok": True, "action": action, "enabled": enabled,
+            "matched": seeded}
+
+
+def _retained_stream_video_ids():
+    """List video prefixes that physically remain in the raw lifecycle bucket."""
+    s3 = client("s3")
+    bucket = os.environ["RAW_BUCKET"]
+    paginator = s3.get_paginator("list_objects_v2")
+    channel_prefixes = []
+    for page in paginator.paginate(Bucket=bucket, Delimiter="/"):
+        channel_prefixes.extend(item["Prefix"]
+                                for item in page.get("CommonPrefixes", []))
+    videos = set()
+    for channel_prefix in channel_prefixes:
+        for page in paginator.paginate(Bucket=bucket, Prefix=channel_prefix,
+                                       Delimiter="/"):
+            for item in page.get("CommonPrefixes", []):
+                parts = item["Prefix"].strip("/").split("/")
+                if len(parts) == 2 and re.fullmatch(r"[A-Za-z0-9_-]{11}", parts[1]):
+                    videos.add(parts[1])
+    return sorted(videos)
 def _set_paused(paused):
     conn = get_conn()
     with conn.cursor() as cur:
@@ -868,6 +948,17 @@ PAGE = r"""<!doctype html>
     <h2>Eri usage <span class="hint">accepted prompts, UTC</span></h2>
     <div class="kpis" id="eri-usage"></div>
   </section>
+  <section class="medium">
+    <h2>Stream stats backfill</h2>
+    <p class="hint">Low-priority aggregate-only processing of retained raw
+      logs. At most one job uses the ingest worker at a time.</p>
+    <div class="kpis" id="stream-stats-kpis"></div>
+    <div class="editor-actions">
+      <button id="btn-stats-start" class="go">Start</button>
+      <button id="btn-stats-pause" class="halt">Pause</button>
+      <button id="btn-stats-retry">Retry failed</button>
+    </div>
+  </section>
   <section class="wide">
     <h2>In progress</h2>
     <table><thead><tr><th>Video</th><th>Channel</th><th>Stream ended (UTC)</th>
@@ -995,6 +1086,12 @@ $("btn-stop").onclick  = () => act("stop");
 $("btn-scan").onclick  = () => act("scan_now");
 $("btn-retry-all").onclick = () => {
   if (confirm("Re-queue every failed job?")) act("retry_failed");
+};
+$("btn-stats-start").onclick = () => act("stream_stats_backfill_start");
+$("btn-stats-pause").onclick = () => act("stream_stats_backfill_pause");
+$("btn-stats-retry").onclick = () => {
+  if (confirm("Retry failed stream-stat backfills?"))
+    act("stream_stats_backfill_retry");
 };
 let newsDirty = false;
 async function loadNews() {
@@ -1147,6 +1244,17 @@ function render(d) {
     ? [["Today", eu.day], ["Last 7 days", eu.week], ["This month", eu.month]]
         .map(([k, v]) => `<div class="kpi"><div class="v">${Number(v).toLocaleString()}</div><div class="k">${k}</div></div>`).join("")
     : `<span class="err">usage store unavailable</span>`;
+  const sb = d.stream_stats_backfill || {};
+  $("stream-stats-kpis").innerHTML = [
+    ["Pending", sb.pending || 0],
+    ["Active", (sb.queued || 0) + (sb.processing || 0)],
+    ["Completed", sb.ready || 0],
+    ["Unavailable", sb.unavailable || 0],
+    ["Failed", sb.failed || 0],
+  ].map(([k, v]) => `<div class="kpi"><div class="v">${Number(v).toLocaleString()}</div><div class="k">${k}</div></div>`).join("");
+  $("btn-stats-start").disabled = busy || Boolean(sb.enabled);
+  $("btn-stats-pause").disabled = busy || !sb.enabled;
+  $("btn-stats-retry").disabled = busy || !(sb.failed > 0);
   $("queues").innerHTML = Object.entries(q).map(([n, v]) => v.error
     ? `<tr><td>${esc(n)}</td><td colspan="3" class="err">${esc(v.error)}</td></tr>`
     : `<tr><td>${esc(n)}</td><td class="num">${v.visible}</td>

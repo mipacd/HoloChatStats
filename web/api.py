@@ -59,6 +59,55 @@ api_bp = Blueprint('api', __name__)
 logger = logging.getLogger(__name__)
 
 
+_PUBLIC_MONTH_ARGUMENTS = ("month", "month_a", "month_b")
+
+
+def _requested_months():
+    """Return valid YYYY-MM query arguments used by public analytics."""
+    months = []
+    for name in _PUBLIC_MONTH_ARGUMENTS:
+        value = request.args.get(name)
+        if value and re.fullmatch(r"\d{4}-\d{2}(?:-\d{2})?", value):
+            months.append(value[:7])
+    return months
+
+
+@api_bp.before_request
+def fence_unpublished_months():
+    """Keep staging data out of every month-filtered public endpoint.
+
+    Several analytics materializations deliberately include ``user_data_current``
+    so the ETL can build and validate a month before publication.  Consequently,
+    cache invalidation alone is not a publication boundary: an uncached request
+    could recreate an unpublished result.  Enforce the durable merge watermark
+    before cached view functions are entered.
+    """
+    # Per-stream aggregates are complete at ingest commit and intentionally
+    # independent of the monthly user-data publication boundary.
+    if request.path.startswith("/api/stream-stats"):
+        return None
+    requested = _requested_months()
+    if not requested:
+        return None
+    latest = db.session.execute(text("""
+        SELECT COALESCE(
+            (SELECT MAX(observed_month) FROM monthly_merge_state
+              WHERE status = 'merged'),
+            (SELECT (date_trunc('month', value::timestamptz)
+                     - INTERVAL '1 month')::date
+               FROM service_config WHERE key = 'backlog_floor')
+        )
+    """)).scalar()
+    latest_month = str(latest)[:7] if latest else None
+    if latest_month is None or any(month > latest_month for month in requested):
+        return jsonify({
+            "error": "requested month has not been published",
+            "code": "month_not_published",
+            "latest_published_month": latest_month,
+        }), 409
+    return None
+
+
 
 @api_bp.route('/api/get_channel_streams', methods=['GET', 'POST'])
 def get_channel_streams():
@@ -2914,6 +2963,157 @@ def search_merchandise():
         "count": len(results),
         "results": results
     })
+
+def _stream_stats_json(value, fallback):
+    if value is None:
+        return fallback
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return fallback
+    return value
+
+
+@api_bp.route('/api/stream-stats/options', methods=['GET'])
+def stream_stats_options():
+    months = db.session.execute(text("""
+        SELECT DISTINCT to_char(date_trunc('month', v.end_time AT TIME ZONE 'UTC'),
+                                'YYYY-MM') AS month
+        FROM video_stream_stats s JOIN videos v USING (video_id)
+        WHERE s.status='ready' ORDER BY month DESC
+    """)).scalars().all()
+    rows = db.session.execute(text("""
+        SELECT DISTINCT c.channel_id, c.channel_name,
+                        COALESCE(c.channel_group, 'Unsorted') AS channel_group
+        FROM video_stream_stats s
+        JOIN videos v USING (video_id)
+        JOIN channels c USING (channel_id)
+        WHERE s.status='ready'
+        ORDER BY channel_group, c.channel_name
+    """)).all()
+    channels = [
+        {"channel_id": row[0], "channel_name": row[1], "channel_group": row[2]}
+        for row in rows]
+    return {"months": list(months),
+            "groups": sorted({item["channel_group"] for item in channels}),
+            "channels": channels}
+
+
+@api_bp.route('/api/stream-stats', methods=['GET'])
+def stream_stats_list():
+    month = (request.args.get("month") or "").strip()
+    if month and not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month):
+        return jsonify({"error": "month must use YYYY-MM"}), 400
+    channel = (request.args.get("channel") or "").strip()
+    group = (request.args.get("group") or "").strip()
+    query_text = (request.args.get("q") or "").strip()[:100]
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        page_size = max(1, min(50, int(request.args.get("page_size", 25))))
+    except (TypeError, ValueError):
+        return jsonify({"error": "page and page_size must be integers"}), 400
+    if not month:
+        month = db.session.execute(text("""
+            SELECT to_char(MAX(v.end_time AT TIME ZONE 'UTC'), 'YYYY-MM')
+            FROM video_stream_stats s JOIN videos v USING (video_id)
+            WHERE s.status='ready'
+        """)).scalar()
+    if not month:
+        return {"items": [], "month": None, "page": page,
+                "page_size": page_size, "total": 0, "pages": 0}
+    where = ["s.status='ready'",
+             "(v.end_time AT TIME ZONE 'UTC') >= to_date(:month, 'YYYY-MM')",
+             "(v.end_time AT TIME ZONE 'UTC') < "
+             "to_date(:month, 'YYYY-MM') + INTERVAL '1 month'"]
+    params = {"month": month}
+    if channel:
+        where.append("(c.channel_id=:channel OR c.channel_name=:channel)")
+        params["channel"] = channel
+    if group:
+        where.append("COALESCE(c.channel_group, 'Unsorted')=:group")
+        params["group"] = group
+    if query_text:
+        where.append("(v.title ILIKE :query OR v.video_id ILIKE :query)")
+        params["query"] = f"%{query_text}%"
+    clause = " AND ".join(where)
+    total = int(db.session.execute(text(
+        "SELECT COUNT(*) FROM video_stream_stats s "
+        "JOIN videos v USING (video_id) JOIN channels c USING (channel_id) "
+        f"WHERE {clause}"), params).scalar() or 0)
+    params.update({"limit": page_size, "offset": (page - 1) * page_size})
+    rows = db.session.execute(text(f"""
+        SELECT v.video_id, v.title, c.channel_id, c.channel_name,
+               COALESCE(c.channel_group, 'Unsorted'), v.end_time,
+               EXTRACT(EPOCH FROM v.duration)::bigint,
+               s.message_count, s.unique_chatters, s.member_chatters,
+               s.member_percentage
+        FROM video_stream_stats s
+        JOIN videos v USING (video_id) JOIN channels c USING (channel_id)
+        WHERE {clause}
+        ORDER BY v.end_time DESC, v.video_id
+        LIMIT :limit OFFSET :offset
+    """), params).all()
+    return {"items": [{
+        "video_id": r[0], "title": r[1], "channel_id": r[2],
+        "channel_name": r[3], "channel_group": r[4],
+        "end_time": r[5].isoformat() if r[5] else None,
+        "duration_seconds": int(r[6] or 0), "message_count": int(r[7] or 0),
+        "unique_chatters": int(r[8] or 0), "member_chatters": int(r[9] or 0),
+        "member_percentage": float(r[10] or 0),
+        "thumbnail_url": f"https://img.youtube.com/vi/{r[0]}/mqdefault.jpg",
+    } for r in rows], "month": month, "page": page, "page_size": page_size,
+        "total": total, "pages": math.ceil(total / page_size) if total else 0}
+
+
+@api_bp.route('/api/stream-stats/<video_id>', methods=['GET'])
+def stream_stats_detail(video_id):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+        return jsonify({"error": "invalid video ID"}), 400
+    row = db.session.execute(text("""
+        SELECT v.video_id, v.title, c.channel_id, c.channel_name,
+               COALESCE(c.channel_group, 'Unsorted'), v.end_time,
+               EXTRACT(EPOCH FROM v.duration)::bigint,
+               s.message_count, s.unique_chatters, s.member_chatters,
+               s.member_percentage, s.category_counts, s.membership_rank_counts,
+               s.histogram_bin_seconds, s.histogram_counts,
+               s.funny_moments, s.word_counts, s.first_message_at,
+               s.computed_at, s.schema_version
+        FROM video_stream_stats s
+        JOIN videos v USING (video_id) JOIN channels c USING (channel_id)
+        WHERE s.video_id=:video_id AND s.status='ready'
+    """), {"video_id": video_id}).first()
+    if not row:
+        return jsonify({"error": "stream statistics are not available"}), 404
+    duration = int(row[6] or 0)
+    messages = int(row[7] or 0)
+    unique = int(row[8] or 0)
+    members = int(row[9] or 0)
+    start_time = row[5] - timedelta(seconds=duration) if row[5] else None
+    return {
+        "video": {"video_id": row[0], "title": row[1], "channel_id": row[2],
+                  "channel_name": row[3], "channel_group": row[4],
+                  "start_time": start_time.isoformat() if start_time else None,
+                  "end_time": row[5].isoformat() if row[5] else None,
+                  "duration_seconds": duration,
+                  "youtube_url": f"https://www.youtube.com/watch?v={row[0]}",
+                  "thumbnail_url": f"https://img.youtube.com/vi/{row[0]}/hqdefault.jpg"},
+        "summary": {"message_count": messages, "unique_chatters": unique,
+                    "member_chatters": members,
+                    "member_percentage": round(float(row[10] or 0), 1),
+                    "messages_per_minute": round(messages * 60 / duration, 2)
+                    if duration else None,
+                    "first_message_at": row[17].isoformat() if row[17] else None},
+        "category_counts": _stream_stats_json(row[11], {}),
+        "membership_rank_counts": _stream_stats_json(row[12], {}),
+        "histogram": {"bin_seconds": int(row[13] or 60),
+                      "counts": _stream_stats_json(row[14], [])},
+        "funny_moments": _stream_stats_json(row[15], []),
+        "word_counts": _stream_stats_json(row[16], []),
+        "computed_at": row[18].isoformat() if row[18] else None,
+        "schema_version": int(row[19]),
+    }
+
 
 @api_bp.route('/api/ccv/<video_id>')
 def get_ccv(video_id):

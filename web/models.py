@@ -185,3 +185,26 @@ class VideoHighlight(db.Model):
     generated_summary = db.Column(db.Text)
     start_seconds = db.Column(db.Integer)
     summary_embedding = db.Column(Vector(384))
+
+
+class VideoStreamStats(db.Model):
+    """Aggregate-only stream statistics; deliberately contains no user data."""
+    __tablename__ = "video_stream_stats"
+    video_id = db.Column(db.Text, db.ForeignKey("videos.video_id"), primary_key=True)
+    schema_version = db.Column(db.SmallInteger, nullable=False, default=1)
+    status = db.Column(db.Text, nullable=False, default="pending")
+    message_count = db.Column(db.BigInteger)
+    unique_chatters = db.Column(db.BigInteger)
+    member_chatters = db.Column(db.BigInteger)
+    member_percentage = db.Column(db.Numeric(6, 3))
+    category_counts = db.Column(db.JSON)
+    membership_rank_counts = db.Column(db.JSON)
+    histogram_bin_seconds = db.Column(db.Integer)
+    histogram_counts = db.Column(db.JSON)
+    funny_moments = db.Column(db.JSON)
+    word_counts = db.Column(db.JSON)
+    first_message_at = db.Column(db.TIMESTAMP(timezone=True))
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    last_error = db.Column(db.Text)
+    computed_at = db.Column(db.TIMESTAMP(timezone=True))
+    updated_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())

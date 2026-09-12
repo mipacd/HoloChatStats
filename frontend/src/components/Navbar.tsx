@@ -22,7 +22,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 type LinkItem = { to: string; label: string; external?: boolean }
 type DropdownGroup = { label: string; items: LinkItem[] }
 const itemClass =
-  "cursor-pointer focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10"
+  "cursor-pointer whitespace-nowrap focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10"
 export function Navbar() {
   const { t, i18n } = useTranslation()
   const groups: DropdownGroup[] = [
@@ -47,7 +47,7 @@ export function Navbar() {
       label: t("Language Stats"),
       items: [
         { to: "/chat_makeup", label: t("Chat Makeup") },
-        { to: "/message_types", label: t("Message Percentages and Rates by Language") },
+        { to: "/message_types", label: t("Language Percentages / Rates") },
         { to: "/jp_user_percents", label: t("JP User Percentages") },
       ],
     },
@@ -68,6 +68,7 @@ export function Navbar() {
         { to: "/viewer", label: t("Live Stream Viewer") },
         { to: "/content_similarity", label: t("Content Similarity Graph") },
         { to: "/funniest_timestamps", label: t("Funniest Moments") },
+        { to: "/stream_stats", label: t("Per-Stream Statistics") },
       ],
     },
   ]
@@ -88,11 +89,11 @@ export function Navbar() {
     : "en"
   const renderItem = (item: LinkItem) =>
     item.external ? (
-      <a href={item.to} target="_blank" rel="noreferrer" className="w-full">
+      <a href={item.to} target="_blank" rel="noreferrer" className="w-full whitespace-nowrap">
         {item.label}
       </a>
     ) : (
-      <Link to={item.to} className="w-full">
+      <Link to={item.to} className="w-full whitespace-nowrap">
         {item.label}
       </Link>
     )
@@ -105,7 +106,7 @@ export function Navbar() {
             <img src="/logo.png" alt="HoloChatStats Logo" width={25} height={25} />
             HoloChatStats
           </Link>
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden xl:flex items-center gap-1 whitespace-nowrap">
             <Button variant="ghost" asChild>
               <Link to="/">{t("Home")}</Link>
             </Button>
@@ -120,7 +121,7 @@ export function Navbar() {
                     <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-secondary text-secondary-foreground border-border">
+                <DropdownMenuContent className="w-max min-w-max bg-secondary text-secondary-foreground border-border">
                   {group.items.map((item) => (
                     <DropdownMenuItem key={item.to} asChild className={itemClass}>
                       {renderItem(item)}
@@ -135,7 +136,7 @@ export function Navbar() {
           </div>
         </div>
         {/* Right: More dropdown + language */}
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="hidden xl:flex items-center gap-2 whitespace-nowrap">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -148,7 +149,7 @@ export function Navbar() {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="bg-secondary text-secondary-foreground border-border"
+              className="w-max min-w-max bg-secondary text-secondary-foreground border-border"
             >
               {moreItems.map((item) => (
                 <DropdownMenuItem key={item.to} asChild className={itemClass}>
@@ -187,12 +188,12 @@ export function Navbar() {
         {/* Mobile */}
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="lg:hidden">
+            <Button variant="ghost" size="icon" className="xl:hidden">
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="bg-brand text-brand-foreground w-72 overflow-y-auto">
-            <div className="flex flex-col gap-2 mt-8">
+            <div className="flex flex-col gap-2 mt-8 overflow-x-auto whitespace-nowrap">
               <Link to="/" className="py-2 font-medium">{t("Home")}</Link>
               {groups.map((group) => (
                 <div key={group.label} className="border-t border-border pt-2">

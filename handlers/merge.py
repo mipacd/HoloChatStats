@@ -292,7 +292,11 @@ def _unpublish(values, started_at):
 
 def _finish_unpublish_cache(conn, month):
     """Invalidate public data and reset the merge watermark idempotently."""
-    removed = invalidate_finalized_month_caches(finalized_month=month)
+    # An unpublished month is still present in the staging-backed analytics
+    # views.  Do not ask the warmer to immediately recreate the entries that
+    # were just removed.
+    removed = invalidate_finalized_month_caches(
+        finalized_month=month, request_warm=False)
     # Roll the normal publication watermark back to the newest remaining
     # published month. A later manual publish will invalidate again.
     with conn.cursor() as cur:

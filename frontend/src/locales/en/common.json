@@ -358,5 +358,21 @@
   "Common User Channel Clusters": "Common User Channel Clusters",
   "Channel Clusters by Common Users": "Channel Clusters by Common Users",
   "Highlights": "Highlights",
-  "Calculated using chat data from the previous month. Only shows channels where the user has no recorded interactions.": "Calculated using chat data from the previous month. Only shows channels where the user has no recorded interactions."
+  "Calculated using chat data from the previous month. Only shows channels where the user has no recorded interactions.": "Calculated using chat data from the previous month. Only shows channels where the user has no recorded interactions.",
+  "Language Percentages / Rates": "Language Percentages / Rates",
+  "Per-Stream Statistics": "Per-Stream Statistics",
+  "Aggregate chat statistics become available after each stream is ingested.": "Aggregate chat statistics become available after each stream is ingested.",
+  "All groups": "All groups", "All channels": "All channels",
+  "Find a stream": "Find a stream", "Title, video ID, or YouTube URL": "Title, video ID, or YouTube URL",
+  "Streams found": "Streams found", "messages": "messages", "chatters": "chatters",
+  "No stream statistics found.": "No stream statistics found.", "Previous": "Previous", "Next": "Next",
+  "Stream statistics unavailable": "Stream statistics unavailable", "Back to streams": "Back to streams",
+  "Watch on YouTube": "Watch on YouTube", "Chat messages": "Chat messages",
+  "Avg. message rate": "Avg. message rate", "Unique chatters": "Unique chatters",
+  "Member percentage": "Member percentage", "Message categories": "Message categories",
+  "Membership ranks": "Membership ranks", "Non-members": "Non-members", "Gift only": "Gift only",
+  "New members": "New members", "months": "months", "Chat velocity": "Chat velocity",
+  "Messages per minute. Click a bar to open YouTube at that point.": "Messages per minute. Click a bar to open YouTube at that point.",
+  "No funny moments detected.": "No funny moments detected.", "Word cloud": "Word cloud",
+  "Only normalized words used at least five times are retained; original messages are not stored here.": "Only normalized words used at least five times are retained; original messages are not stored here."
 }
