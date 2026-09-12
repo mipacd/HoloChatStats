@@ -430,6 +430,9 @@ def snapshot():
             "unavailable": int(stats_counts.get("unavailable", 0)),
             "failed": int(stats_counts.get("failed", 0)),
         }
+        out["cache_warmer"] = {
+            "enabled": str(cfg.get("cache_warmer_enabled", "true")).lower() == "true"
+        }
         cur.execute("""
             SELECT c.channel_id, c.channel_name,
                    COALESCE(c.channel_group, '—') AS channel_group,
@@ -545,7 +548,8 @@ def control(action, body=None):
                       "retry_job", "publish_month", "republish_month",
                       "unpublish_month", "stream_stats_backfill_start",
                       "stream_stats_backfill_pause",
-                      "stream_stats_backfill_retry"):
+                      "stream_stats_backfill_retry", "cache_warmer_enable",
+                      "cache_warmer_disable"):
         return {"ok": False, "error": f"unknown action {action!r}"}
     if action in ("start", "stop"):
         want_running = action == "start"
@@ -568,6 +572,8 @@ def control(action, body=None):
         return _unpublish_month(body.get("month"))
     if action.startswith("stream_stats_backfill_"):
         return _stream_stats_backfill_control(action)
+    if action.startswith("cache_warmer_"):
+        return _cache_warmer_control(action)
     video_id = body.get("video_id") if action == "retry_job" else None
     if action == "retry_job" and not video_id:
         return {"ok": False, "error": "retry_job requires video_id"}
@@ -619,6 +625,23 @@ def _stream_stats_backfill_control(action):
              extra={"action": action, "matched": seeded})
     return {"ok": True, "action": action, "enabled": enabled,
             "matched": seeded}
+
+
+def _cache_warmer_control(action):
+    enabled = action == "cache_warmer_enable"
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""INSERT INTO service_config (key, value, updated_at)
+                       VALUES ('cache_warmer_enabled', %s, NOW())
+                       ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value,
+                                                       updated_at=NOW()""",
+                    ("true" if enabled else "false",))
+    conn.commit()
+    conn.close()
+    settings(force=True)
+    log.info("cache warmer control changed", extra={"enabled": enabled})
+    return {"ok": True, "action": action, "enabled": enabled,
+            "note": "web workers apply the setting within their polling interval"}
 
 
 def _retained_stream_video_ids():
@@ -981,6 +1004,16 @@ PAGE = r"""<!doctype html>
       <button id="btn-stats-retry">Retry failed</button>
     </div>
   </section>
+  <section>
+    <h2>Cache warmer</h2>
+    <p class="hint">Pre-computes expensive bounded analytics during quiet
+      periods. Disabling it does not delete existing cached results.</p>
+    <p><span id="cache-warmer-state" class="tag">loading</span></p>
+    <div class="editor-actions">
+      <button id="btn-warmer-enable" class="go">Enable</button>
+      <button id="btn-warmer-disable" class="halt">Disable</button>
+    </div>
+  </section>
   <section class="wide">
     <h2>In progress</h2>
     <table><thead><tr><th>Video</th><th>Channel</th><th>Stream ended (UTC)</th>
@@ -1115,6 +1148,8 @@ $("btn-stats-retry").onclick = () => {
   if (confirm("Retry failed stream-stat backfills?"))
     act("stream_stats_backfill_retry");
 };
+$("btn-warmer-enable").onclick = () => act("cache_warmer_enable");
+$("btn-warmer-disable").onclick = () => act("cache_warmer_disable");
 let newsDirty = false;
 async function loadNews() {
   $("news-state").textContent = "loadingâ€¦";
@@ -1277,6 +1312,11 @@ function render(d) {
   $("btn-stats-start").disabled = busy || Boolean(sb.enabled);
   $("btn-stats-pause").disabled = busy || !sb.enabled;
   $("btn-stats-retry").disabled = busy || !(sb.failed > 0);
+  const cw = d.cache_warmer || { enabled:true };
+  $("cache-warmer-state").textContent = cw.enabled ? "enabled" : "disabled";
+  $("cache-warmer-state").className = "tag " + (cw.enabled ? "on" : "");
+  $("btn-warmer-enable").disabled = busy || cw.enabled;
+  $("btn-warmer-disable").disabled = busy || !cw.enabled;
   $("queues").innerHTML = Object.entries(q).map(([n, v]) => v.error
     ? `<tr><td>${esc(n)}</td><td colspan="3" class="err">${esc(v.error)}</td></tr>`
     : `<tr><td>${esc(n)}</td><td class="num">${v.visible}</td>

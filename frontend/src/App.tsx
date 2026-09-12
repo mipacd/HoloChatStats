@@ -44,6 +44,7 @@ function PaddedLayout() {
 function PageViewTracker() {
   const { pathname } = useLocation()
   useEffect(() => {
+    if (pathname.startsWith("/stream_stats/")) return
     void fetch("/api/metrics/page-view", {
       method: "POST",
       headers: { "content-type": "application/json" },

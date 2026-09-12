@@ -237,6 +237,7 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("function PageViewTracker()", app)
         self.assertIn('fetch("/api/metrics/page-view"', app)
         self.assertIn("[pathname]", app)
+        self.assertIn('pathname.startsWith("/stream_stats/")', app)
         self.assertIn("def page_view_metric", server)
         self.assertIn("if not is_public_page(path)", server)
         self.assertIn('"stored": record_page_view(path)', server)
@@ -245,6 +246,7 @@ class ProductionConfigTests(unittest.TestCase):
                          "/health", "/favicon.ico"):
             self.assertIn(internal, utils)
         self.assertIn("is_public_page(page)", utils)
+        self.assertIn('path.startswith("/stream_stats/")', utils)
         self.assertIn("scan_iter", utils)
 
     def test_redis_outage_is_fast_and_does_not_break_web_or_llm(self):
@@ -305,9 +307,16 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("CACHE_WARM_QUIET_SECONDS", warmer)
         self.assertIn("CACHE_WARM_MAX_LOAD_PER_CPU", warmer)
         self.assertIn("CACHE_WARM_DELAY_SECONDS", warmer)
+        self.assertIn("def _enabled(app)", warmer)
+        self.assertIn("cache_warmer_enabled", warmer)
+        self.assertIn('result.get("paused")', warmer)
         self.assertNotIn("/api/get_user_info", warmer)
         self.assertIn("HoloChatStats-cache-warmer/1.0", server)
         self.assertIn("if not is_cache_warmer", server)
+        admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
+        for action in ("cache_warmer_enable", "cache_warmer_disable"):
+            self.assertIn(action, admin)
+        self.assertIn('id="cache-warmer-state"', admin)
 
     def test_modest_host_limits_ingest_and_allows_slow_s3_reads(self):
         config = (ROOT / "infra" / "deploylib" / "config.py").read_text()
@@ -510,9 +519,12 @@ class ProductionConfigTests(unittest.TestCase):
                        "stream_stats_backfill_retry"):
             self.assertIn(action, admin)
         self.assertIn("LIMIT 1 FOR UPDATE OF s SKIP LOCKED", reaper)
+        self.assertIn("DelaySeconds=0", reaper)
         self.assertIn("s.attempts < 3", reaper)
         self.assertIn("status IN ('queued','processing')", reaper)
         self.assertIn('"unavailable" if unavailable else "failed"', ingest)
+        self.assertIn('FunctionName=f"{APP}-reap"', ingest)
+        self.assertIn('InvocationType="Event"', ingest)
         self.assertIn('"ingest":   {"handler": "handlers.ingest.handler",   '
                       '"timeout": 900, "memory": 1024, "rc": 1}', config)
         for parameter in ("month", "channel", "group", "page", "page_size"):

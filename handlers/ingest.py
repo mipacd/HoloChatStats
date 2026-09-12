@@ -16,6 +16,7 @@ from common.stream_stats import StreamStatsAccumulator
 
 
 log = get_logger("ingest")
+APP = os.environ.get("APP_NAME", "chat-ingest")
 BUCKET = os.environ["RAW_BUCKET"]
 FLUSH_EVERY = 5000
 MAIN_TABLE = "user_data"
@@ -378,6 +379,14 @@ def _backfill_stream_stats(msg):
                            "error": str(exc)[:200]})
     finally:
         conn.close()
+    # Keep the low-priority chain moving without waiting for the scheduled
+    # five-minute reaper. Reserved ingest concurrency still limits execution
+    # to one stream, and the reaper remains the crash-recovery fallback.
+    try:
+        client("lambda").invoke(FunctionName=f"{APP}-reap",
+                                InvocationType="Event", Payload=b"{}")
+    except Exception:
+        log.exception("could not continue stream statistics backfill")
 
 def _write(cur, table, month, rows, user_rows):
     execute_values(cur, """

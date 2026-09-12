@@ -90,7 +90,7 @@ def _dispatch_stream_stats_backfill(cfg, dry=False):
     conn.commit()
     try:
         client("sqs").send_message(
-            QueueUrl=os.environ["INGEST_QUEUE_URL"], DelaySeconds=30,
+            QueueUrl=os.environ["INGEST_QUEUE_URL"], DelaySeconds=0,
             MessageBody=json.dumps({"action": "backfill_stream_stats",
                                     "video_id": video_id,
                                     "channel_id": channel_id}))

@@ -185,6 +185,10 @@ def is_public_page(path):
         return False
     if path in _INTERNAL_PATHS or path.startswith(_INTERNAL_PATH_PREFIXES):
         return False
+    # Stream detail views are intentionally absent from the site-wide page
+    # chart. The browse page itself remains visible as /stream_stats.
+    if path.startswith("/stream_stats/"):
+        return False
     return "." not in path.rsplit("/", 1)[-1]
 def record_page_view(page):
     """Record one validated public page view and its visitor dimensions."""

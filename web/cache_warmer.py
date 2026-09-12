@@ -29,6 +29,25 @@ ANALYTICS_CACHE_PATTERNS = (
 )
 
 
+def _enabled(app):
+    """Read the durable operator switch; absent means enabled for upgrades."""
+    from models import db
+
+    try:
+        with app.app_context():
+            try:
+                value = db.session.execute(text(
+                    "SELECT value FROM service_config "
+                    "WHERE key='cache_warmer_enabled'"
+                )).scalar()
+            finally:
+                db.session.remove()
+        return value is None or str(value).lower() == "true"
+    except Exception:
+        log.exception("could not read cache-warmer control; staying idle")
+        return False
+
+
 def _persist_analytics_caches(store):
     """Remove old TTLs from analytics keys without touching operations data."""
     changed = 0
@@ -178,7 +197,17 @@ def warm_once(app, finalized_month):
     started = time.monotonic()
     with app.test_client() as client:
         for index, (path, query) in enumerate(tasks, 1):
+            if not _enabled(app):
+                log.info("cache warm paused after %s of %s tasks",
+                         index - 1, len(tasks))
+                return {"month": str(finalized_month), "tasks": len(tasks),
+                        "failures": len(failures), "paused": True,
+                        "seconds": round(time.monotonic() - started, 1)}
             _wait_for_capacity(app)
+            if not _enabled(app):
+                return {"month": str(finalized_month), "tasks": len(tasks),
+                        "failures": len(failures), "paused": True,
+                        "seconds": round(time.monotonic() - started, 1)}
             try:
                 response = client.get(path, query_string=query,
                                       headers={"User-Agent": "HoloChatStats-cache-warmer/1.0"})
@@ -233,6 +262,9 @@ def run(app):
         time.sleep(start_delay)
     while True:
         try:
+            if not _enabled(app):
+                time.sleep(poll_seconds)
+                continue
             requested = store.get(REQUESTED_KEY)
             if not requested:
                 latest, _channels, _groups = _database_inputs(app)
@@ -244,6 +276,9 @@ def run(app):
             refresh_due = time.time() - completed_at >= interval_seconds
             if requested and (requested != completed or refresh_due):
                 result = warm_once(app, requested)
+                if result.get("paused"):
+                    time.sleep(poll_seconds)
+                    continue
                 if result["failures"] == 0:
                     store.set(COMPLETED_KEY, requested)
                     store.set(COMPLETED_AT_KEY, str(time.time()))
