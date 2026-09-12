@@ -308,5 +308,6 @@
   "Non-members": "비멤버", "Gift only": "선물만", "New members": "신규 멤버", "months": "개월",
   "Chat velocity": "채팅 속도", "Messages per minute. Click a bar to open YouTube at that point.": "분당 메시지 수입니다. 막대를 누르면 YouTube의 해당 시점을 엽니다.",
   "No funny moments detected.": "재미있는 순간이 감지되지 않았습니다.", "Word cloud": "워드 클라우드",
-  "Only normalized words used at least five times are retained; original messages are not stored here.": "5회 이상 사용된 정규화된 단어만 보관하며 원본 메시지는 저장하지 않습니다."
+  "Only normalized words used at least five times are retained; original messages are not stored here.": "5회 이상 사용된 정규화된 단어만 보관하며 원본 메시지는 저장하지 않습니다.",
+  "Only languages with clear word boundaries are included.": "명확한 단어 경계가 있는 언어만 표시됩니다."
 }

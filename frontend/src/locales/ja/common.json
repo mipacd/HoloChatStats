@@ -292,5 +292,6 @@
   "New members": "新規メンバー", "months": "か月", "Chat velocity": "チャット速度",
   "Messages per minute. Click a bar to open YouTube at that point.": "1分あたりのメッセージ数。バーをクリックするとYouTubeの該当位置を開きます。",
   "No funny moments detected.": "面白い瞬間は検出されませんでした。", "Word cloud": "ワードクラウド",
-  "Only normalized words used at least five times are retained; original messages are not stored here.": "5回以上使われた正規化済みの単語のみ保存し、元のメッセージは保存しません。"
+  "Only normalized words used at least five times are retained; original messages are not stored here.": "5回以上使われた正規化済みの単語のみ保存し、元のメッセージは保存しません。",
+  "Only languages with clear word boundaries are included.": "明確な単語境界がある言語のみ表示されます。"
 }

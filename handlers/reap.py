@@ -55,23 +55,14 @@ def _dispatch_stream_stats_backfill(cfg, dry=False):
         return {"dispatched": 0, "reason": "ingestion paused"}
     conn = get_conn()
     with conn.cursor() as cur:
-        # Recover a worker/container that vanished while aggregating.
+        # Recover a worker/container or queued SQS delivery that vanished.
         cur.execute("""UPDATE video_stream_stats
                        SET status='pending', last_error='backfill worker stalled',
                            updated_at=NOW()
-                       WHERE status='processing'
+                       WHERE status IN ('queued','processing')
                          AND updated_at < NOW() - INTERVAL '30 minutes'""")
-        cur.execute("""SELECT EXISTS (
-                                WITH active AS (
-                                  SELECT MIN(date_trunc('month', v.end_time)) month
-                                  FROM ingest_jobs j JOIN videos v USING (video_id)
-                                  WHERE j.status IN ('pending','downloading',
-                                                     'downloaded','ingesting'))
-                                SELECT 1 FROM ingest_jobs j
-                                LEFT JOIN videos v USING (video_id), active a
-                                WHERE j.status='ingesting'
-                                   OR (j.status='downloaded'
-                                       AND date_trunc('month', v.end_time)=a.month)),
+        cur.execute("""SELECT EXISTS (SELECT 1 FROM ingest_jobs
+                                      WHERE status='ingesting'),
                               EXISTS (SELECT 1 FROM video_stream_stats
                                       WHERE status IN ('queued','processing'))""")
         live_ingest, already_active = cur.fetchone()

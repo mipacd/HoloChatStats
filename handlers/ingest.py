@@ -50,19 +50,29 @@ def _iter_messages(s3, channel_id, video_id, part_count):
     for part in range(part_count):
         key = f"{channel_id}/{video_id}/part-{part:05d}.jsonl.gz"
         body = s3.get_object(Bucket=BUCKET, Key=key)["Body"].read()
-        line_number = 0
         try:
             lines = gzip.decompress(body).decode().splitlines()
-            for line_number, line in enumerate(lines, 1):
-                if line:
-                    yield json.loads(line)
-        except (gzip.BadGzipFile, EOFError, UnicodeDecodeError,
-                json.JSONDecodeError) as exc:
+        except (gzip.BadGzipFile, EOFError, UnicodeDecodeError) as exc:
             # Do not include the line contents: chat text is user data and can
-            # be large. The key and line number are sufficient diagnostics.
-            raise RawPartCorrupt(
-                f"corrupt raw chat part {key} at line {line_number}: {exc}"
-            ) from exc
+            # be large. The object key is sufficient diagnostics.
+            raise RawPartCorrupt(f"corrupt raw chat part {key}: {exc}") from exc
+        malformed = 0
+        for line_number, line in enumerate(lines, 1):
+            if not line:
+                continue
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError as exc:
+                # One incomplete YouTube response must not discard the rest of
+                # an otherwise valid gzip part. Never log the line itself.
+                malformed += 1
+                log.warning("malformed raw chat message skipped",
+                            extra={"video_id": video_id, "part": part,
+                                   "line": line_number,
+                                   "error": str(exc)[:160]})
+        if malformed:
+            emit({"MalformedRawMessagesSkipped": (malformed, COUNT)},
+                 {"Stage": "ingest"}, video_id=video_id, part=part)
 def _month_of_ts(ts):
     return datetime.fromtimestamp(ts or 0, timezone.utc).date().replace(day=1)
 def _route(cur, video_id, fallback_ts):

@@ -684,8 +684,14 @@ def _retry_failed(video_id=None):
         reset_markers = ("corrupt raw chat part", "unterminated string",
                          "jsondecodeerror", "400 client error", "bad request")
         for job_id, channel_id, error, part_count, continuation in failed_rows:
-            reset = any(marker in (error or "").lower()
-                        for marker in reset_markers)
+            error_lower = (error or "").lower()
+            line_corruption = ("unterminated string" in error_lower
+                               or "jsondecodeerror" in error_lower)
+            if line_corruption and part_count < 1:
+                part_count = _raw_part_count(channel_id, job_id)
+            reset = ((line_corruption and part_count < 1)
+                     or (not line_corruption and any(
+                         marker in error_lower for marker in reset_markers)))
             # A failure after download completion can retry ingestion directly
             # when its raw parts are known-good. Other failures return to the
             # downloader, preserving a valid continuation when possible.
@@ -695,7 +701,7 @@ def _retry_failed(video_id=None):
                            SET status=%s, attempts=0,
                                continuation=CASE WHEN %s THEN NULL
                                                  ELSE continuation END,
-                               part_count=CASE WHEN %s THEN 0 ELSE part_count END,
+                               part_count=CASE WHEN %s THEN 0 ELSE %s END,
                                last_offset_s=CASE WHEN %s THEN 0
                                                   ELSE last_offset_s END,
                                messages_downloaded=CASE WHEN %s THEN 0
@@ -703,7 +709,7 @@ def _retry_failed(video_id=None):
                                last_error=NULL, completed_at=NULL,
                                dispatched_at=NOW(), updated_at=NOW()
                            WHERE video_id=%s""",
-                        (target, reset, reset, reset, reset, job_id))
+                        (target, reset, reset, part_count, reset, reset, job_id))
             rows.append((job_id, channel_id, target, 0 if reset else part_count))
     conn.commit()
     send_failures = []
@@ -733,6 +739,22 @@ def _retry_failed(video_id=None):
     return {"matched": len(rows),
             "requeued": len(rows) - len(send_failures),
             "enqueue_failed": len(send_failures)}
+
+
+def _raw_part_count(channel_id, video_id):
+    """Recover the contiguous raw-part count lost by the old repair path."""
+    prefix = f"{channel_id}/{video_id}/part-"
+    indexes = set()
+    paginator = client("s3").get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=os.environ["RAW_BUCKET"], Prefix=prefix):
+        for item in page.get("Contents", []):
+            match = re.search(r"/part-(\d{5})\.jsonl\.gz$", item.get("Key", ""))
+            if match:
+                indexes.add(int(match.group(1)))
+    count = 0
+    while count in indexes:
+        count += 1
+    return count
 
 def _valid_month(value):
     month = str(value or "")

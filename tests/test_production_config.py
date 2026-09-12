@@ -493,6 +493,8 @@ class ProductionConfigTests(unittest.TestCase):
         app = (ROOT / "frontend" / "src" / "App.tsx").read_text(encoding="utf-8")
         navbar = (ROOT / "frontend" / "src" / "components" /
                   "Navbar.tsx").read_text(encoding="utf-8")
+        stream_page = (ROOT / "frontend" / "src" / "pages" /
+                       "StreamStats.tsx").read_text(encoding="utf-8")
         admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
         self.assertIn("CREATE TABLE IF NOT EXISTS video_stream_stats", migration)
         for forbidden in ("username", "user_id", "message_text"):
@@ -509,6 +511,7 @@ class ProductionConfigTests(unittest.TestCase):
             self.assertIn(action, admin)
         self.assertIn("LIMIT 1 FOR UPDATE OF s SKIP LOCKED", reaper)
         self.assertIn("s.attempts < 3", reaper)
+        self.assertIn("status IN ('queued','processing')", reaper)
         self.assertIn('"unavailable" if unavailable else "failed"', ingest)
         self.assertIn('"ingest":   {"handler": "handlers.ingest.handler",   '
                       '"timeout": 900, "memory": 1024, "rc": 1}', config)
@@ -518,6 +521,11 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn('/stream_stats/:videoId', app)
         self.assertIn('t("Language Percentages / Rates")', navbar)
         self.assertIn("whitespace-nowrap", navbar)
+        self.assertIn("layoutWordCloud", stream_page)
+        self.assertIn("bg-popover", stream_page)
+        self.assertNotIn('t("Aggregate chat statistics become available',
+                         stream_page)
+        self.assertNotIn("😂", stream_page)
 
 
 if __name__ == "__main__":

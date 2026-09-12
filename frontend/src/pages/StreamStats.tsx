@@ -55,6 +55,56 @@ function SummaryCard({ label, value }: { label: string; value: string | number }
   </CardContent></Card>
 }
 
+type TooltipEntry = { name?: string; value?: number; color?: string }
+function DarkChartTooltip({ active, label, payload }: {
+  active?: boolean; label?: string | number; payload?: TooltipEntry[]
+}) {
+  if (!active || !payload?.length) return null
+  return <div className="min-w-28 rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-xl">
+    {label != null && <p className="mb-1 font-medium">{label}</p>}
+    {payload.map((entry, index) => <div key={`${entry.name}-${index}`} className="flex items-center justify-between gap-4">
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        <span className="size-2 rounded-full" style={{ backgroundColor: entry.color || "#4f8cff" }} />
+        {entry.name || "Count"}
+      </span>
+      <span className="font-mono text-popover-foreground">{Number(entry.value || 0).toLocaleString()}</span>
+    </div>)}
+  </div>
+}
+
+type CloudWord = { word: string; count: number; x: number; y: number; size: number; rotate: number; color: string }
+function layoutWordCloud(words: [string, number][]): CloudWord[] {
+  if (!words.length) return []
+  const width = 1000, height = 520
+  const max = words[0][1] || 1
+  const placed: (CloudWord & { left: number; right: number; top: number; bottom: number })[] = []
+  const colors = ["#60a5fa", "#4ade80", "#f87171", "#c084fc", "#fbbf24", "#22d3ee"]
+  for (const [word, count] of words) {
+    const hash = [...word].reduce((value, char) => ((value * 33) ^ char.charCodeAt(0)) >>> 0, 5381)
+    const size = 14 + 48 * Math.sqrt(count / max)
+    const rotate = hash % 7 === 0 ? -28 : hash % 11 === 0 ? 28 : 0
+    const radians = Math.abs(rotate) * Math.PI / 180
+    const rawWidth = Math.max(size, word.length * size * 0.56)
+    const rawHeight = size * 1.15
+    const boxWidth = Math.abs(rawWidth * Math.cos(radians)) + Math.abs(rawHeight * Math.sin(radians))
+    const boxHeight = Math.abs(rawWidth * Math.sin(radians)) + Math.abs(rawHeight * Math.cos(radians))
+    for (let attempt = 0; attempt < 1400; attempt++) {
+      const angle = attempt * 0.48 + (hash % 360) * Math.PI / 180
+      const radius = 8.5 * Math.sqrt(attempt)
+      const x = width / 2 + Math.cos(angle) * radius
+      const y = height / 2 + Math.sin(angle) * radius * 0.68
+      const box = { left: x - boxWidth / 2 - 3, right: x + boxWidth / 2 + 3,
+        top: y - boxHeight / 2 - 2, bottom: y + boxHeight / 2 + 2 }
+      if (box.left < 4 || box.right > width - 4 || box.top < 4 || box.bottom > height - 4) continue
+      if (placed.some(other => !(box.right < other.left || box.left > other.right ||
+        box.bottom < other.top || box.top > other.bottom))) continue
+      placed.push({ word, count, x, y, size, rotate, color: colors[hash % colors.length], ...box })
+      break
+    }
+  }
+  return placed
+}
+
 function Browse() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -104,8 +154,7 @@ function Browse() {
     else setSearch(query.trim())
   }
   return <div className="space-y-6">
-    <div className="text-center"><h1 className="text-3xl font-bold">{t("Per-Stream Statistics")}</h1>
-      <p className="text-muted-foreground">{t("Aggregate chat statistics become available after each stream is ingested.")}</p></div>
+    <div className="text-center"><h1 className="text-3xl font-bold">{t("Per-Stream Statistics")}</h1></div>
     <Card><CardContent className="pt-6"><div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
       <div><Label>{t("Month:")}</Label><Select value={month} onValueChange={setMonth}><SelectTrigger><SelectValue /></SelectTrigger>
         <SelectContent>{months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select></div>
@@ -142,12 +191,12 @@ function Details({ videoId }: { videoId: string }) {
       parameters: { video_id: videoId }, description: `Viewing aggregate statistics for YouTube stream ${videoId}` }))
     return () => registerEriContext(null)
   }, [videoId])
+  const cloud = useMemo(() => layoutWordCloud(data?.word_counts || []), [data])
   if (loading) return <Loader2 className="mx-auto mt-20 h-10 w-10 animate-spin" />
   if (missing || !data) return <div className="text-center space-y-4"><h1 className="text-2xl font-bold">{t("Stream statistics unavailable")}</h1><Button asChild><Link to="/stream_stats">{t("Back to streams")}</Link></Button></div>
   const hist = data.histogram.counts.map((count, index) => ({ count, offset: index * data.histogram.bin_seconds, label: fmtDuration(index * data.histogram.bin_seconds) }))
   const categories = Object.entries(data.category_counts).map(([name, count]) => ({ name, count }))
   const ranks = Object.entries(data.membership_rank_counts).map(([rank, count]) => ({ name: rank === "-1" ? t("Non-members") : rank === "-2" ? t("Gift only") : Number(rank) === 0 ? t("New members") : `${rank} ${t("months")}`, count }))
-  const maxWord = data.word_counts[0]?.[1] || 1
   const openAt = (seconds: number) => window.open(`${data.video.youtube_url}&t=${Math.max(0, Math.floor(seconds))}s`, "_blank", "noopener")
   return <div className="space-y-8">
     <Button variant="ghost" asChild><Link to="/stream_stats"><ArrowLeft /> {t("Back to streams")}</Link></Button>
@@ -155,10 +204,10 @@ function Details({ videoId }: { videoId: string }) {
       <div><h1 className="text-2xl font-bold">{data.video.title}</h1><p className="text-muted-foreground">{data.video.channel_name} · {new Date(data.video.end_time).toLocaleString()}</p>
         <p className="mt-2">{t("Duration")}: {fmtDuration(data.video.duration_seconds)}</p><Button className="mt-4" asChild><a href={data.video.youtube_url} target="_blank" rel="noreferrer">{t("Watch on YouTube")} <ExternalLink /></a></Button></div></div>
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-5"><SummaryCard label={t("Chat messages")} value={data.summary.message_count.toLocaleString()} /><SummaryCard label={t("Avg. message rate")} value={data.summary.messages_per_minute == null ? "—" : data.summary.messages_per_minute.toLocaleString()} /><SummaryCard label={t("Unique chatters")} value={data.summary.unique_chatters.toLocaleString()} /><SummaryCard label={t("Members")} value={data.summary.member_chatters.toLocaleString()} /><SummaryCard label={t("Member percentage")} value={`${data.summary.member_percentage}%`} /></div>
-    <div className="grid gap-6 lg:grid-cols-2">{[[t("Message categories"), categories], [t("Membership ranks"), ranks]].map(([title, rows]) => <Card key={title as string}><CardHeader><CardTitle>{title as string}</CardTitle></CardHeader><CardContent className="h-72"><ResponsiveContainer><BarChart data={rows as {name:string,count:number}[]} layout="vertical"><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis dataKey="name" type="category" width={110} /><Tooltip /><Bar dataKey="count" fill="#4f8cff" /></BarChart></ResponsiveContainer></CardContent></Card>)}</div>
-    <Card><CardHeader><CardTitle>{t("Chat velocity")}</CardTitle></CardHeader><CardContent><p className="mb-3 text-sm text-muted-foreground">{t("Messages per minute. Click a bar to open YouTube at that point.")}</p><div className="h-72 overflow-x-auto"><div style={{ minWidth: Math.max(700, hist.length * 10), height: "100%" }}><ResponsiveContainer><BarChart data={hist}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" minTickGap={30} /><YAxis /><Tooltip /><Bar dataKey="count" fill="#4f8cff" onClick={(row) => { const point = row.payload as { offset: number }; openAt(point.offset) }} className="cursor-pointer" /></BarChart></ResponsiveContainer></div></div></CardContent></Card>
-    <Card><CardHeader><CardTitle>{t("Funny moments")}</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-2">{data.funny_moments.length ? data.funny_moments.map(m => <Button key={m.offset_seconds} variant="outline" onClick={() => openAt(m.start_seconds)}>😂 {fmtDuration(m.offset_seconds)} · {m.count}</Button>) : <span className="text-muted-foreground">{t("No funny moments detected.")}</span>}</CardContent></Card>
-    <Card><CardHeader><CardTitle>{t("Word cloud")}</CardTitle></CardHeader><CardContent><p className="mb-4 text-sm text-muted-foreground">{t("Only normalized words used at least five times are retained; original messages are not stored here.")}</p><div className="flex min-h-72 flex-wrap content-center items-center justify-center gap-x-4 gap-y-2 rounded-lg bg-white p-6 text-slate-900">{data.word_counts.map(([word, count], index) => <span key={word} title={`${count}`} style={{ fontSize: `${12 + 40 * Math.sqrt(count / maxWord)}px`, color: ["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#d97706"][index % 5] }}>{word}</span>)}</div></CardContent></Card>
+    <div className="grid gap-6 lg:grid-cols-2">{[[t("Message categories"), categories], [t("Membership ranks"), ranks]].map(([title, rows]) => <Card key={title as string}><CardHeader><CardTitle>{title as string}</CardTitle></CardHeader><CardContent className="h-72"><ResponsiveContainer><BarChart data={rows as {name:string,count:number}[]} layout="vertical"><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis dataKey="name" type="category" width={110} /><Tooltip content={<DarkChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.08)" }} /><Bar dataKey="count" fill="#4f8cff" /></BarChart></ResponsiveContainer></CardContent></Card>)}</div>
+    <Card><CardHeader><CardTitle>{t("Chat velocity")}</CardTitle></CardHeader><CardContent><p className="mb-3 text-sm text-muted-foreground">{t("Messages per minute. Click a bar to open YouTube at that point.")}</p><div className="h-72 overflow-x-auto"><div style={{ minWidth: Math.max(700, hist.length * 10), height: "100%" }}><ResponsiveContainer><BarChart data={hist}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" minTickGap={30} /><YAxis /><Tooltip content={<DarkChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.08)" }} /><Bar dataKey="count" fill="#4f8cff" onClick={(row) => { const point = row.payload as { offset: number }; openAt(point.offset) }} className="cursor-pointer" /></BarChart></ResponsiveContainer></div></div></CardContent></Card>
+    <Card><CardHeader><CardTitle>{t("Funny moments")}</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-2">{data.funny_moments.length ? data.funny_moments.map(m => <Button key={m.offset_seconds} variant="outline" onClick={() => openAt(m.start_seconds)}>{fmtDuration(m.offset_seconds)} · {m.count}</Button>) : <span className="text-muted-foreground">{t("No funny moments detected.")}</span>}</CardContent></Card>
+    <Card><CardHeader><CardTitle>{t("Word cloud")}</CardTitle></CardHeader><CardContent><p className="mb-4 text-sm text-muted-foreground">{t("Only languages with clear word boundaries are included.")}</p><div className="overflow-hidden rounded-lg bg-muted/20"><svg viewBox="0 0 1000 520" className="block min-h-72 w-full" role="img" aria-label={t("Word cloud")}>{cloud.map(item => <text key={item.word} x={item.x} y={item.y} textAnchor="middle" dominantBaseline="middle" fill={item.color} fontSize={item.size} fontWeight={item.size > 38 ? 650 : 500} transform={`rotate(${item.rotate} ${item.x} ${item.y})`}><title>{`${item.word}: ${item.count}`}</title>{item.word}</text>)}</svg></div></CardContent></Card>
   </div>
 }
 

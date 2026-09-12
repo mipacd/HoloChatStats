@@ -374,5 +374,6 @@
   "New members": "New members", "months": "months", "Chat velocity": "Chat velocity",
   "Messages per minute. Click a bar to open YouTube at that point.": "Messages per minute. Click a bar to open YouTube at that point.",
   "No funny moments detected.": "No funny moments detected.", "Word cloud": "Word cloud",
-  "Only normalized words used at least five times are retained; original messages are not stored here.": "Only normalized words used at least five times are retained; original messages are not stored here."
+  "Only normalized words used at least five times are retained; original messages are not stored here.": "Only normalized words used at least five times are retained; original messages are not stored here.",
+  "Only languages with clear word boundaries are included.": "Only languages with clear word boundaries are included."
 }
