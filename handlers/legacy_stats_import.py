@@ -10,6 +10,7 @@ from common.aws import client
 from common.db import get_conn
 from common.logging_utils import get_logger
 from common.stream_stats import StreamStatsAccumulator, upsert_stream_stats
+from handlers.ingest import _iter_messages, _missing_raw
 
 
 log = get_logger("legacy_stats_import")
@@ -19,16 +20,41 @@ VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 MAX_STATUS_IDS = 500
 MAX_IMPORT_ITEMS = 32
 MIN_REMAINING_MS = 60_000
+ALIGNMENT_TOLERANCE_SECONDS = 60
+
+_SUSPECT_SQL = """(
+    (COALESCE(s.timing_source, 'metadata_derived') = 'metadata_derived'
+     AND s.first_message_at < (v.end_time - COALESCE(
+        NULLIF(v.duration, INTERVAL '0 seconds'),
+        make_interval(secs => j.video_duration_s), INTERVAL '0 seconds'))
+        - INTERVAL '60 seconds')
+    OR (COALESCE(s.message_count, 0) > 0 AND COALESCE((
+        SELECT SUM(value::bigint)
+        FROM jsonb_array_elements_text(COALESCE(s.histogram_counts, '[]'::jsonb))
+    ), 0) <> COALESCE(s.message_count, 0))
+    OR COALESCE(s.out_of_range_messages, 0) > 0
+    OR COALESCE(s.first_offset_seconds, 0) < -60
+    OR s.last_offset_seconds > COALESCE(
+        EXTRACT(EPOCH FROM NULLIF(v.duration, INTERVAL '0 seconds')),
+        j.video_duration_s, 0) + 60
+)"""
 
 
 def handler(event, context):
     event = event or {}
     action = event.get("action")
     if action == "status":
-        return status(event.get("video_ids") or [])
+        return status(event.get("video_ids") or [],
+                      include_misaligned=bool(event.get("include_misaligned")))
     if action == "import":
-        return import_batch(event.get("items") or [], context)
-    raise ValueError("action must be 'status' or 'import'")
+        return import_batch(event.get("items") or [], context,
+                            replace_misaligned=bool(
+                                event.get("replace_misaligned")))
+    if action == "timing_audit":
+        return timing_audit(event.get("cursor"), event.get("limit", 100))
+    if action == "repair_retained":
+        return repair_retained(event.get("video_ids") or [], context)
+    raise ValueError("unsupported legacy import action")
 
 
 def _video_ids(values, limit):
@@ -40,28 +66,39 @@ def _video_ids(values, limit):
     return list(dict.fromkeys(values))
 
 
-def status(values):
+def status(values, include_misaligned=False):
     """Classify IDs before upload so known work is the only data transferred."""
     video_ids = _video_ids(values, MAX_STATUS_IDS)
     if not video_ids:
         return {"ready": [], "eligible": [], "missing": []}
     conn = get_conn()
     with conn.cursor() as cur:
-        cur.execute("""SELECT v.video_id, COALESCE(s.status = 'ready', FALSE)
-                       FROM videos v LEFT JOIN video_stream_stats s USING (video_id)
-                       WHERE v.video_id = ANY(%s)""", (video_ids,))
-        rows = dict(cur.fetchall())
+        cur.execute(f"""SELECT v.video_id,
+                               COALESCE(s.status = 'ready', FALSE),
+                               COALESCE(s.status = 'ready' AND {_SUSPECT_SQL}, FALSE)
+                        FROM videos v
+                        LEFT JOIN ingest_jobs j USING (video_id)
+                        LEFT JOIN video_stream_stats s USING (video_id)
+                        WHERE v.video_id = ANY(%s)""", (video_ids,))
+        rows = {row[0]: (row[1], row[2]) for row in cur.fetchall()}
     conn.rollback()
     known = set(rows)
-    return {
-        "ready": [video_id for video_id in video_ids if rows.get(video_id)],
+    misaligned = [video_id for video_id in video_ids
+                  if rows.get(video_id, (False, False))[1]]
+    result = {
+        "ready": [video_id for video_id in video_ids
+                  if rows.get(video_id, (False, False))[0]
+                  and (not include_misaligned or video_id not in misaligned)],
         "eligible": [video_id for video_id in video_ids
-                     if video_id in known and not rows[video_id]],
+                     if video_id in known and not rows[video_id][0]],
         "missing": [video_id for video_id in video_ids if video_id not in known],
     }
+    if include_misaligned:
+        result["misaligned"] = misaligned
+    return result
 
 
-def import_batch(values, context):
+def import_batch(values, context, replace_misaligned=False):
     if not isinstance(values, list) or len(values) > MAX_IMPORT_ITEMS:
         raise ValueError(f"expected at most {MAX_IMPORT_ITEMS} import items")
     items = []
@@ -84,32 +121,37 @@ def import_batch(values, context):
             deferred.extend({"video_id": item[0], "key": item[1]}
                             for item in items[index:])
             break
-        results.append(_process(video_id, key))
+        results.append(_process(video_id, key, replace_misaligned))
     return {"results": results, "deferred": deferred}
 
 
 def _timing_and_state(video_id):
     conn = get_conn()
     with conn.cursor() as cur:
-        cur.execute("""SELECT v.end_time, v.duration,
-                              COALESCE(s.status = 'ready', FALSE)
-                       FROM videos v LEFT JOIN video_stream_stats s USING (video_id)
-                       WHERE v.video_id=%s""", (video_id,))
+        cur.execute(f"""SELECT v.end_time,
+                               COALESCE(NULLIF(v.duration, INTERVAL '0 seconds'),
+                                 make_interval(secs => j.video_duration_s)),
+                               COALESCE(s.status = 'ready', FALSE),
+                               COALESCE(s.status = 'ready' AND {_SUSPECT_SQL}, FALSE)
+                        FROM videos v
+                        LEFT JOIN ingest_jobs j USING (video_id)
+                        LEFT JOIN video_stream_stats s USING (video_id)
+                        WHERE v.video_id=%s""", (video_id,))
         row = cur.fetchone()
     conn.rollback()
     if not row:
         return None
-    end_time, duration, ready = row
+    end_time, duration, ready, suspect = row
     seconds = max(0, int(duration.total_seconds())) if duration else 0
     start = ((end_time - timedelta(seconds=seconds)).timestamp()
              if end_time and seconds else None)
-    return seconds, start, bool(ready)
+    return seconds, start, bool(ready), bool(suspect)
 
 
 def _aggregate(key, duration, start):
     s3 = client("s3")
     response = s3.get_object(Bucket=BUCKET, Key=key)
-    accumulator = StreamStatsAccumulator(duration, start)
+    accumulator = StreamStatsAccumulator(duration, start, legacy_rebase=True)
     nonempty = valid = malformed = 0
     try:
         with gzip.GzipFile(fileobj=response["Body"], mode="rb") as compressed:
@@ -137,21 +179,38 @@ def _aggregate(key, duration, start):
                                   "empty": nonempty == 0}
 
 
-def _process(video_id, key):
+def _process(video_id, key, replace_misaligned=False):
     result = {"video_id": video_id}
     try:
         timing = _timing_and_state(video_id)
         if timing is None:
             return {**result, "status": "missing-video"}
-        duration, start, ready = timing
-        if ready:
+        duration, start, ready, suspect = timing
+        if ready and not (replace_misaligned and suspect):
             return {**result, "status": "skipped-ready"}
         aggregate, counts = _aggregate(key, duration, start)
         conn = get_conn()
         try:
             with conn.cursor() as cur:
+                if replace_misaligned and ready:
+                    cur.execute(f"""SELECT COALESCE({_SUSPECT_SQL}, FALSE)
+                                     FROM videos v
+                                     LEFT JOIN ingest_jobs j USING (video_id)
+                                     JOIN video_stream_stats s USING (video_id)
+                                     WHERE v.video_id=%s FOR UPDATE OF s""",
+                                (video_id,))
+                    current = cur.fetchone()
+                    if not current or not current[0]:
+                        conn.rollback()
+                        return {**result, "status": "skipped-ready"}
+                if (replace_misaligned and ready and duration
+                        and aggregate["out_of_range_messages"]):
+                    conn.rollback()
+                    return {**result, "status": "validation-failed",
+                            "error": "replacement still has out-of-range timing"}
                 written = upsert_stream_stats(
-                    cur, video_id, aggregate, preserve_ready=True)
+                    cur, video_id, aggregate,
+                    preserve_ready=not (replace_misaligned and ready))
             conn.commit()
         except Exception:
             conn.rollback()
@@ -172,3 +231,166 @@ def _process(video_id, key):
         except Exception:
             log.exception("could not delete legacy import object",
                           extra={"video_id": video_id, "key": key})
+
+
+def timing_audit(cursor=None, limit=100):
+    """Return suspect ready aggregates without reading or mutating raw data."""
+    try:
+        limit = max(1, min(500, int(limit)))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("limit must be an integer") from exc
+    cursor = cursor if isinstance(cursor, str) else ""
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(f"""SELECT v.video_id, j.channel_id, j.part_count,
+                                j.last_offset_s,
+                                EXTRACT(EPOCH FROM COALESCE(
+                                  NULLIF(v.duration, INTERVAL '0 seconds'),
+                                  make_interval(secs => j.video_duration_s),
+                                  INTERVAL '0 seconds')),
+                                s.first_message_at,
+                                EXTRACT(EPOCH FROM (v.end_time - COALESCE(
+                                  NULLIF(v.duration, INTERVAL '0 seconds'),
+                                  make_interval(secs => j.video_duration_s),
+                                  INTERVAL '0 seconds'))),
+                                s.timing_source, s.message_count,
+                                COALESCE((SELECT SUM(value::bigint)
+                                  FROM jsonb_array_elements_text(COALESCE(
+                                    s.histogram_counts, '[]'::jsonb))), 0),
+                                s.out_of_range_messages,
+                                s.first_offset_seconds, s.last_offset_seconds
+                         FROM video_stream_stats s
+                         JOIN videos v USING (video_id)
+                         LEFT JOIN ingest_jobs j USING (video_id)
+                         WHERE s.status='ready' AND v.video_id > %s
+                           AND {_SUSPECT_SQL}
+                         ORDER BY v.video_id LIMIT %s""", (cursor, limit))
+        rows = cur.fetchall()
+    conn.rollback()
+    conn.close()
+    items = [{"video_id": r[0], "channel_id": r[1],
+              "part_count": int(r[2] or 0),
+              "last_offset_seconds": float(r[3] or 0),
+              "duration_seconds": int(r[4] or 0),
+              "first_message_at": r[5].isoformat() if r[5] else None,
+              "calculated_start": float(r[6]) if r[6] is not None else None,
+              "timing_source": r[7], "message_count": int(r[8] or 0),
+              "histogram_message_count": int(r[9] or 0),
+              "out_of_range_messages": int(r[10] or 0),
+              "first_offset_seconds": (float(r[11])
+                                         if r[11] is not None else None),
+              "stored_last_offset_seconds": (float(r[12])
+                                               if r[12] is not None else None)}
+             for r in rows]
+    return {"items": items,
+            "next_cursor": rows[-1][0] if len(rows) == limit else None}
+
+
+def _retained_state(video_id):
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(f"""SELECT j.channel_id, j.part_count, j.last_offset_s,
+                               COALESCE(NULLIF(EXTRACT(EPOCH FROM v.duration), 0),
+                                        j.video_duration_s, 0),
+                               EXTRACT(EPOCH FROM v.end_time) - COALESCE(
+                                 NULLIF(EXTRACT(EPOCH FROM v.duration), 0),
+                                 j.video_duration_s, 0),
+                               COALESCE(s.status='ready' AND {_SUSPECT_SQL}, FALSE)
+                        FROM videos v JOIN ingest_jobs j USING (video_id)
+                        JOIN video_stream_stats s USING (video_id)
+                        WHERE v.video_id=%s""", (video_id,))
+        row = cur.fetchone()
+    conn.rollback()
+    conn.close()
+    return row
+
+
+def _repair_retained_one(video_id):
+    state = _retained_state(video_id)
+    if not state or not state[5]:
+        return {"video_id": video_id, "status": "already-correct"}
+    channel_id, part_count, last_offset, duration, metadata_start, _ = state
+    if not channel_id or int(part_count or 0) < 1:
+        return {"video_id": video_id, "status": "local-archive-needed"}
+    s3 = client("s3")
+    first_ts = max_ts = None
+    has_direct = False
+    try:
+        for message in _iter_messages(s3, channel_id, video_id, int(part_count)):
+            try:
+                timestamp = float(message.get("timestamp") or 0)
+            except (AttributeError, TypeError, ValueError):
+                continue
+            if timestamp:
+                first_ts = timestamp if first_ts is None else min(first_ts, timestamp)
+                max_ts = timestamp if max_ts is None else max(max_ts, timestamp)
+            has_direct = has_direct or message.get("offset_seconds") is not None
+    except Exception as exc:
+        if _missing_raw(exc):
+            return {"video_id": video_id, "status": "local-archive-needed"}
+        raise
+    if has_direct:
+        start, source = metadata_start, "direct_replay_offset"
+    elif last_offset and max_ts:
+        start, source = max_ts - float(last_offset), "recovered_checkpoint"
+    elif first_ts is not None:
+        start, source = first_ts, "first_message_fallback"
+    else:
+        return {"video_id": video_id, "status": "validation-failed",
+                "error": "raw parts contain no timestamped messages"}
+    accumulator = StreamStatsAccumulator(
+        duration, start, timing_source=source)
+    for message in _iter_messages(s3, channel_id, video_id, int(part_count)):
+        accumulator.add(message)
+    aggregate = accumulator.finish()
+    if aggregate["message_count"] and not sum(aggregate["histogram_counts"]):
+        return {"video_id": video_id, "status": "validation-failed",
+                "error": "recovered histogram is empty"}
+    if duration and aggregate["out_of_range_messages"]:
+        return {"video_id": video_id, "status": "validation-failed",
+                "error": "recovered aggregate still has out-of-range timing"}
+    if (aggregate["last_offset_seconds"] is not None and duration
+            and aggregate["last_offset_seconds"] > float(duration) + 60):
+        return {"video_id": video_id, "status": "validation-failed",
+                "error": "recovered offset exceeds video duration"}
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"""SELECT COALESCE({_SUSPECT_SQL}, FALSE)
+                             FROM videos v LEFT JOIN ingest_jobs j USING (video_id)
+                             JOIN video_stream_stats s USING (video_id)
+                             WHERE v.video_id=%s FOR UPDATE OF s""", (video_id,))
+            current = cur.fetchone()
+            if not current or not current[0]:
+                conn.rollback()
+                return {"video_id": video_id, "status": "already-correct"}
+            upsert_stream_stats(cur, video_id, aggregate)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return {"video_id": video_id, "status": "repaired",
+            "timing_source": aggregate["timing_source"]}
+
+
+def repair_retained(values, context):
+    video_ids = _video_ids(values, MAX_IMPORT_ITEMS)
+    results, deferred = [], []
+    for index, video_id in enumerate(video_ids):
+        remaining = (context.get_remaining_time_in_millis()
+                     if context and hasattr(context, "get_remaining_time_in_millis")
+                     else 900_000)
+        if remaining < MIN_REMAINING_MS:
+            deferred.extend(video_ids[index:])
+            break
+        try:
+            results.append(_repair_retained_one(video_id))
+        except Exception as exc:
+            log.warning("retained stream timing repair failed",
+                        extra={"video_id": video_id,
+                               "error_type": type(exc).__name__})
+            results.append({"video_id": video_id, "status": "failed",
+                            "error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+    return {"results": results, "deferred": deferred}

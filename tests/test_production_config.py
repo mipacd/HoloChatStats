@@ -488,7 +488,9 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("@api_bp.before_request", api)
         self.assertIn('"code": "month_not_published"', api)
         self.assertIn("MAX(observed_month)", api)
-        self.assertIn("disabled={isUnpublished}", picker)
+        self.assertIn("availableMonths?: string[]", picker)
+        self.assertIn("available !== null && !available.has", picker)
+        self.assertIn("available === null && isUnpublished", picker)
         self.assertIn("request_warm=False", merge)
 
     def test_stream_stats_are_aggregate_only_and_public_on_ingest(self):

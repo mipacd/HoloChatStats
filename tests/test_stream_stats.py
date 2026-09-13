@@ -3,9 +3,12 @@ import unittest
 from common.stream_stats import StreamStatsAccumulator
 
 
-def msg(uid, timestamp, text, badges=None, kind="chat"):
-    return {"author": {"id": uid, "badges": badges or []},
-            "timestamp": timestamp, "message": text, "message_type": kind}
+def msg(uid, timestamp, text, badges=None, kind="chat", offset=None):
+    value = {"author": {"id": uid, "badges": badges or []},
+             "timestamp": timestamp, "message": text, "message_type": kind}
+    if offset is not None:
+        value["offset_seconds"] = offset
+    return value
 
 
 class StreamStatsTests(unittest.TestCase):
@@ -54,6 +57,72 @@ class StreamStatsTests(unittest.TestCase):
         self.assertEqual(result["histogram_counts"][0], 1)
         self.assertEqual(result["histogram_counts"][-1], 1)
         self.assertEqual(sum(result["category_counts"].values()), 2)
+
+    def test_direct_replay_offset_wins_over_shifted_metadata(self):
+        agg = StreamStatsAccumulator(3600, 10_000, legacy_rebase=True)
+        agg.add(msg("viewer", 8_800, "closing message", offset=3590))
+        result = agg.finish()
+        self.assertEqual(result["timing_source"], "direct_replay_offset")
+        self.assertEqual(result["histogram_counts"][-1], 1)
+        self.assertEqual(result["last_offset_seconds"], 3590)
+        self.assertEqual(result["quiet_tail_seconds"], 10)
+
+    def test_old_lambda_rows_rebase_when_metadata_anchor_drifted(self):
+        agg = StreamStatsAccumulator(600, 10_000, legacy_rebase=True)
+        agg.add(msg("first", 9_400, "opening message"))
+        agg.add(msg("last", 9_990, "closing message"))
+        result = agg.finish()
+        self.assertEqual(result["timing_source"], "first_message_fallback")
+        self.assertEqual(result["histogram_counts"][0], 1)
+        self.assertEqual(result["histogram_counts"][-1], 1)
+        self.assertEqual(result["out_of_range_messages"], 0)
+
+    def test_small_metadata_rounding_does_not_trigger_rebase(self):
+        agg = StreamStatsAccumulator(600, 10_000, legacy_rebase=True)
+        agg.add(msg("early", 9_993, "hello message"))
+        result = agg.finish()
+        self.assertEqual(result["timing_source"], "metadata_derived")
+        self.assertEqual(result["histogram_counts"][0], 1)
+        self.assertEqual(result["out_of_range_messages"], 0)
+
+    def test_checkpoint_recovers_old_lambda_anchor_from_last_message(self):
+        agg = StreamStatsAccumulator(
+            3600, 10_000, legacy_rebase=True, checkpoint_last_offset=3590)
+        agg.add(msg("first", 8_800, "opening message"))
+        agg.add(msg("last", 12_390, "closing message"))
+        result = agg.finish()
+        self.assertEqual(result["timing_source"], "recovered_checkpoint")
+        self.assertEqual(result["histogram_counts"][0], 1)
+        self.assertEqual(result["histogram_counts"][-1], 1)
+        self.assertEqual(result["quiet_tail_seconds"], 10)
+
+    def test_reported_shift_ranges_rebase_but_healthy_rounding_does_not(self):
+        affected = ((3775, 888), (5041, 549), (6065, 278), (5742, 5931))
+        for duration, drift in affected:
+            with self.subTest(duration=duration, drift=drift):
+                metadata_start = 20_000
+                archived_start = metadata_start - drift
+                agg = StreamStatsAccumulator(
+                    duration, metadata_start, legacy_rebase=True)
+                agg.add(msg("first", archived_start, "opening message"))
+                agg.add(msg("last", archived_start + duration - 5,
+                            "goodbye message"))
+                result = agg.finish()
+                self.assertEqual(result["timing_source"],
+                                 "first_message_fallback")
+                last_nonzero = max(
+                    index for index, count in enumerate(
+                        result["histogram_counts"]) if count)
+                self.assertGreaterEqual((last_nonzero + 1) * 60,
+                                        duration - 5)
+        for drift in (1, 7):
+            with self.subTest(healthy_drift=drift):
+                agg = StreamStatsAccumulator(
+                    600, 20_000, legacy_rebase=True)
+                agg.add(msg("viewer", 20_000 - drift, "hello message"))
+                result = agg.finish()
+                self.assertEqual(result["timing_source"], "metadata_derived")
+                self.assertEqual(result["histogram_counts"][0], 1)
 
 
 if __name__ == "__main__":

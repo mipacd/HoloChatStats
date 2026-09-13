@@ -561,6 +561,11 @@ def _parse_messages(actions, video_start_ts):
 
             timestamp = video_start_ts + (offset_ms / 1000.0)
             msg_data["timestamp"] = timestamp
+            # Keep the replay timeline coordinate as well as the absolute
+            # timestamp.  The latter belongs in monthly/user datasets, while
+            # the former is authoritative for charts and remains stable if
+            # YouTube later changes or trims the VOD metadata.
+            msg_data["offset_seconds"] = offset_ms / 1000.0
 
             msgs.append(msg_data)
     return msgs

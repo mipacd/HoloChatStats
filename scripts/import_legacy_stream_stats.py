@@ -83,7 +83,10 @@ class Importer:
         last_error = None
         for attempt in range(1, self.args.retries + 1):
             try:
-                return self.invoke({"action": "status", "video_ids": ids})
+                return self.invoke({
+                    "action": "status", "video_ids": ids,
+                    "include_misaligned": self.args.repair_misaligned,
+                })
             except Exception as exc:
                 last_error = exc
                 if attempt < self.args.retries:
@@ -134,7 +137,8 @@ class Importer:
             by_id = {video_id: path for video_id, path in chunk}
             result = self.status(list(by_id))
             accounted = set(result.get("ready", [])) | set(
-                result.get("eligible", [])) | set(result.get("missing", []))
+                result.get("eligible", [])) | set(result.get("missing", [])) | set(
+                result.get("misaligned", []))
             if accounted != set(by_id):
                 raise RuntimeError("status response did not account for every video ID")
             for video_id in result.get("ready", []):
@@ -143,6 +147,8 @@ class Importer:
                 self.record(video_id, "missing-video")
             eligible.extend((video_id, by_id[video_id])
                             for video_id in result.get("eligible", []))
+            eligible.extend((video_id, by_id[video_id])
+                            for video_id in result.get("misaligned", []))
             print(f"preflight {min(offset + len(chunk), len(files))}/{len(files)}",
                   flush=True)
         return eligible
@@ -177,7 +183,10 @@ class Importer:
             if not request_items:
                 continue
             try:
-                response = self.invoke({"action": "import", "items": request_items})
+                response = self.invoke({
+                    "action": "import", "items": request_items,
+                    "replace_misaligned": self.args.repair_misaligned,
+                })
             except Exception as exc:
                 # The response can be lost after the database commit. Querying
                 # status before retry prevents a newer ready aggregate being
@@ -252,6 +261,9 @@ def parse_args(argv=None):
     parser.add_argument("--retries", type=int, default=3)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--repair-misaligned", action="store_true",
+        help="also replace ready aggregates whose archived timestamps are shifted")
     args = parser.parse_args(argv)
     if args.retries < 1:
         parser.error("--retries must be at least 1")
@@ -288,7 +300,8 @@ def main(argv=None):
               "import-prefix lifecycle rule", file=sys.stderr)
     print("final: " + ", ".join(
         f"{key}={value}" for key, value in sorted(importer.counts.items())))
-    return 1 if importer.counts["failed"] or staged else 0
+    return 1 if (importer.counts["failed"]
+                 or importer.counts["validation-failed"] or staged) else 0
 
 
 if __name__ == "__main__":

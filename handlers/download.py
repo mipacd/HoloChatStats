@@ -171,8 +171,12 @@ def _process(msg, context):
             pages += 1
             next_cont = nxt
             if messages:
-                last_offset = max(last_offset or 0,
-                                  messages[-1]["timestamp"] - replay.video_start_ts)
+                page_last_offset = max(
+                    float(message.get(
+                        "offset_seconds",
+                        message["timestamp"] - replay.video_start_ts))
+                    for message in messages)
+                last_offset = max(last_offset or 0, page_last_offset)
             budget_gone = context.get_remaining_time_in_millis() < RESERVE_MS
             if pages % PAGES_PER_PART == 0 or budget_gone:
                 written += _flush(s3, channel_id, video_id, part_count, buf)

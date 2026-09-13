@@ -135,8 +135,14 @@ def _ingest(msg):
         conn.close()
         return
     part_count = row[0]
-    duration, stream_start_ts = _video_timing(conn, video_id)
-    stream_stats = StreamStatsAccumulator(duration, stream_start_ts)
+    duration, stream_start_ts, checkpoint_last_offset = _video_timing(
+        conn, video_id)
+    # New raw rows carry authoritative replay offsets.  The guarded legacy
+    # rebase keeps pre-deploy/checkpoint rows usable when their archived
+    # timestamp anchor predates later-trimmed VOD metadata.
+    stream_stats = StreamStatsAccumulator(
+        duration, stream_start_ts, legacy_rebase=True,
+        checkpoint_last_offset=checkpoint_last_offset)
     cat_by_user = defaultdict(lambda: defaultdict(int))
     rank_map, chat_counts, last_at, usernames = {}, defaultdict(int), defaultdict(float), {}
     gift_only, known_rank = set(), set()
@@ -257,18 +263,21 @@ def _ingest(msg):
 
 def _video_timing(conn, video_id):
     with conn.cursor() as cur:
-        cur.execute("""SELECT COALESCE(EXTRACT(EPOCH FROM v.duration),
+        cur.execute("""SELECT COALESCE(NULLIF(EXTRACT(EPOCH FROM v.duration), 0),
                                        j.video_duration_s, 0),
                               EXTRACT(EPOCH FROM v.end_time)
-                                - COALESCE(EXTRACT(EPOCH FROM v.duration),
-                                           j.video_duration_s, 0)
+                                - COALESCE(NULLIF(EXTRACT(EPOCH FROM v.duration), 0),
+                                           j.video_duration_s, 0),
+                              j.last_offset_s
                        FROM videos v LEFT JOIN ingest_jobs j USING (video_id)
                        WHERE v.video_id=%s""", (video_id,))
         row = cur.fetchone()
     conn.rollback()
     if not row:
-        return 0, None
-    return int(row[0] or 0), float(row[1]) if row[1] is not None else None
+        return 0, None, None
+    return (int(row[0] or 0),
+            float(row[1]) if row[1] is not None else None,
+            float(row[2]) if row[2] is not None else None)
 
 
 def _missing_raw(exc):
@@ -311,8 +320,11 @@ def _backfill_stream_stats(msg):
                            last_error=NULL, updated_at=NOW()
                        WHERE video_id=%s""", (video_id,))
     conn.commit()
-    duration, stream_start_ts = _video_timing(conn, video_id)
-    accumulator = StreamStatsAccumulator(duration, stream_start_ts)
+    duration, stream_start_ts, checkpoint_last_offset = _video_timing(
+        conn, video_id)
+    accumulator = StreamStatsAccumulator(
+        duration, stream_start_ts, legacy_rebase=True,
+        checkpoint_last_offset=checkpoint_last_offset)
     try:
         if part_count < 1:
             raise FileNotFoundError("no raw part checkpoints recorded")

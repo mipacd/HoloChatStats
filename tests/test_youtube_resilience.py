@@ -22,6 +22,21 @@ class YoutubeResponseTests(unittest.TestCase):
                 f"{status} response", response=response)
         return response
 
+    def test_parsed_chat_retains_authoritative_replay_offset(self):
+        actions = [{"replayChatItemAction": {
+            "videoOffsetTimeMsec": "123456",
+            "actions": [{"addChatItemAction": {"item": {
+                "liveChatTextMessageRenderer": {
+                    "authorExternalChannelId": "viewer",
+                    "authorName": {"simpleText": "Viewer"},
+                    "message": {"runs": [{"text": "hello"}]},
+                }
+            }}}],
+        }}]
+        messages = youtube._parse_messages(actions, 1_700_000_000)
+        self.assertEqual(messages[0]["offset_seconds"], 123.456)
+        self.assertEqual(messages[0]["timestamp"], 1_700_000_123.456)
+
     def test_initial_data_uses_balanced_json_decoder(self):
         payload = {"nested": {"value": "a } brace"}, "items": [1, 2]}
         html = (

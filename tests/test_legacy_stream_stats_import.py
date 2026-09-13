@@ -87,6 +87,18 @@ class LegacyAccumulatorTests(unittest.TestCase):
         self.assertEqual(sum(result["histogram_counts"]), 6)
         self.assertTrue(result["funny_moments"])
 
+    def test_archive_rebases_when_derived_start_is_over_a_minute_late(self):
+        acc = StreamStatsAccumulator(
+            600, 1_700_001_000, legacy_rebase=True)
+        for index in range(5):
+            acc.add_legacy(legacy(
+                str(index), 1_700_000_000 + index * 100,
+                text="archive timing"))
+        result = acc.finish()
+        self.assertEqual(result["timing_source"], "first_message_fallback")
+        self.assertEqual(result["histogram_counts"][0], 1)
+        self.assertEqual(result["out_of_range_messages"], 0)
+
 
 class LegacyWorkerTests(unittest.TestCase):
     def aggregate(self, payload):
@@ -126,7 +138,8 @@ class LegacyWorkerTests(unittest.TestCase):
         store = FakeS3(b"")
         key = "legacy-stream-stats-import/abcdefghijk.jsonl.gz"
         with mock.patch.object(worker, "_timing_and_state",
-                               return_value=(600, 1_700_000_000, False)), \
+                               return_value=(600, 1_700_000_000,
+                                             False, False)), \
                 mock.patch.object(worker, "_aggregate",
                                   side_effect=ValueError("invalid archive")), \
                 mock.patch.object(worker, "client", return_value=store):
@@ -139,8 +152,8 @@ class LegacyWorkerTests(unittest.TestCase):
             def __enter__(self): return self
             def __exit__(self, *_args): return None
             def execute(self, *_args): pass
-            def fetchall(self): return [("abcdefghijk", True),
-                                        ("lmnopqrstuv", False)]
+            def fetchall(self): return [("abcdefghijk", True, False),
+                                        ("lmnopqrstuv", False, False)]
         class Connection:
             def cursor(self): return Cursor()
             def rollback(self): pass
@@ -152,6 +165,27 @@ class LegacyWorkerTests(unittest.TestCase):
         self.assertEqual(result["ready"], ["abcdefghijk"])
         self.assertEqual(result["eligible"], ["lmnopqrstuv"])
         self.assertEqual(result["missing"], ["wxyzABCDEFG"])
+        aws_client.assert_not_called()
+
+    def test_status_exposes_only_suspect_ready_rows_in_repair_mode(self):
+        class Cursor:
+            def __enter__(self): return self
+            def __exit__(self, *_args): return None
+            def execute(self, *_args): pass
+            def fetchall(self):
+                return [("abcdefghijk", True, False),
+                        ("lmnopqrstuv", True, True)]
+        class Connection:
+            def cursor(self): return Cursor()
+            def rollback(self): pass
+            def close(self): pass
+        with mock.patch.object(worker, "get_conn", return_value=Connection()), \
+                mock.patch.object(worker, "client") as aws_client:
+            result = worker.status(
+                ["abcdefghijk", "lmnopqrstuv"], include_misaligned=True)
+        self.assertEqual(result["ready"], ["abcdefghijk"])
+        self.assertEqual(result["misaligned"], ["lmnopqrstuv"])
+        self.assertEqual(result["eligible"], [])
         aws_client.assert_not_called()
 
 
