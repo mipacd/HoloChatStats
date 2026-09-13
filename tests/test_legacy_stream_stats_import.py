@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 from unittest import mock
 
@@ -14,6 +15,7 @@ from handlers import legacy_stats_import as worker
 from scripts.import_legacy_stream_stats import (
     MAX_BATCH_BYTES, build_batches, video_id_from_path,
 )
+from scripts import repair_stream_stats_timing as timing_cli
 
 
 def legacy(uid, timestamp, text="archiveword", category="es_en_id", rank=-1,
@@ -187,6 +189,38 @@ class LegacyWorkerTests(unittest.TestCase):
         self.assertEqual(result["misaligned"], ["lmnopqrstuv"])
         self.assertEqual(result["eligible"], [])
         aws_client.assert_not_called()
+
+    def test_retained_repair_reads_each_raw_message_only_once(self):
+        messages = [
+            {"author": {"id": "first", "badges": []},
+             "timestamp": 1000, "message": "opening message"},
+            {"author": {"id": "last", "badges": []},
+             "timestamp": 1100, "message": "closing message"},
+        ]
+        with mock.patch.object(
+                worker, "_retained_state",
+                return_value=("channel", 1, 500, 100, 1000, True)), \
+                mock.patch.object(worker, "client", return_value=object()), \
+                mock.patch.object(worker, "_iter_messages",
+                                  return_value=iter(messages)) as iterator:
+            result = worker._repair_retained_one("abcdefghijk")
+        self.assertEqual(result["status"], "validation-failed")
+        iterator.assert_called_once()
+
+
+class TimingRepairCliTests(unittest.TestCase):
+    def test_lambda_timeout_is_not_retried_for_another_fifteen_minutes(self):
+        repairer = timing_cli.Repairer.__new__(timing_cli.Repairer)
+        repairer.args = SimpleNamespace(retries=3)
+        repairer.function = "chat-ingest-legacy-stats-import"
+        payload = io.BytesIO(json.dumps({
+            "errorMessage": "Task timed out after 900 seconds"}).encode())
+        repairer.client = mock.Mock()
+        repairer.client.invoke.return_value = {
+            "FunctionError": "Unhandled", "Payload": payload}
+        with self.assertRaisesRegex(RuntimeError, "Task timed out"):
+            repairer.invoke({"action": "repair_retained"})
+        repairer.client.invoke.assert_called_once()
 
 
 class LegacyUploaderTests(unittest.TestCase):

@@ -38,9 +38,25 @@ class Repairer:
                 return body
             except Exception as exc:
                 last_error = exc
+                # Retrying a function that exhausted its full 15-minute budget
+                # only repeats the same expensive work. The caller records it
+                # and moves on so a local archive can repair it later.
+                if "Task timed out after" in str(exc):
+                    break
                 if attempt + 1 < self.args.retries:
                     time.sleep(2 ** attempt)
         raise last_error
+
+    def reconcile(self, video_id):
+        """Check whether an ambiguous client failure hid a successful commit."""
+        response = self.invoke({
+            "action": "status", "video_ids": [video_id],
+            "include_misaligned": True,
+        })
+        if video_id in response.get("ready", []):
+            return {"video_id": video_id,
+                    "status": "repaired-after-timeout"}
+        return None
 
     def record(self, result):
         entry = {"recorded_at": datetime.now(timezone.utc).isoformat(), **result}
@@ -96,12 +112,21 @@ def main(argv=None):
                   f"{item.get('message_count')} "
                   f"out_of_range={item.get('out_of_range_messages')}")
             continue
-        response = repairer.invoke(
-            {"action": "repair_retained", "video_ids": [video_id]})
-        results = response.get("results", [])
-        result = results[0] if results else {
-            "video_id": video_id, "status": "failed",
-            "error": "repair Lambda omitted the requested video"}
+        try:
+            response = repairer.invoke(
+                {"action": "repair_retained", "video_ids": [video_id]})
+            results = response.get("results", [])
+            result = results[0] if results else {
+                "video_id": video_id, "status": "failed",
+                "error": "repair Lambda omitted the requested video"}
+        except Exception as exc:
+            try:
+                result = repairer.reconcile(video_id)
+            except Exception:
+                result = None
+            if result is None:
+                result = {"video_id": video_id, "status": "failed",
+                          "error": f"{type(exc).__name__}: {str(exc)[:300]}"}
         repairer.record(result)
         print(f"{video_id}: {result.get('status')}", flush=True)
     if args.dry_run:

@@ -22,6 +22,10 @@ MAX_IMPORT_ITEMS = 32
 MIN_REMAINING_MS = 60_000
 ALIGNMENT_TOLERANCE_SECONDS = 60
 
+
+class RepairBudgetExceeded(Exception):
+    """The retained-raw repair should fall back to the local archive."""
+
 _SUSPECT_SQL = """(
     (COALESCE(s.timing_source, 'metadata_derived') = 'metadata_derived'
      AND s.first_message_at < (v.end_time - COALESCE(
@@ -305,7 +309,7 @@ def _retained_state(video_id):
     return row
 
 
-def _repair_retained_one(video_id):
+def _repair_retained_one(video_id, context=None):
     state = _retained_state(video_id)
     if not state or not state[5]:
         return {"video_id": video_id, "status": "already-correct"}
@@ -313,35 +317,21 @@ def _repair_retained_one(video_id):
     if not channel_id or int(part_count or 0) < 1:
         return {"video_id": video_id, "status": "local-archive-needed"}
     s3 = client("s3")
-    first_ts = max_ts = None
-    has_direct = False
+    accumulator = StreamStatsAccumulator(
+        duration, metadata_start, legacy_rebase=True,
+        checkpoint_last_offset=last_offset)
     try:
-        for message in _iter_messages(s3, channel_id, video_id, int(part_count)):
-            try:
-                timestamp = float(message.get("timestamp") or 0)
-            except (AttributeError, TypeError, ValueError):
-                continue
-            if timestamp:
-                first_ts = timestamp if first_ts is None else min(first_ts, timestamp)
-                max_ts = timestamp if max_ts is None else max(max_ts, timestamp)
-            has_direct = has_direct or message.get("offset_seconds") is not None
+        for index, message in enumerate(
+                _iter_messages(s3, channel_id, video_id, int(part_count)), 1):
+            if (context and index % 1000 == 0
+                    and context.get_remaining_time_in_millis() < 45_000):
+                raise RepairBudgetExceeded(
+                    "retained raw data exceeded the Lambda time budget")
+            accumulator.add(message)
     except Exception as exc:
         if _missing_raw(exc):
             return {"video_id": video_id, "status": "local-archive-needed"}
         raise
-    if has_direct:
-        start, source = metadata_start, "direct_replay_offset"
-    elif last_offset and max_ts:
-        start, source = max_ts - float(last_offset), "recovered_checkpoint"
-    elif first_ts is not None:
-        start, source = first_ts, "first_message_fallback"
-    else:
-        return {"video_id": video_id, "status": "validation-failed",
-                "error": "raw parts contain no timestamped messages"}
-    accumulator = StreamStatsAccumulator(
-        duration, start, timing_source=source)
-    for message in _iter_messages(s3, channel_id, video_id, int(part_count)):
-        accumulator.add(message)
     aggregate = accumulator.finish()
     if aggregate["message_count"] and not sum(aggregate["histogram_counts"]):
         return {"video_id": video_id, "status": "validation-failed",
@@ -386,7 +376,11 @@ def repair_retained(values, context):
             deferred.extend(video_ids[index:])
             break
         try:
-            results.append(_repair_retained_one(video_id))
+            results.append(_repair_retained_one(video_id, context))
+        except RepairBudgetExceeded as exc:
+            results.append({"video_id": video_id,
+                            "status": "time-budget-exceeded",
+                            "error": str(exc)})
         except Exception as exc:
             log.warning("retained stream timing repair failed",
                         extra={"video_id": video_id,
