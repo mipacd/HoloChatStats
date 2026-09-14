@@ -126,18 +126,18 @@ class StreamStatsTests(unittest.TestCase):
                 self.assertEqual(result["timing_source"], "metadata_derived")
                 self.assertEqual(result["histogram_counts"][0], 1)
 
-    def test_legacy_timing_tolerates_sparse_outliers_but_rejects_drift(self):
-        self.assertEqual(timing_outlier_limit(100), 10)
-        self.assertEqual(timing_outlier_limit(10_001), 101)
+    def test_legacy_timing_requires_eighty_percent_usable_coverage(self):
+        self.assertEqual(timing_outlier_limit(100), 20)
+        self.assertEqual(timing_outlier_limit(10_001), 2001)
         mostly_valid = {
             "message_count": 1000,
-            "histogram_counts": [990],
-            "out_of_range_messages": 10,
+            "histogram_counts": [800],
+            "out_of_range_messages": 200,
         }
         materially_shifted = {
             "message_count": 1000,
-            "histogram_counts": [989],
-            "out_of_range_messages": 11,
+            "histogram_counts": [799],
+            "out_of_range_messages": 201,
         }
         self.assertFalse(materially_invalid_timing(mostly_valid, 60))
         self.assertTrue(materially_invalid_timing(materially_shifted, 60))

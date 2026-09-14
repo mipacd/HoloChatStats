@@ -14,7 +14,10 @@ WORD_MIN_COUNT = 5
 HISTOGRAM_SECONDS = 60
 HUMOR_SECONDS = 30
 TIMING_OUTLIER_MINIMUM = 10
-TIMING_OUTLIER_FRACTION = 0.01
+# Legacy archives can include pre-roll or post-roll that YouTube later trimmed
+# from the public VOD. Keep a timeline when a substantial majority still maps
+# to playable offsets; gross mismatches remain unsafe for timestamp links.
+TIMING_OUTLIER_FRACTION = 0.20
 KNOWN_CATEGORIES = frozenset(("emoji", "jp", "kr", "ru", "number", "es_en_id"))
 _WORD_RE = re.compile(
     r"[A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff]+"
@@ -161,10 +164,6 @@ class StreamStatsAccumulator:
             offset = 0.0
         elif self.duration and self.duration <= offset <= self.duration + 60:
             offset = max(0.0, self.duration - 0.001)
-        if self.first_offset is None or offset < self.first_offset:
-            self.first_offset = offset
-        if self.last_offset is None or offset > self.last_offset:
-            self.last_offset = offset
         minute = int(offset // HISTOGRAM_SECONDS)
         if minute >= len(self.histogram) and not self.duration:
             self.histogram.extend([0] * (minute + 1 - len(self.histogram)))
@@ -176,6 +175,10 @@ class StreamStatsAccumulator:
         else:
             self.out_of_range += count
             return
+        if self.first_offset is None or offset < self.first_offset:
+            self.first_offset = offset
+        if self.last_offset is None or offset > self.last_offset:
+            self.last_offset = offset
         reactions = (int(humor_count) if humor_count is not None
                      else (1 if has_humor(text or "") else 0))
         if reactions:

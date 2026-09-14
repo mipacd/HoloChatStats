@@ -43,7 +43,7 @@ _SUSPECT_SQL = """(
         FROM jsonb_array_elements_text(COALESCE(s.histogram_counts, '[]'::jsonb))
     ), 0) = 0)
     OR COALESCE(s.out_of_range_messages, 0) > GREATEST(
-        10, CEIL(COALESCE(s.message_count, 0) * 0.01))
+        10, CEIL(COALESCE(s.message_count, 0) * 0.20))
 )"""
 
 

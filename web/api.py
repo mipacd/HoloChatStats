@@ -3078,9 +3078,7 @@ def stream_stats_detail(video_id):
                s.member_percentage, s.category_counts, s.membership_rank_counts,
                s.histogram_bin_seconds, s.histogram_counts,
                s.funny_moments, s.word_counts, s.first_message_at,
-               s.computed_at, s.schema_version, s.timing_source,
-               s.first_offset_seconds, s.last_offset_seconds,
-               s.out_of_range_messages, s.quiet_tail_seconds
+               s.computed_at, s.schema_version
         FROM video_stream_stats s
         JOIN videos v USING (video_id) JOIN channels c USING (channel_id)
         WHERE s.video_id=:video_id AND s.status='ready'
@@ -3112,16 +3110,6 @@ def stream_stats_detail(video_id):
                       "counts": _stream_stats_json(row[14], [])},
         "funny_moments": _stream_stats_json(row[15], []),
         "word_counts": _stream_stats_json(row[16], []),
-        "timing": {
-            "source": row[20],
-            "first_offset_seconds": (float(row[21])
-                                     if row[21] is not None else None),
-            "last_offset_seconds": (float(row[22])
-                                    if row[22] is not None else None),
-            "out_of_range_messages": int(row[23] or 0),
-            "quiet_tail_seconds": (float(row[24])
-                                   if row[24] is not None else None),
-        },
         "computed_at": row[18].isoformat() if row[18] else None,
         "schema_version": int(row[19]),
     }
