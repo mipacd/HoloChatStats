@@ -13,6 +13,8 @@ WORD_LIMIT = 200
 WORD_MIN_COUNT = 5
 HISTOGRAM_SECONDS = 60
 HUMOR_SECONDS = 30
+TIMING_OUTLIER_MINIMUM = 10
+TIMING_OUTLIER_FRACTION = 0.01
 KNOWN_CATEGORIES = frozenset(("emoji", "jp", "kr", "ru", "number", "es_en_id"))
 _WORD_RE = re.compile(
     r"[A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff]+"
@@ -71,6 +73,23 @@ def _funny_moments(buckets, duration_seconds):
                       "count": value})
         blocked.update(range(max(0, idx - gap), min(count, idx + gap + 1)))
     return sorted(found, key=lambda item: item["offset_seconds"])
+
+
+def timing_outlier_limit(message_count):
+    """Maximum discarded timing samples allowed for a usable old archive."""
+    return max(TIMING_OUTLIER_MINIMUM,
+               math.ceil(max(0, int(message_count or 0))
+                         * TIMING_OUTLIER_FRACTION))
+
+
+def materially_invalid_timing(aggregate, duration_seconds):
+    """Whether timeline loss is large enough to preserve the old aggregate."""
+    messages = int(aggregate.get("message_count") or 0)
+    histogram = aggregate.get("histogram_counts") or []
+    outliers = int(aggregate.get("out_of_range_messages") or 0)
+    if duration_seconds and messages and not sum(histogram):
+        return True
+    return outliers > timing_outlier_limit(messages)
 
 
 class StreamStatsAccumulator:

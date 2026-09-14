@@ -1,6 +1,8 @@
 import unittest
 
-from common.stream_stats import StreamStatsAccumulator
+from common.stream_stats import (
+    StreamStatsAccumulator, materially_invalid_timing, timing_outlier_limit,
+)
 
 
 def msg(uid, timestamp, text, badges=None, kind="chat", offset=None):
@@ -123,6 +125,28 @@ class StreamStatsTests(unittest.TestCase):
                 result = agg.finish()
                 self.assertEqual(result["timing_source"], "metadata_derived")
                 self.assertEqual(result["histogram_counts"][0], 1)
+
+    def test_legacy_timing_tolerates_sparse_outliers_but_rejects_drift(self):
+        self.assertEqual(timing_outlier_limit(100), 10)
+        self.assertEqual(timing_outlier_limit(10_001), 101)
+        mostly_valid = {
+            "message_count": 1000,
+            "histogram_counts": [990],
+            "out_of_range_messages": 10,
+        }
+        materially_shifted = {
+            "message_count": 1000,
+            "histogram_counts": [989],
+            "out_of_range_messages": 11,
+        }
+        self.assertFalse(materially_invalid_timing(mostly_valid, 60))
+        self.assertTrue(materially_invalid_timing(materially_shifted, 60))
+        self.assertTrue(materially_invalid_timing({
+            "message_count": 50, "histogram_counts": [0],
+            "out_of_range_messages": 0}, 60))
+        self.assertFalse(materially_invalid_timing({
+            "message_count": 50, "histogram_counts": [],
+            "out_of_range_messages": 0}, 0))
 
 
 if __name__ == "__main__":

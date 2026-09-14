@@ -9,7 +9,10 @@ from datetime import timedelta
 from common.aws import client
 from common.db import get_conn
 from common.logging_utils import get_logger
-from common.stream_stats import StreamStatsAccumulator, upsert_stream_stats
+from common.stream_stats import (
+    StreamStatsAccumulator, materially_invalid_timing, timing_outlier_limit,
+    upsert_stream_stats,
+)
 from handlers.ingest import _iter_messages, _missing_raw
 
 
@@ -32,15 +35,15 @@ _SUSPECT_SQL = """(
         NULLIF(v.duration, INTERVAL '0 seconds'),
         make_interval(secs => j.video_duration_s), INTERVAL '0 seconds'))
         - INTERVAL '60 seconds')
-    OR (COALESCE(s.message_count, 0) > 0 AND COALESCE((
+    OR (COALESCE(
+          EXTRACT(EPOCH FROM NULLIF(v.duration, INTERVAL '0 seconds')),
+          j.video_duration_s, 0) > 0
+        AND COALESCE(s.message_count, 0) > 0 AND COALESCE((
         SELECT SUM(value::bigint)
         FROM jsonb_array_elements_text(COALESCE(s.histogram_counts, '[]'::jsonb))
-    ), 0) <> COALESCE(s.message_count, 0))
-    OR COALESCE(s.out_of_range_messages, 0) > 0
-    OR COALESCE(s.first_offset_seconds, 0) < -60
-    OR s.last_offset_seconds > COALESCE(
-        EXTRACT(EPOCH FROM NULLIF(v.duration, INTERVAL '0 seconds')),
-        j.video_duration_s, 0) + 60
+    ), 0) = 0)
+    OR COALESCE(s.out_of_range_messages, 0) > GREATEST(
+        10, CEIL(COALESCE(s.message_count, 0) * 0.01))
 )"""
 
 
@@ -207,11 +210,23 @@ def _process(video_id, key, replace_misaligned=False):
                     if not current or not current[0]:
                         conn.rollback()
                         return {**result, "status": "skipped-ready"}
-                if (replace_misaligned and ready and duration
-                        and aggregate["out_of_range_messages"]):
+                if (replace_misaligned and ready
+                        and materially_invalid_timing(aggregate, duration)):
                     conn.rollback()
                     return {**result, "status": "validation-failed",
-                            "error": "replacement still has out-of-range timing"}
+                            "error": "replacement has materially invalid timing",
+                            "message_count": aggregate["message_count"],
+                            "histogram_message_count": sum(
+                                aggregate["histogram_counts"]),
+                            "out_of_range_messages": aggregate[
+                                "out_of_range_messages"],
+                            "outlier_limit": timing_outlier_limit(
+                                aggregate["message_count"]),
+                            "duration_seconds": duration,
+                            "first_offset_seconds": aggregate[
+                                "first_offset_seconds"],
+                            "last_offset_seconds": aggregate[
+                                "last_offset_seconds"]}
                 written = upsert_stream_stats(
                     cur, video_id, aggregate,
                     preserve_ready=not (replace_misaligned and ready))
