@@ -362,6 +362,7 @@ def snapshot():
                           WHEN js.month = js.current_month THEN 'open'
                           ELSE 'unpublished' END) AS merge_status,
                    s.merged_at,
+                   COALESCE(s.rows_merged, 0) AS publish_rows_moved,
                    CASE WHEN js.month < js.current_month THEN
                      (SELECT COUNT(*)
                         FROM channels c
@@ -401,8 +402,9 @@ def snapshot():
             "downloaded": int(r[3]), "done": int(r[4]), "failed": int(r[5]),
             "skipped": int(r[6]), "merge_status": r[7],
             "merged_at": str(r[8]) if r[8] else None,
-            "channel_checks": int(r[9]), "late_logs": int(r[10]),
-            "closed": r[0] < r[11], "can_unpublish": bool(r[12]),
+            "publish_rows_moved": int(r[9]),
+            "channel_checks": int(r[10]), "late_logs": int(r[11]),
+            "closed": r[0] < r[12], "can_unpublish": bool(r[13]),
         } for r in cur.fetchall()]
         cur.execute("""
             SELECT video_id, channel_id, message_count, completed_at
@@ -808,7 +810,8 @@ def _publish_month(value):
         Payload=json.dumps({"months": [month], "force": True}).encode())
     log.warning("manual month publication requested", extra={"month": month})
     return {"ok": True, "action": "publish_month", "month": month,
-            "note": "forced publication and cache invalidation queued"}
+            "note": "resumable forced publication queued; progress appears "
+                    "in the monthly publication table"}
 
 def _republish_month(value):
     month = _valid_month(value)
@@ -915,6 +918,8 @@ PAGE = r"""<!doctype html>
   #meta { margin-left:auto; color:#707a8c; font-size:12px; }
   .s-done{color:#57d68b} .s-failed{color:#ff8585} .s-pending{color:#8a93a6}
   .s-downloading,.s-ingesting,.s-downloaded{color:#ffd666} .s-skipped{color:#7f87f0}
+  .s-merged{color:#57d68b} .s-merging{color:#ffd666}
+  .s-held,.s-unpublished{color:#ff9a76}
   tr.stalled td { background:#2a1b1b; }
   .bar { display:inline-block; vertical-align:middle; margin-right:6px; }
   .chan { margin-right:6px; }
@@ -1046,7 +1051,8 @@ PAGE = r"""<!doctype html>
       <th class="num">Pending</th><th class="num">Downloaded</th>
       <th class="num">Ingested</th><th class="num">Failed</th>
       <th class="num">Skipped</th><th class="num">Channel checks</th>
-      <th>Merge status</th><th class="num">Late logs</th><th>Actions</th></tr></thead>
+      <th>Merge status</th><th class="num">Rows moved</th>
+      <th class="num">Late logs</th><th>Actions</th></tr></thead>
       <tbody id="months"></tbody></table></div>
   </section>
   <section class="wide">
@@ -1358,7 +1364,7 @@ function render(d) {
     || `<tr><td colspan="5">none 🎉</td></tr>`;
   MONTHS = d.months || [];
   $("months").innerHTML = MONTHS.map((m, i) => {
-    const publish = m.closed && m.merge_status !== "merged"
+    const publish = m.closed && !["merged", "merging"].includes(m.merge_status)
       ? `<button class="small go" onclick="publishMonth(${i})">Publish</button>` : "";
     const republish = m.merge_status === "merged" && m.late_logs > 0
       ? `<button class="small go" onclick="republishMonth(${i})">Re-publish</button>` : "";
@@ -1374,9 +1380,10 @@ function render(d) {
       <td class="num">${m.skipped.toLocaleString()}</td>
       <td class="num">${m.channel_checks.toLocaleString()}</td>
       <td class="s-${esc(m.merge_status)}" title="${esc(m.merged_at || "")}">${esc(m.merge_status)}</td>
+      <td class="num">${(m.publish_rows_moved || 0).toLocaleString()}</td>
       <td class="num">${m.late_logs.toLocaleString()}</td>
       <td><div class="actions">${actions || "—"}</div></td></tr>`;
-  }).join("") || `<tr><td colspan="11">no months configured</td></tr>`;
+  }).join("") || `<tr><td colspan="12">no months configured</td></tr>`;
   CHANNELS = d.channels;
   $("channels").innerHTML = d.channels.map((ch, i) => `
     <tr class="${ch.active ? "" : "inactive"}">
