@@ -31,6 +31,7 @@ def handler(event, context):
         "downloads": _reap_downloads(cfg, limit, dry),
         "ingests": _reap_ingests(cfg, limit, dry),
         "orphaned_downloaded": _reap_downloaded(cfg, limit, dry),
+        "month_merge": _resume_month_merge(dry),
         "stream_stats_backfill": (_dispatch_stream_stats_backfill(cfg, dry)
                                   if not dry else {"dispatched": 0,
                                                    "reason": "dry run"}),
@@ -44,6 +45,55 @@ def handler(event, context):
                                               "abandoned": out["downloads"]["abandoned"]})
     out["dispatch"] = dispatch.run(cfg)
     return out
+
+
+def _resume_month_merge(dry=False):
+    """Wake a resumable month merge after its previous Lambda has exited.
+
+    Floci rejects a Lambda invoking itself while reserved concurrency is in
+    use, even for InvocationType=Event.  The five-minute reaper schedule is a
+    durable handoff: recent batch progress suppresses duplicate wakeups, and
+    the merge worker's advisory lock remains the final concurrency guard.
+    """
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""SELECT observed_month, rows_merged, updated_at
+                         FROM monthly_merge_state
+                        WHERE status='merging'
+                          AND updated_at < NOW() - INTERVAL '3 minutes'
+                        ORDER BY updated_at
+                        LIMIT 1 FOR UPDATE SKIP LOCKED""")
+        row = cur.fetchone()
+        if not row:
+            conn.rollback()
+            conn.close()
+            return {"invoked": 0, "reason": "no stalled merge"}
+        month, rows_moved, updated_at = row
+        if dry:
+            conn.rollback()
+            conn.close()
+            return {"invoked": 0, "dry_run": True, "month": str(month),
+                    "rows_moved": int(rows_moved or 0),
+                    "last_progress_at": str(updated_at)}
+        cur.execute("""UPDATE monthly_merge_state SET updated_at=NOW()
+                        WHERE observed_month=%s AND status='merging'""", (month,))
+    conn.commit()
+    conn.close()
+    try:
+        client("lambda").invoke(
+            FunctionName=f"{os.environ.get('APP_NAME', 'chat-ingest')}-merge",
+            InvocationType="Event",
+            Payload=json.dumps({"months": [str(month)],
+                                "resume": True,
+                                "source": "reaper"}).encode())
+    except Exception as exc:
+        log.warning("month merge wakeup deferred",
+                    extra={"month": str(month), "error": str(exc)[:200]})
+        return {"invoked": 0, "month": str(month), "error": str(exc)}
+    log.info("resumed stalled month merge",
+             extra={"month": str(month), "rows_moved": int(rows_moved or 0)})
+    return {"invoked": 1, "month": str(month),
+            "rows_moved": int(rows_moved or 0)}
 
 
 def _dispatch_stream_stats_backfill(cfg, dry=False):

@@ -25,6 +25,14 @@ class ResumableMonthMergeTests(unittest.TestCase):
         self.assertIn("_request_merge_resume(month)", merge)
         self.assertIn("WHERE status='merging'", merge)
 
+    def test_reaper_recovers_a_throttled_continuation(self):
+        reaper = (ROOT / "handlers" / "reap.py").read_text(encoding="utf-8")
+        self.assertIn('"month_merge": _resume_month_merge(dry)', reaper)
+        self.assertIn("status='merging'", reaper)
+        self.assertIn("INTERVAL '3 minutes'", reaper)
+        self.assertIn('"source": "reaper"', reaper)
+        self.assertIn("LIMIT 1 FOR UPDATE SKIP LOCKED", reaper)
+
     def test_publication_boundary_closes_only_after_final_checks(self):
         merge = (ROOT / "handlers" / "merge.py").read_text(encoding="utf-8")
         finalize = merge.split("def _finalize_month", 1)[1].split(

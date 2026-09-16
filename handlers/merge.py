@@ -282,6 +282,7 @@ def _merge_month(conn, month, context):
 
 def _finalize_month(conn, month):
     """Close the publication boundary after all prior ingests have drained."""
+    log.info("month merge finalization started", extra={"month": str(month)})
     with conn.cursor() as cur:
         cur.execute("SELECT status FROM monthly_merge_state "
                     "WHERE observed_month=%s FOR UPDATE", (month,))
@@ -308,6 +309,7 @@ def _finalize_month(conn, month):
         cur.execute("DELETE FROM service_config WHERE key=%s",
                     (f"publication_hold:{month}",))
     conn.commit()
+    log.info("month merge finalization committed", extra={"month": str(month)})
     return True
 
 
@@ -318,11 +320,13 @@ def _request_merge_resume(month):
             InvocationType="Event",
             Payload=json.dumps({"months": [str(month)], "resume": True}).encode())
         log.info("queued month merge continuation", extra={"month": str(month)})
-    except Exception:
+    except Exception as exc:
         # status='merging' is durable and _staged_months includes it, so the
-        # scheduled merge invocation remains a fallback continuation path.
-        log.exception("could not queue month merge continuation",
-                      extra={"month": str(month)})
+        # five-minute reaper remains a fallback continuation path. Floci can
+        # reject this call while the current reserved-concurrency invocation
+        # is still active, which is expected and not a failed merge batch.
+        log.warning("month merge continuation deferred to reaper",
+                    extra={"month": str(month), "error": str(exc)[:200]})
 
 
 def _unpublish(values, started_at):
