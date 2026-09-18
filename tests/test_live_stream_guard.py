@@ -69,6 +69,17 @@ class LiveStreamGuardTests(unittest.TestCase):
         self.assertIn("status IN ('pending', 'failed')", scan)
         self.assertIn("override_failed=True", scan)
 
+    def test_advisory_lock_does_not_close_shared_database_session(self):
+        download = (ROOT / "handlers" / "download.py").read_text()
+        lock_block = download.split("lock_conn = get_conn()", 1)[1].split(
+            "return {\"ok\": True}", 1)[0]
+        self.assertNotIn("lock_conn.close()\n            sqs.send_message",
+                         lock_block)
+        defer = download.split("def _defer_future_month", 1)[1].split(
+            "def _process", 1)[0]
+        self.assertNotIn("conn.close()", defer)
+        self.assertIn("pg_advisory_unlock", lock_block)
+
 
 if __name__ == "__main__":
     unittest.main()

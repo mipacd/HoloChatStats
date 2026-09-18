@@ -66,7 +66,9 @@ def handler(event, context):
                         (DOWNLOAD_LOCK_KEY,))
             have_lock = cur.fetchone()[0]
         if not have_lock:
-            lock_conn.close()
+            # get_conn() is the warm Lambda's shared session. Closing it here
+            # also closes the connection returned by every downstream helper.
+            lock_conn.rollback()
             sqs.send_message(QueueUrl=os.environ["DOWNLOAD_QUEUE_URL"],
                              MessageBody=json.dumps(msg),
                              DelaySeconds=15)
@@ -86,10 +88,19 @@ def handler(event, context):
                 emit({"DownloadLeaseLost": (1, COUNT)}, {"Stage": "download"},
                      video_id=msg.get("video_id"))
         finally:
-            with lock_conn.cursor() as cur:
-                cur.execute("SELECT pg_advisory_unlock(%s)",
-                            (DOWNLOAD_LOCK_KEY,))
-            lock_conn.close()
+            # Helpers deliberately share this warm connection. They may have
+            # committed or rolled back, but must never own/close the session
+            # which owns our advisory lock.
+            if not lock_conn.closed:
+                try:
+                    lock_conn.rollback()
+                    with lock_conn.cursor() as cur:
+                        cur.execute("SELECT pg_advisory_unlock(%s)",
+                                    (DOWNLOAD_LOCK_KEY,))
+                    lock_conn.commit()
+                except Exception:
+                    log.exception("failed to release download advisory lock")
+                    lock_conn.close()
     return {"ok": True}
 
 def _defer_future_month(msg):
@@ -97,7 +108,7 @@ def _defer_future_month(msg):
     conn = get_conn()
     video_month, active_month = work_months(conn, msg.get("video_id"))
     if not video_month or not active_month or video_month <= active_month:
-        conn.close()
+        conn.rollback()
         return False
     with conn.cursor() as cur:
         # Preserve durable S3 continuation/part checkpoints. When this month
@@ -112,7 +123,6 @@ def _defer_future_month(msg):
         """, (active_month, msg.get("video_id")))
         deferred = cur.rowcount > 0
     conn.commit()
-    conn.close()
     if deferred:
         log.warning("future-month download returned to dispatcher",
                     extra={"video_id": msg.get("video_id"),
