@@ -732,6 +732,7 @@ def _retry_failed(video_id=None):
                                messages_downloaded=CASE WHEN %s THEN 0
                                                         ELSE messages_downloaded END,
                                last_error=NULL, completed_at=NULL,
+                               next_attempt_at=NULL,
                                dispatched_at=NOW(), updated_at=NOW()
                            WHERE video_id=%s""",
                         (target, reset, reset, part_count, reset, reset, job_id))

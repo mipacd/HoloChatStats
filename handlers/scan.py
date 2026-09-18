@@ -135,6 +135,12 @@ def _scan(msg, context):
                         break
                     newest = max(newest, prior["end_time"])
                     continue
+                if (prior and prior["status"] == "skipped"
+                        and not prior["end_time"] and not recheck_skip):
+                    # Terminal non-starters have no trustworthy end time and
+                    # therefore no videos row. Do not spend a metadata lookup
+                    # on them during every later discovery pass.
+                    continue
                 try:
                     video_data = cd.get_video_data(video_id=video_id)
                 except Exception as e:
@@ -144,6 +150,19 @@ def _scan(msg, context):
                     log.warning("get_video_data failed",
                                 extra={"video_id": video_id, "error": str(e)[:200]})
                     lookup_errors.append(f"{video_id}: {str(e)[:160]}")
+                    continue
+                disposition, reason = _stream_disposition(video_data, cfg)
+                if disposition == "skip":
+                    _mark_skipped(conn, channel_id, video_id, reason,
+                                  override_failed=True)
+                    log.info("non-starting stream skipped",
+                             extra={"video_id": video_id, "reason": reason})
+                    continue
+                if disposition == "cooldown":
+                    _cooldown_job(conn, video_id, reason,
+                                  int(cfg.get("live_retry_cooldown_minutes", 120)))
+                    log.info("active or upcoming stream deferred",
+                             extra={"video_id": video_id, "reason": reason})
                     continue
                 end_date = _resolve_end_time(item, video_data)
                 if end_date < floor and not recheck_skip:
@@ -244,6 +263,49 @@ def _parse_dt(value):
         return None
     dt = datetime.fromisoformat(value)
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+def _video_datetime(value):
+    if value in (None, ""):
+        return None
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return None
+    # chat-downloader returns parsed YouTube dates as Unix microseconds.
+    if abs(seconds) >= 1_000_000_000_000:
+        seconds /= 1_000_000
+    try:
+        return datetime.fromtimestamp(seconds, timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        return None
+def _stream_disposition(video_data, cfg, now=None):
+    """Return (action, reason) for a non-past YouTube broadcast.
+
+    The downloader remains the fallback guard because watch-page parsing can
+    fail before scan obtains a reliable status.  This early check prevents
+    known live/upcoming broadcasts from becoming download jobs at all.
+    """
+    status = str(video_data.get("status") or "").lower()
+    if status not in ("live", "upcoming"):
+        return "process", None
+    now = now or datetime.now(timezone.utc)
+    start = _video_datetime(video_data.get("start_time"))
+    if start is None:
+        return "skip", f"{status} stream has no configured start time"
+    if status == "upcoming":
+        future_days = max(1, int(cfg.get("future_stream_max_days", 30)))
+        grace_hours = max(1, int(cfg.get("upcoming_start_grace_hours", 12)))
+        if start > now + timedelta(days=future_days):
+            return "skip", (f"scheduled start is more than {future_days} days "
+                            "in the future")
+        if start < now - timedelta(hours=grace_hours):
+            return "skip", (f"scheduled start passed more than {grace_hours} "
+                            "hours ago without going live")
+        return "cooldown", f"upcoming stream scheduled for {start.isoformat()}"
+    max_hours = max(1, int(cfg.get("max_live_stream_hours", 48)))
+    if start < now - timedelta(hours=max_hours):
+        return "skip", (f"stream remained live/offline for more than "
+                        f"{max_hours} hours")
+    return "cooldown", f"stream is still live (started {start.isoformat()})"
 def _resolve_end_time(item, video_data):
     end_raw = video_data.get("end_time")
     if end_raw:
@@ -308,6 +370,7 @@ def _upsert_and_claim(conn, channel_id, video_id, title, end_date, duration,
                        part_count=0, last_offset_s=0, messages_downloaded=0,
                        lease_id=NULL, reaped_count=0, message_count=NULL,
                        skip_reason=NULL, last_error=NULL, dispatched_at=NULL,
+                       next_attempt_at=NULL,
                        enqueued_at=NOW(), started_at=NULL, completed_at=NULL,
                        updated_at=NOW(), video_duration_s=%s, s3_prefix=%s
                  WHERE video_id=%s AND status='skipped'
@@ -316,7 +379,24 @@ def _upsert_and_claim(conn, channel_id, video_id, title, end_date, duration,
             claimed = cur.fetchone() is not None
     conn.commit()
     return claimed
-def _mark_skipped(conn, channel_id, video_id, reason):
+def _cooldown_job(conn, video_id, reason, minutes):
+    """Park an already-discovered job without creating a new one.
+
+    A metadata check can also recover failures created by the old hot-retry
+    behavior. Once YouTube reports the stream as past, discovery stops
+    extending the deadline and the dispatcher releases it normally.
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE ingest_jobs
+               SET status='pending', attempts=0, dispatched_at=NULL,
+                   lease_id=NULL, completed_at=NULL, skip_reason=NULL,
+                   next_attempt_at=NOW() + (%s * INTERVAL '1 minute'),
+                   last_error=%s, updated_at=NOW()
+             WHERE video_id=%s AND status IN ('pending', 'failed')
+        """, (max(5, minutes), reason[:500], video_id))
+    conn.commit()
+def _mark_skipped(conn, channel_id, video_id, reason, override_failed=False):
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO ingest_jobs (video_id, channel_id, status, skip_reason,
@@ -324,10 +404,18 @@ def _mark_skipped(conn, channel_id, video_id, reason):
             VALUES (%s, %s, 'skipped', %s, NOW())
             ON CONFLICT (video_id) DO UPDATE
               SET status = CASE WHEN ingest_jobs.status = 'pending'
+                                      OR (%s AND ingest_jobs.status = 'failed')
                                 THEN 'skipped' ELSE ingest_jobs.status END,
                   skip_reason = COALESCE(ingest_jobs.skip_reason, EXCLUDED.skip_reason),
+                  next_attempt_at = CASE WHEN ingest_jobs.status = 'pending'
+                                              OR (%s AND ingest_jobs.status = 'failed')
+                                         THEN NULL ELSE ingest_jobs.next_attempt_at END,
+                  completed_at = CASE WHEN ingest_jobs.status = 'pending'
+                                           OR (%s AND ingest_jobs.status = 'failed')
+                                      THEN NOW() ELSE ingest_jobs.completed_at END,
                   updated_at = NOW()
-        """, (video_id, channel_id, reason[:200]))
+        """, (video_id, channel_id, reason[:200], override_failed,
+              override_failed, override_failed))
     conn.commit()
 def _record_error(conn, channel_id, message):
     conn.rollback()

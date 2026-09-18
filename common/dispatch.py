@@ -54,7 +54,9 @@ def run(cfg):
         cur.execute("""
             SELECT date_trunc('month', v.end_time)::date AS month,
                    COUNT(*) FILTER (WHERE j.status='pending'
-                                      AND j.dispatched_at IS NULL) AS waiting,
+                                      AND j.dispatched_at IS NULL
+                                      AND (j.next_attempt_at IS NULL
+                                           OR j.next_attempt_at <= NOW())) AS waiting,
                    COUNT(*) FILTER (WHERE j.status='pending'
                                       AND j.dispatched_at IS NOT NULL) AS in_queue,
                    COUNT(*) FILTER (WHERE j.status IN ('downloading','downloaded',
@@ -87,9 +89,10 @@ def run(cfg):
             SELECT j.video_id, j.channel_id
             FROM ingest_jobs j JOIN videos v USING (video_id)
             WHERE j.status='pending' AND j.dispatched_at IS NULL
+              AND (j.next_attempt_at IS NULL OR j.next_attempt_at <= NOW())
               AND v.end_time >= %s::date
               AND v.end_time <  (%s::date + INTERVAL '1 month')
-            ORDER BY v.end_time ASC
+            ORDER BY (j.next_attempt_at IS NOT NULL) ASC, v.end_time ASC
             LIMIT %s FOR UPDATE OF j SKIP LOCKED""", (month, month, batch))
         jobs = cur.fetchall()
         if jobs:

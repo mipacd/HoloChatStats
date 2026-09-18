@@ -307,7 +307,8 @@ def retry_cookie_failures():
                     OR last_error ILIKE '%%Bad Request%%'
                   THEN 0 ELSE messages_downloaded END,
                 last_error=NULL,
-                completed_at=NULL, lease_id=NULL, updated_at=NOW()
+                completed_at=NULL, lease_id=NULL, next_attempt_at=NULL,
+                updated_at=NOW()
             WHERE status='failed'
               AND (last_error ILIKE '%%sign in to confirm%%not a bot%%'
                    OR last_error ILIKE '%%cookie%%'

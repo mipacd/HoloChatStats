@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS ingest_jobs (
     skip_reason         TEXT,
     last_error          TEXT,
     enqueued_at         TIMESTAMPTZ DEFAULT NOW(),
+    next_attempt_at     TIMESTAMPTZ,
     started_at          TIMESTAMPTZ,
     updated_at          TIMESTAMPTZ DEFAULT NOW(),
     completed_at        TIMESTAMPTZ
@@ -164,6 +165,7 @@ CREATE TABLE IF NOT EXISTS ingest_jobs (
 ALTER TABLE ingest_jobs ADD COLUMN IF NOT EXISTS messages_downloaded BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE ingest_jobs ADD COLUMN IF NOT EXISTS lease_id            TEXT;
 ALTER TABLE ingest_jobs ADD COLUMN IF NOT EXISTS reaped_count        INT NOT NULL DEFAULT 0;
+ALTER TABLE ingest_jobs ADD COLUMN IF NOT EXISTS next_attempt_at     TIMESTAMPTZ;
 -- ---------------------------------------------------------------------------
 -- 5. invariants
 -- ---------------------------------------------------------------------------

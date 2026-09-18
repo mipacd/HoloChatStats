@@ -18,8 +18,18 @@ DOWNLOAD_LOCK_KEY = 744_211_988
 BUCKET = os.environ["RAW_BUCKET"]
 RETRY_QUEUE = os.environ.get("DOWNLOAD_RETRY_QUEUE_URL")
 PERMANENT = ("members", "not available", "removed", "private", "no chat replay",
-             "no continuation", "live event", "will begin", "age-restricted",
-             "age restricted", "confirm your age")
+             "age-restricted", "age restricted", "confirm your age")
+LIVE_COOLDOWN_ERRORS = (
+    "expecting property name enclosed in double quotes",
+    "expecting value: line 1 column 1",
+    "unterminated string starting at",
+    "ytinitialdata not found",
+    "no continuation found",
+    "non-json payload",
+    "live event",
+    "will begin",
+    "page needs to be reloaded",
+)
 # Chat replay pagination ending is the authoritative completion signal. This
 # threshold only controls a diagnostic warning; quiet tails never fail a job.
 REPLAY_END_SILENCE_SECONDS = 15 * 60
@@ -121,6 +131,9 @@ def _process(msg, context):
         cur.execute("""SELECT j.status, j.continuation, j.part_count, j.attempts,
                               j.last_offset_s, j.video_duration_s,
                               COALESCE(j.messages_downloaded, 0),
+                              j.next_attempt_at,
+                              (j.next_attempt_at IS NOT NULL
+                               AND j.next_attempt_at > NOW()) AS cooling_down,
                               EXTRACT(EPOCH FROM (
                                   v.end_time - COALESCE(
                                       v.duration,
@@ -135,11 +148,25 @@ def _process(msg, context):
             log.warning("no job row; dropping", extra={"video_id": video_id})
             conn.rollback(); return
         (status, continuation, part_count, attempts, last_offset, duration,
-         msgs_before, stored_start_ts) = row
+         msgs_before, next_attempt_at, cooling_down, stored_start_ts) = row
         if status in ("done", "failed", "skipped", "ingesting", "downloaded"):
             log.info("already past download stage", extra={"video_id": video_id,
                                                            "status": status})
             conn.rollback(); return
+        if cooling_down:
+            # This can be an SQS message sent just before a scanner or an
+            # earlier invocation parked the stream.  Consume it and let the
+            # month dispatcher release the durable row after the deadline.
+            cur.execute("""UPDATE ingest_jobs
+                           SET dispatched_at=NULL, lease_id=NULL,
+                               updated_at=NOW()
+                           WHERE video_id=%s AND status='pending'""",
+                        (video_id,))
+            conn.commit()
+            log.info("live stream still cooling down",
+                     extra={"video_id": video_id,
+                            "next_attempt_at": str(next_attempt_at)})
+            return
         # Taking the lease is what makes any previous owner a zombie.
         cur.execute("""UPDATE ingest_jobs
                        SET status='downloading', attempts = attempts + 1,
@@ -155,7 +182,10 @@ def _process(msg, context):
                             duration=duration,
                             player_offset_s=last_offset)
     except Exception as e:
-        return _handle_error(conn, sqs, video_id, channel_id, msg, e)
+        return _handle_error(
+            conn, sqs, video_id, channel_id, msg, e,
+            live_candidate=(part_count == 0 and msgs_before == 0),
+            download_attempts=attempts + 1)
     if not duration and getattr(replay, "duration", None):
         duration = duration or replay.duration
         with conn.cursor() as cur:
@@ -226,7 +256,10 @@ def _process(msg, context):
         return _handle_error(
             conn, sqs, video_id, channel_id,
             {**msg, "video_start_ts": replay.video_start_ts, "resumed": True},
-            e, reset_checkpoint=stale_checkpoint)
+            e, reset_checkpoint=stale_checkpoint,
+            live_candidate=(part_count == 0 and msgs_before == 0
+                            and written == 0 and not buf),
+            download_attempts=attempts + 1)
     if buf:
         written += _flush(s3, channel_id, video_id, part_count, buf)
         part_count += 1
@@ -239,9 +272,10 @@ def _process(msg, context):
                            "quiet_tail_s": int(duration - last_offset)})
     with conn.cursor() as cur:
         cur.execute("""UPDATE ingest_jobs
-                       SET status='downloaded', continuation=NULL, part_count=%s,
+                           SET status='downloaded', continuation=NULL, part_count=%s,
                            last_offset_s=%s, messages_downloaded=%s,
-                           lease_id=NULL, updated_at=NOW(), last_error=NULL
+                           lease_id=NULL, next_attempt_at=NULL,
+                           updated_at=NOW(), last_error=NULL
                        WHERE video_id=%s AND lease_id=%s""",
                     (part_count, last_offset, msgs_before + written, video_id, lease))
         if cur.rowcount == 0:
@@ -290,9 +324,49 @@ def _checkpoint(conn, video_id, lease, continuation, part_count, last_offset, me
     if lost:
         raise LeaseLost(video_id)
 def _handle_error(conn, sqs, video_id, channel_id, msg, exc,
-                  reset_checkpoint=False):
+                  reset_checkpoint=False, live_candidate=False,
+                  download_attempts=0):
     text = str(exc)
-    permanent = any(k in text.lower() for k in PERMANENT)
+    lower = text.lower()
+    if live_candidate and any(marker in lower for marker in LIVE_COOLDOWN_ERRORS):
+        max_cooldowns = max(1, setting("live_cooldown_max_attempts", 6, int))
+        if download_attempts >= max_cooldowns:
+            reason = (f"persistently unavailable live/upcoming chat after "
+                      f"{download_attempts} checks: {text}")
+            with conn.cursor() as cur:
+                cur.execute("""UPDATE ingest_jobs
+                               SET status='skipped', last_error=%s,
+                                   skip_reason=%s, lease_id=NULL,
+                                   next_attempt_at=NULL, completed_at=NOW(),
+                                   updated_at=NOW()
+                               WHERE video_id=%s""",
+                            (reason[:1000], reason[:200], video_id))
+            conn.commit()
+            emit({"DownloadsSkipped": (1, COUNT)}, {"Stage": "download"},
+                 video_id=video_id, error=reason[:200])
+            log.warning("persistently unavailable stream skipped",
+                        extra={"video_id": video_id,
+                               "checks": download_attempts,
+                               "error": text[:200]})
+            return
+        minutes = max(5, setting("live_retry_cooldown_minutes", 120, int))
+        with conn.cursor() as cur:
+            cur.execute("""UPDATE ingest_jobs
+                           SET status='pending', dispatched_at=NULL, lease_id=NULL,
+                               next_attempt_at=NOW() + (%s * INTERVAL '1 minute'),
+                               continuation=NULL, part_count=0, last_offset_s=0,
+                               messages_downloaded=0, last_error=%s,
+                               updated_at=NOW()
+                           WHERE video_id=%s""",
+                        (minutes, text[:1000], video_id))
+        conn.commit()
+        emit({"DownloadsCoolingDown": (1, COUNT)}, {"Stage": "download"},
+             video_id=video_id, cooldown_minutes=minutes, error=text[:200])
+        log.info("active or upcoming chat sent to cooldown",
+                 extra={"video_id": video_id, "cooldown_minutes": minutes,
+                        "error": text[:200]})
+        return
+    permanent = any(k in lower for k in PERMANENT)
     max_retries = setting("max_retries", 5, int)
     # A stale checkpoint repair starts a fresh retry budget because the prior
     # attempts all exercised the same invalid continuation.
@@ -301,7 +375,8 @@ def _handle_error(conn, sqs, video_id, channel_id, msg, exc,
         with conn.cursor() as cur:
             cur.execute("""UPDATE ingest_jobs
                            SET status=%s, last_error=%s, lease_id=NULL,
-                               updated_at=NOW(), completed_at=NOW(), skip_reason=%s
+                               next_attempt_at=NULL, updated_at=NOW(),
+                               completed_at=NOW(), skip_reason=%s
                            WHERE video_id=%s""",
                         ("skipped" if permanent else "failed", text[:1000],
                          text[:200] if permanent else None, video_id))
@@ -320,13 +395,15 @@ def _handle_error(conn, sqs, video_id, channel_id, msg, exc,
             # any higher stale objects are ignored by the new part_count.
             cur.execute("""UPDATE ingest_jobs
                            SET status='pending', last_error=%s, lease_id=NULL,
+                               next_attempt_at=NULL,
                                continuation=NULL, part_count=0,
                                last_offset_s=0, messages_downloaded=0,
                                updated_at=NOW() WHERE video_id=%s""",
                         (text[:1000], video_id))
         else:
             cur.execute("""UPDATE ingest_jobs SET status='pending', last_error=%s,
-                           lease_id=NULL, updated_at=NOW() WHERE video_id=%s""",
+                           lease_id=NULL, next_attempt_at=NULL,
+                           updated_at=NOW() WHERE video_id=%s""",
                         (text[:1000], video_id))
     conn.commit()
     # Keep the message on whichever lane it arrived on.
