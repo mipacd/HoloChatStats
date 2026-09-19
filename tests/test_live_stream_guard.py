@@ -80,6 +80,18 @@ class LiveStreamGuardTests(unittest.TestCase):
         self.assertNotIn("conn.close()", defer)
         self.assertIn("pg_advisory_unlock", lock_block)
 
+    def test_reaper_recovers_pending_rows_whose_sqs_message_was_lost(self):
+        reaper = (ROOT / "handlers" / "reap.py").read_text()
+        self.assertIn('"pending_dispatches": _reap_pending_dispatches', reaper)
+        recovery = reaper.split("def _reap_pending_dispatches", 1)[1].split(
+            "def _reap_ingests", 1)[0]
+        self.assertIn("status='pending' AND dispatched_at IS NOT NULL", recovery)
+        self.assertIn("next_attempt_at <= NOW()", recovery)
+        self.assertIn("SET dispatched_at=NULL", recovery)
+        migration = (ROOT / "migrations" /
+                     "013_pending_dispatch_recovery.sql").read_text()
+        self.assertIn("stale_dispatched_minutes", migration)
+
 
 if __name__ == "__main__":
     unittest.main()

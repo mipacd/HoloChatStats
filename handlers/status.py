@@ -8,6 +8,16 @@ def handler(event, context):
     with conn.cursor() as cur:
         cur.execute("SELECT status, count(*) FROM ingest_jobs GROUP BY status")
         out["jobs"] = dict(cur.fetchall())
+        cur.execute("""SELECT
+              COUNT(*) FILTER (WHERE dispatched_at IS NULL
+                                AND (next_attempt_at IS NULL
+                                     OR next_attempt_at <= NOW())) AS ready,
+              COUNT(*) FILTER (WHERE dispatched_at IS NOT NULL) AS dispatched,
+              COUNT(*) FILTER (WHERE next_attempt_at > NOW()) AS cooling
+            FROM ingest_jobs WHERE status='pending'""")
+        ready, dispatched, cooling = cur.fetchone()
+        out["pending"] = {"ready": ready, "dispatched": dispatched,
+                          "cooling": cooling}
         cur.execute("""SELECT video_id, channel_id, status, attempts,
                               last_offset_s, video_duration_s, last_error,
                               EXTRACT(EPOCH FROM NOW()-updated_at)::int AS stale_s

@@ -29,6 +29,7 @@ def handler(event, context):
         "dry_run": dry,
         "cancelled_inactive": [] if dry else _purge_inactive(),
         "downloads": _reap_downloads(cfg, limit, dry),
+        "pending_dispatches": _reap_pending_dispatches(cfg, limit, dry),
         "ingests": _reap_ingests(cfg, limit, dry),
         "orphaned_downloaded": _reap_downloaded(cfg, limit, dry),
         "month_merge": _resume_month_merge(dry),
@@ -37,7 +38,8 @@ def handler(event, context):
                                                    "reason": "dry run"}),
     }
     total = sum(len(v["recovered"]) for v in
-                (out["downloads"], out["ingests"], out["orphaned_downloaded"]))
+                (out["downloads"], out["pending_dispatches"],
+                 out["ingests"], out["orphaned_downloaded"]))
     emit({"JobsRecovered": (total, COUNT),
           "JobsAbandoned": (len(out["downloads"]["abandoned"]), COUNT)})
     if total or out["downloads"]["abandoned"]:
@@ -230,6 +232,57 @@ def _reap_downloads(cfg, limit, dry):
     for v in abandoned:
         log.error("abandoned job after repeated stalls", extra={"video_id": v})
     return {"recovered": recovered, "abandoned": abandoned}
+
+
+def _reap_pending_dispatches(cfg, limit, dry):
+    """Release pending rows whose queue delivery disappeared into a DLQ.
+
+    A retry keeps ``dispatched_at`` set while its SQS message owns delivery.
+    If Lambda crashes after putting the row back into ``pending``, SQS can
+    eventually dead-letter its last copy. Such a row is invisible to both the
+    ordinary dispatcher and the downloading-job reaper. Clearing the stale
+    marker is safe even if an old SQS copy later reappears: the row-state claim
+    and advisory lock reject duplicate work.
+    """
+    minutes = int(cfg.get("stale_dispatched_minutes", 15))
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT video_id, channel_id,
+                   EXTRACT(EPOCH FROM NOW() - updated_at)::int
+            FROM ingest_jobs
+            WHERE status='pending' AND dispatched_at IS NOT NULL
+              AND updated_at < NOW() - (%s * INTERVAL '1 minute')
+              AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
+            ORDER BY updated_at ASC
+            LIMIT %s FOR UPDATE SKIP LOCKED
+        """, (minutes, limit))
+        rows = cur.fetchall()
+        if dry:
+            conn.rollback()
+            conn.close()
+            return {"recovered": [
+                {"video_id": r[0], "channel_id": r[1], "stale_s": r[2]}
+                for r in rows]}
+        if rows:
+            cur.execute("""
+                UPDATE ingest_jobs
+                   SET dispatched_at=NULL,
+                       last_error='auto-recovered: dispatched message was lost',
+                       updated_at=NOW()
+                 WHERE video_id = ANY(%s) AND status='pending'
+            """, ([r[0] for r in rows],))
+    conn.commit()
+    conn.close()
+    recovered = [{"video_id": r[0], "channel_id": r[1], "stale_s": r[2]}
+                 for r in rows]
+    if recovered:
+        log.warning("released stale pending dispatches",
+                    extra={"count": len(recovered),
+                           "video_ids": [r["video_id"] for r in recovered]})
+    return {"recovered": recovered}
+
+
 def _reap_ingests(cfg, limit, dry):
     """`ingesting` has no heartbeat -- only a start. A long ingest is normal;
     30 minutes of silence is not."""
