@@ -1,4 +1,5 @@
 import ast
+import json
 import pathlib
 import unittest
 
@@ -541,9 +542,43 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("whitespace-nowrap", navbar)
         self.assertIn("layoutWordCloud", stream_page)
         self.assertIn("bg-popover", stream_page)
+        self.assertIn("useSearchParams", stream_page)
+        self.assertIn("to={`/stream_stats/${item.video_id}?", stream_page)
+        self.assertIn("interval={0}", stream_page)
+        for label in ("English/Other", "Emote", "Japanese", "Korean",
+                      "Russian", "Number", "Avg. messages / minute"):
+            self.assertIn(f't("{label}")', stream_page)
+        self.assertIn("NULLIF(j.video_duration_s, 0)", api)
+        self.assertIn("len(histogram_counts) * histogram_bin_seconds", api)
         self.assertNotIn('t("Aggregate chat statistics become available',
                          stream_page)
         self.assertNotIn("😂", stream_page)
+
+    def test_literal_frontend_translation_keys_exist_in_every_locale(self):
+        source_root = ROOT / "frontend" / "src"
+        keys = set()
+        for path in source_root.rglob("*"):
+            if path.suffix not in {".ts", ".tsx", ".js", ".jsx"}:
+                continue
+            source = path.read_text(encoding="utf-8")
+            for quote in ('"', "'"):
+                marker = f"t({quote}"
+                start = 0
+                while (index := source.find(marker, start)) >= 0:
+                    # Ignore method names that merely end in t, such as get().
+                    if index == 0 or not (source[index - 1].isalnum() or
+                                          source[index - 1] in "_."):
+                        value_start = index + len(marker)
+                        value_end = source.find(quote, value_start)
+                        if value_end >= 0:
+                            keys.add(source[value_start:value_end])
+                    start = index + len(marker)
+
+        for locale in ("en", "ja", "ko"):
+            catalog = json.loads((source_root / "locales" / locale /
+                                  "common.json").read_text(encoding="utf-8"))
+            self.assertEqual([], sorted(keys - catalog.keys()),
+                             f"missing {locale} translation keys")
 
 
 if __name__ == "__main__":

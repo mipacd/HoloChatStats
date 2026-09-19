@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { ArrowLeft, ExternalLink, Loader2, Search } from "lucide-react"
@@ -57,8 +57,8 @@ function SummaryCard({ label, value }: { label: string; value: string | number }
 }
 
 type TooltipEntry = { name?: string; value?: number; color?: string }
-function DarkChartTooltip({ active, label, payload }: {
-  active?: boolean; label?: string | number; payload?: TooltipEntry[]
+function DarkChartTooltip({ active, label, payload, countLabel }: {
+  active?: boolean; label?: string | number; payload?: TooltipEntry[]; countLabel: string
 }) {
   if (!active || !payload?.length) return null
   return <div className="min-w-28 rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-xl">
@@ -66,7 +66,7 @@ function DarkChartTooltip({ active, label, payload }: {
     {payload.map((entry, index) => <div key={`${entry.name}-${index}`} className="flex items-center justify-between gap-4">
       <span className="flex items-center gap-1.5 text-muted-foreground">
         <span className="size-2 rounded-full" style={{ backgroundColor: entry.color || "#4f8cff" }} />
-        {entry.name || "Count"}
+        {entry.name === "count" || !entry.name ? countLabel : entry.name}
       </span>
       <span className="font-mono text-popover-foreground">{Number(entry.value || 0).toLocaleString()}</span>
     </div>)}
@@ -109,15 +109,16 @@ function layoutWordCloud(words: [string, number][]): CloudWord[] {
 function Browse() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+  const [urlParams, setUrlParams] = useSearchParams()
   const [months, setMonths] = useState<string[]>([])
   const [channels, setChannels] = useState<ChannelOption[]>([])
-  const [month, setMonth] = useState("")
-  const [group, setGroup] = useState("all")
-  const [channel, setChannel] = useState("all")
-  const [query, setQuery] = useState("")
-  const [search, setSearch] = useState("")
+  const [month, setMonth] = useState(() => urlParams.get("month") || "")
+  const [group, setGroup] = useState(() => urlParams.get("group") || "all")
+  const [channel, setChannel] = useState(() => urlParams.get("channel") || "all")
+  const [query, setQuery] = useState(() => urlParams.get("q") || "")
+  const [search, setSearch] = useState(() => urlParams.get("q") || "")
   const [items, setItems] = useState<VideoItem[]>([])
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(() => Math.max(1, Number(urlParams.get("page")) || 1))
   const [pages, setPages] = useState(0)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -126,11 +127,23 @@ function Browse() {
       const readyMonths = [...(data.months || [])].sort().reverse()
       setMonths(readyMonths)
       setChannels(data.channels || [])
-      setMonth((current) => current || readyMonths[0] || "")
+      setMonth((current) => readyMonths.includes(current) ? current : readyMonths[0] || "")
     }).finally(() => setLoading(false))
   }, [])
   const groups = useMemo(() => Array.from(new Set(channels.map(c => c.channel_group))).sort(), [channels])
-  const visibleChannels = useMemo(() => channels.filter(c => group === "all" || c.channel_group === group), [channels, group])
+  const visibleChannels = useMemo(() => channels
+    .filter(c => group === "all" || c.channel_group === group)
+    .sort((a, b) => a.channel_name.localeCompare(b.channel_name, i18n.resolvedLanguage, { sensitivity: "base" })),
+  [channels, group, i18n.resolvedLanguage])
+  const browseQuery = useMemo(() => {
+    if (!month) return ""
+    const next = new URLSearchParams({ month })
+    if (group !== "all") next.set("group", group)
+    if (channel !== "all") next.set("channel", channel)
+    if (search) next.set("q", search)
+    if (page > 1) next.set("page", String(page))
+    return next.toString()
+  }, [month, group, channel, search, page])
   const load = useCallback(() => {
     if (!month) return
     setLoading(true)
@@ -142,8 +155,9 @@ function Browse() {
       .finally(() => setLoading(false))
   }, [month, group, channel, search, page])
   useEffect(load, [load])
-  useEffect(() => { setPage(1); setChannel("all") }, [group])
-  useEffect(() => { setPage(1) }, [month, channel, search])
+  useEffect(() => {
+    if (browseQuery) setUrlParams(browseQuery, { replace: true })
+  }, [browseQuery, setUrlParams])
   useEffect(() => {
     registerEriContext(() => ({ page: "stream_stats", endpoint: "/api/stream-stats",
       parameters: { month, group, channel }, description: `Browsing aggregate stream statistics for ${month}` }))
@@ -152,24 +166,24 @@ function Browse() {
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
     const id = extractVideoId(query)
-    if (id) navigate(`/stream_stats/${id}`)
-    else setSearch(query.trim())
+    if (id) navigate(`/stream_stats/${id}?${browseQuery}`)
+    else { setSearch(query.trim()); setPage(1) }
   }
   return <div className="space-y-6">
     <div className="text-center"><h1 className="text-3xl font-bold">{t("Per-Stream Statistics")}</h1></div>
     <Card><CardContent className="pt-6"><div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-      <div><Label>{t("Month:")}</Label><MonthPicker value={month} onChange={setMonth}
+      <div className="space-y-2"><Label>{t("Month:")}</Label><MonthPicker value={month} onChange={(value) => { setMonth(value); setPage(1) }}
         availableMonths={months} locale={i18n.language} className="max-w-none" /></div>
-      <div><Label>{t("Group:")}</Label><Select value={group} onValueChange={setGroup}><SelectTrigger><SelectValue /></SelectTrigger>
+      <div className="space-y-2"><Label>{t("Group:")}</Label><Select value={group} onValueChange={(value) => { setGroup(value); setChannel("all"); setPage(1) }}><SelectTrigger><SelectValue /></SelectTrigger>
         <SelectContent><SelectItem value="all">{t("All groups")}</SelectItem>{groups.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent></Select></div>
-      <div><Label>{t("Channel:")}</Label><Select value={channel} onValueChange={setChannel}><SelectTrigger><SelectValue /></SelectTrigger>
+      <div className="space-y-2"><Label>{t("Channel:")}</Label><Select value={channel} onValueChange={(value) => { setChannel(value); setPage(1) }}><SelectTrigger><SelectValue /></SelectTrigger>
         <SelectContent><SelectItem value="all">{t("All channels")}</SelectItem>{visibleChannels.map(c => <SelectItem key={c.channel_id} value={c.channel_id}>{c.channel_name}</SelectItem>)}</SelectContent></Select></div>
-      <form onSubmit={submit}><Label>{t("Find a stream")}</Label><div className="flex gap-2"><Input value={query} onChange={e => setQuery(e.target.value)} placeholder={t("Title, video ID, or YouTube URL")} /><Button type="submit" size="icon"><Search /></Button></div></form>
+      <form onSubmit={submit} className="space-y-2"><Label>{t("Find a stream")}</Label><div className="flex gap-2"><Input value={query} onChange={e => setQuery(e.target.value)} placeholder={t("Title, video ID, or YouTube URL")} /><Button type="submit" size="icon" aria-label={t("Search")}><Search /></Button></div></form>
     </div></CardContent></Card>
     <div className="text-sm text-muted-foreground">{t("Streams found")}: {total.toLocaleString()}</div>
     {loading ? <Loader2 className="mx-auto h-10 w-10 animate-spin" /> :
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{items.map(item =>
-        <Link key={item.video_id} to={`/stream_stats/${item.video_id}`}><Card className="h-full transition-colors hover:bg-muted/40 overflow-hidden">
+        <Link key={item.video_id} to={`/stream_stats/${item.video_id}?${browseQuery}`}><Card className="h-full transition-colors hover:bg-muted/40 overflow-hidden">
           <img src={item.thumbnail_url} alt="" className="aspect-video w-full object-cover" loading="lazy" />
           <CardHeader className="pb-2"><CardTitle className="line-clamp-2 text-base">{item.title}</CardTitle></CardHeader>
           <CardContent className="text-sm text-muted-foreground"><div>{item.channel_name}</div><div>{new Date(item.end_time).toLocaleString()}</div>
@@ -183,6 +197,8 @@ function Browse() {
 
 function Details({ videoId }: { videoId: string }) {
   const { t } = useTranslation()
+  const location = useLocation()
+  const backToStreams = `/stream_stats${location.search}`
   const [data, setData] = useState<Detail | null>(null)
   const [loading, setLoading] = useState(true)
   const [missing, setMissing] = useState(false)
@@ -195,7 +211,7 @@ function Details({ videoId }: { videoId: string }) {
   }, [videoId])
   const cloud = useMemo(() => layoutWordCloud(data?.word_counts || []), [data])
   if (loading) return <Loader2 className="mx-auto mt-20 h-10 w-10 animate-spin" />
-  if (missing || !data) return <div className="text-center space-y-4"><h1 className="text-2xl font-bold">{t("Stream statistics unavailable")}</h1><Button asChild><Link to="/stream_stats">{t("Back to streams")}</Link></Button></div>
+  if (missing || !data) return <div className="text-center space-y-4"><h1 className="text-2xl font-bold">{t("Stream statistics unavailable")}</h1><Button asChild><Link to={backToStreams}>{t("Back to streams")}</Link></Button></div>
   const histogramLength = Math.max(data.histogram.counts.length,
     Math.ceil(data.video.duration_seconds / data.histogram.bin_seconds))
   const hist = Array.from({ length: histogramLength }, (_, index) => ({
@@ -203,17 +219,32 @@ function Details({ videoId }: { videoId: string }) {
     offset: index * data.histogram.bin_seconds,
     label: fmtDuration(index * data.histogram.bin_seconds),
   }))
-  const categories = Object.entries(data.category_counts).map(([name, count]) => ({ name, count }))
-  const ranks = Object.entries(data.membership_rank_counts).map(([rank, count]) => ({ name: rank === "-1" ? t("Non-members") : rank === "-2" ? t("Gift only") : Number(rank) === 0 ? t("New members") : `${rank} ${t("months")}`, count }))
+  const categoryLabels: Record<string, string> = {
+    es_en_id: t("English/Other"), emoji: t("Emote"), jp: t("Japanese"),
+    kr: t("Korean"), ru: t("Russian"), number: t("Number"),
+  }
+  const categoryOrder = ["es_en_id", "emoji", "jp", "kr", "ru", "number"]
+  const categories = categoryOrder.filter(key => key in data.category_counts)
+    .map(key => ({ name: categoryLabels[key], count: data.category_counts[key] }))
+  const ranks = Object.entries(data.membership_rank_counts)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([rank, count]) => {
+      const months = Number(rank)
+      const name = rank === "-1" ? t("Non-members") : rank === "-2" ? t("Gift only")
+        : months === 0 ? t("New members") : months >= 12 && months % 12 === 0
+          ? t("{{count}} Year", { count: months / 12 })
+          : t("{{count}} months", { count: months })
+      return { name, count }
+    })
   const openAt = (seconds: number) => window.open(`${data.video.youtube_url}&t=${Math.max(0, Math.floor(seconds))}s`, "_blank", "noopener")
   return <div className="space-y-8">
-    <Button variant="ghost" asChild><Link to="/stream_stats"><ArrowLeft /> {t("Back to streams")}</Link></Button>
+    <Button variant="ghost" asChild><Link to={backToStreams}><ArrowLeft /> {t("Back to streams")}</Link></Button>
     <div className="grid gap-6 md:grid-cols-[minmax(280px,480px)_1fr]"><a href={data.video.youtube_url} target="_blank" rel="noreferrer"><img src={data.video.thumbnail_url} alt="" className="w-full rounded-lg" /></a>
       <div><h1 className="text-2xl font-bold">{data.video.title}</h1><p className="text-muted-foreground">{data.video.channel_name} · {new Date(data.video.end_time).toLocaleString()}</p>
         <p className="mt-2">{t("Duration")}: {fmtDuration(data.video.duration_seconds)}</p><Button className="mt-4" asChild><a href={data.video.youtube_url} target="_blank" rel="noreferrer">{t("Watch on YouTube")} <ExternalLink /></a></Button></div></div>
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5"><SummaryCard label={t("Chat messages")} value={data.summary.message_count.toLocaleString()} /><SummaryCard label={t("Avg. message rate")} value={data.summary.messages_per_minute == null ? "—" : data.summary.messages_per_minute.toLocaleString()} /><SummaryCard label={t("Unique chatters")} value={data.summary.unique_chatters.toLocaleString()} /><SummaryCard label={t("Members")} value={data.summary.member_chatters.toLocaleString()} /><SummaryCard label={t("Member percentage")} value={`${data.summary.member_percentage}%`} /></div>
-    <div className="grid gap-6 lg:grid-cols-2">{[[t("Message categories"), categories], [t("Membership ranks"), ranks]].map(([title, rows]) => <Card key={title as string}><CardHeader><CardTitle>{title as string}</CardTitle></CardHeader><CardContent className="h-72"><ResponsiveContainer><BarChart data={rows as {name:string,count:number}[]} layout="vertical"><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis dataKey="name" type="category" width={110} /><Tooltip content={<DarkChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.08)" }} /><Bar dataKey="count" fill="#4f8cff" /></BarChart></ResponsiveContainer></CardContent></Card>)}</div>
-    <Card><CardHeader><CardTitle>{t("Chat velocity")}</CardTitle></CardHeader><CardContent><p className="mb-3 text-sm text-muted-foreground">{t("Messages per minute. Click a bar to open YouTube at that point.")}</p><div className="h-72 overflow-x-auto"><div style={{ minWidth: Math.max(700, hist.length * 10), height: "100%" }}><ResponsiveContainer><BarChart data={hist}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" minTickGap={30} /><YAxis /><Tooltip content={<DarkChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.08)" }} /><Bar dataKey="count" fill="#4f8cff" onClick={(row) => { const point = row.payload as { offset: number }; openAt(point.offset) }} className="cursor-pointer" /></BarChart></ResponsiveContainer></div></div></CardContent></Card>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5"><SummaryCard label={t("Chat messages")} value={data.summary.message_count.toLocaleString()} /><SummaryCard label={t("Avg. messages / minute")} value={data.summary.messages_per_minute == null ? "—" : data.summary.messages_per_minute.toLocaleString()} /><SummaryCard label={t("Unique chatters")} value={data.summary.unique_chatters.toLocaleString()} /><SummaryCard label={t("Members")} value={data.summary.member_chatters.toLocaleString()} /><SummaryCard label={t("Member percentage")} value={`${data.summary.member_percentage}%`} /></div>
+    <div className="grid gap-6 lg:grid-cols-2">{[[t("Message categories"), categories], [t("Membership ranks"), ranks]].map(([title, rows]) => <Card key={title as string}><CardHeader><CardTitle>{title as string}</CardTitle></CardHeader><CardContent style={{ height: Math.max(288, (rows as {name:string,count:number}[]).length * 38) }}><ResponsiveContainer><BarChart data={rows as {name:string,count:number}[]} layout="vertical" margin={{ left: 8 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis dataKey="name" type="category" width={120} interval={0} /><Tooltip content={<DarkChartTooltip countLabel={t("Count")} />} cursor={{ fill: "rgba(255,255,255,0.08)" }} /><Bar dataKey="count" fill="#4f8cff" /></BarChart></ResponsiveContainer></CardContent></Card>)}</div>
+    <Card><CardHeader><CardTitle>{t("Chat velocity")}</CardTitle></CardHeader><CardContent><p className="mb-3 text-sm text-muted-foreground">{t("Messages per minute. Click a bar to open YouTube at that point.")}</p><div className="h-72 overflow-x-auto"><div style={{ minWidth: Math.max(700, hist.length * 10), height: "100%" }}><ResponsiveContainer><BarChart data={hist}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" minTickGap={30} /><YAxis /><Tooltip content={<DarkChartTooltip countLabel={t("Count")} />} cursor={{ fill: "rgba(255,255,255,0.08)" }} /><Bar dataKey="count" fill="#4f8cff" onClick={(row) => { const point = row.payload as { offset: number }; openAt(point.offset) }} className="cursor-pointer" /></BarChart></ResponsiveContainer></div></div></CardContent></Card>
     <Card><CardHeader><CardTitle>{t("Funny moments")}</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-2">{data.funny_moments.length ? data.funny_moments.map(m => <Button key={m.offset_seconds} variant="outline" onClick={() => openAt(m.start_seconds)}>{fmtDuration(m.offset_seconds)} · {m.count}</Button>) : <span className="text-muted-foreground">{t("No funny moments detected.")}</span>}</CardContent></Card>
     <Card><CardHeader><CardTitle>{t("Word cloud")}</CardTitle></CardHeader><CardContent><p className="mb-4 text-sm text-muted-foreground">{t("Only languages with clear word boundaries are included.")}</p><div className="overflow-hidden rounded-lg bg-muted/20"><svg viewBox="0 0 1000 520" className="block min-h-72 w-full" role="img" aria-label={t("Word cloud")}>{cloud.map(item => <text key={item.word} x={item.x} y={item.y} textAnchor="middle" dominantBaseline="middle" fill={item.color} fontSize={item.size} fontWeight={item.size > 38 ? 650 : 500} transform={`rotate(${item.rotate} ${item.x} ${item.y})`}><title>{`${item.word}: ${item.count}`}</title>{item.word}</text>)}</svg></div></CardContent></Card>
   </div>

@@ -3045,11 +3045,15 @@ def stream_stats_list():
     rows = db.session.execute(text(f"""
         SELECT v.video_id, v.title, c.channel_id, c.channel_name,
                COALESCE(c.channel_group, 'Unsorted'), v.end_time,
-               EXTRACT(EPOCH FROM v.duration)::bigint,
+               COALESCE(NULLIF(EXTRACT(EPOCH FROM v.duration), 0),
+                        NULLIF(j.video_duration_s, 0),
+                        NULLIF(GREATEST(EXTRACT(EPOCH FROM
+                            (v.end_time - s.first_message_at)), 0), 0))::bigint,
                s.message_count, s.unique_chatters, s.member_chatters,
                s.member_percentage
         FROM video_stream_stats s
         JOIN videos v USING (video_id) JOIN channels c USING (channel_id)
+        LEFT JOIN ingest_jobs j USING (video_id)
         WHERE {clause}
         ORDER BY v.end_time DESC, v.video_id
         LIMIT :limit OFFSET :offset
@@ -3073,7 +3077,10 @@ def stream_stats_detail(video_id):
     row = db.session.execute(text("""
         SELECT v.video_id, v.title, c.channel_id, c.channel_name,
                COALESCE(c.channel_group, 'Unsorted'), v.end_time,
-               EXTRACT(EPOCH FROM v.duration)::bigint,
+               COALESCE(NULLIF(EXTRACT(EPOCH FROM v.duration), 0),
+                        NULLIF(j.video_duration_s, 0),
+                        NULLIF(GREATEST(EXTRACT(EPOCH FROM
+                            (v.end_time - s.first_message_at)), 0), 0))::bigint,
                s.message_count, s.unique_chatters, s.member_chatters,
                s.member_percentage, s.category_counts, s.membership_rank_counts,
                s.histogram_bin_seconds, s.histogram_counts,
@@ -3081,11 +3088,19 @@ def stream_stats_detail(video_id):
                s.computed_at, s.schema_version
         FROM video_stream_stats s
         JOIN videos v USING (video_id) JOIN channels c USING (channel_id)
+        LEFT JOIN ingest_jobs j USING (video_id)
         WHERE s.video_id=:video_id AND s.status='ready'
     """), {"video_id": video_id}).first()
     if not row:
         return jsonify({"error": "stream statistics are not available"}), 404
+    histogram_bin_seconds = int(row[13] or 60)
+    histogram_counts = _stream_stats_json(row[14], [])
     duration = int(row[6] or 0)
+    # Some legacy aggregates predate duration metadata. Their first chat time
+    # (selected above) or fixed-width histogram supplies a conservative elapsed
+    # duration so the average rate remains useful rather than displaying blank.
+    if not duration and histogram_counts:
+        duration = len(histogram_counts) * histogram_bin_seconds
     messages = int(row[7] or 0)
     unique = int(row[8] or 0)
     members = int(row[9] or 0)
@@ -3106,8 +3121,8 @@ def stream_stats_detail(video_id):
                     "first_message_at": row[17].isoformat() if row[17] else None},
         "category_counts": _stream_stats_json(row[11], {}),
         "membership_rank_counts": _stream_stats_json(row[12], {}),
-        "histogram": {"bin_seconds": int(row[13] or 60),
-                      "counts": _stream_stats_json(row[14], [])},
+        "histogram": {"bin_seconds": histogram_bin_seconds,
+                      "counts": histogram_counts},
         "funny_moments": _stream_stats_json(row[15], []),
         "word_counts": _stream_stats_json(row[16], []),
         "computed_at": row[18].isoformat() if row[18] else None,
