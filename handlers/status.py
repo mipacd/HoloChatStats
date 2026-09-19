@@ -48,15 +48,27 @@ def handler(event, context):
                        ORDER BY observed_month DESC LIMIT 6""")
         out["merges"] = [{"month": str(r[0]), "status": r[1], "rows": r[2],
                           "merged_at": str(r[3])} for r in cur.fetchall()]
-    for name, url in (("download", os.environ["DOWNLOAD_QUEUE_URL"]),
+    for name, url in (("scan", os.environ["SCAN_QUEUE_URL"]),
+                      ("download", os.environ["DOWNLOAD_QUEUE_URL"]),
                       ("ingest", os.environ["INGEST_QUEUE_URL"]),
                       ("download_dlq", os.environ["DOWNLOAD_DLQ_URL"])):
         attrs = sqs.get_queue_attributes(
             QueueUrl=url, AttributeNames=["ApproximateNumberOfMessages",
-                                          "ApproximateNumberOfMessagesNotVisible"])["Attributes"]
+                                          "ApproximateNumberOfMessagesNotVisible",
+                                          "ApproximateNumberOfMessagesDelayed"])["Attributes"]
         out.setdefault("queues", {})[name] = {
-            "visible": int(attrs["ApproximateNumberOfMessages"]),
-            "in_flight": int(attrs["ApproximateNumberOfMessagesNotVisible"])}
+            "visible": int(attrs.get("ApproximateNumberOfMessages", 0)),
+            "in_flight": int(attrs.get(
+                "ApproximateNumberOfMessagesNotVisible", 0)),
+            "delayed": int(attrs.get("ApproximateNumberOfMessagesDelayed", 0))}
+    scan_work = sum(out["queues"]["scan"].values())
+    if scan_work:
+        out["dispatch_blocker"] = (
+            f"discovery sweep in progress ({scan_work} scan message(s))")
+    elif out["pending"]["ready"] and not sum(
+            out["queues"]["download"].values()):
+        out["dispatch_blocker"] = (
+            "ready jobs await the next scheduled reaper dispatch")
     out["config"] = settings(force=True)
     return {"statusCode": 200,
             "headers": {"content-type": "application/json"},

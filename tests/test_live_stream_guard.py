@@ -92,6 +92,20 @@ class LiveStreamGuardTests(unittest.TestCase):
                      "013_pending_dispatch_recovery.sql").read_text()
         self.assertIn("stale_dispatched_minutes", migration)
 
+    def test_status_exposes_scan_gate_and_delayed_queue_messages(self):
+        status = (ROOT / "handlers" / "status.py").read_text()
+        self.assertIn('(\"scan\", os.environ[\"SCAN_QUEUE_URL\"])', status)
+        self.assertIn("ApproximateNumberOfMessagesDelayed", status)
+        self.assertIn('out["dispatch_blocker"]', status)
+
+    def test_final_scan_delivery_opens_the_dispatch_gate(self):
+        dispatch = (ROOT / "common" / "dispatch.py").read_text()
+        scan = (ROOT / "handlers" / "scan.py").read_text()
+        self.assertIn("def run(cfg, scan_messages_to_ignore=0)", dispatch)
+        self.assertIn("in_flight - ignore_in_flight", dispatch)
+        self.assertIn("dispatch.run(cfg, scan_messages_to_ignore=1)", scan)
+        self.assertIn("post-scan dispatch deferred to reaper", scan)
+
 
 if __name__ == "__main__":
     unittest.main()

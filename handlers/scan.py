@@ -20,6 +20,7 @@ from common.logging_utils import get_logger
 from common.metrics import emit, COUNT, SECONDS
 from common.control import paused, requeue_all
 from common.channels import is_active, cancel_channel_jobs
+from common import dispatch
 
 
 log = get_logger("scan")
@@ -228,6 +229,7 @@ def _scan(msg, context):
         log.warning("scan incomplete; successful watermark preserved",
                     extra={"channel_id": channel_id,
                            "lookup_errors": len(lookup_errors)})
+        _dispatch_after_scan(cfg, channel_id)
         return
     # Full, error-free pass completed -> commit the watermark.
     with conn.cursor() as cur:
@@ -244,6 +246,7 @@ def _scan(msg, context):
                   last_error = NULL
         """, (channel_id, newest))
     conn.commit()
+    dispatch_result = _dispatch_after_scan(cfg, channel_id)
     emit({"ScansCompleted": (1, COUNT),
           "VideosEnqueued": (enqueued, COUNT),
           "PlaylistPagesFetched": (pages, COUNT),
@@ -254,10 +257,29 @@ def _scan(msg, context):
                                      "channel": channel_name,
                                      "pages": pages, "videos_seen": videos_seen,
                                      "enqueued": enqueued,
-                                     "watermark": newest.isoformat()})
+                                     "watermark": newest.isoformat(),
+                                     "dispatch": dispatch_result})
 # --------------------------------------------------------------------------- #
 # helpers
 # --------------------------------------------------------------------------- #
+def _dispatch_after_scan(cfg, channel_id):
+    """Let the final scan delivery release work without a five-minute gap.
+
+    The current SQS message remains in-flight until this handler returns. The
+    ordinary dispatcher would therefore always see at least one scan. Ignoring
+    exactly this invocation preserves the full-sweep barrier while allowing
+    the last scan worker to open it.
+    """
+    try:
+        return dispatch.run(cfg, scan_messages_to_ignore=1)
+    except Exception as exc:
+        # Discovery succeeded. The scheduled reaper remains the durable
+        # fallback, without repeating YouTube API calls.
+        log.warning("post-scan dispatch deferred to reaper",
+                    extra={"channel_id": channel_id,
+                           "error": str(exc)[:200]})
+        return {"dispatched": 0, "reason": "deferred to reaper"}
+
 def _parse_dt(value):
     if not value:
         return None

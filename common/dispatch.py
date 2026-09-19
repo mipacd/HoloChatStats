@@ -11,7 +11,7 @@ from common.logging_utils import get_logger
 from common.floor import backlog_floor
 log = get_logger("dispatch")
 
-def _scan_work_outstanding():
+def _scan_work_outstanding(ignore_in_flight=0):
     """Do not release a month until the current discovery sweep is complete."""
     queue_url = os.environ.get("SCAN_QUEUE_URL")
     if not queue_url:
@@ -22,11 +22,10 @@ def _scan_work_outstanding():
                         "ApproximateNumberOfMessagesNotVisible",
                         "ApproximateNumberOfMessagesDelayed"],
     )["Attributes"]
-    return sum(int(attrs.get(k, 0)) for k in (
-        "ApproximateNumberOfMessages",
-        "ApproximateNumberOfMessagesNotVisible",
-        "ApproximateNumberOfMessagesDelayed",
-    ))
+    visible = int(attrs.get("ApproximateNumberOfMessages", 0))
+    in_flight = int(attrs.get("ApproximateNumberOfMessagesNotVisible", 0))
+    delayed = int(attrs.get("ApproximateNumberOfMessagesDelayed", 0))
+    return visible + delayed + max(0, in_flight - ignore_in_flight)
 def _floor(cur, cfg):
     v = (cfg.get("backlog_floor") or "").strip()
     if v:
@@ -39,8 +38,8 @@ def _floor(cur, cfg):
           JOIN ingest_jobs j USING (video_id) WHERE j.status='done'))""")
     row = cur.fetchone()[0]
     return row or datetime(1970, 1, 1, tzinfo=timezone.utc)
-def run(cfg):
-    scans = _scan_work_outstanding()
+def run(cfg, scan_messages_to_ignore=0):
+    scans = _scan_work_outstanding(scan_messages_to_ignore)
     if scans:
         return {"dispatched": 0, "reason": "discovery sweep in progress",
                 "scan_work": scans}
