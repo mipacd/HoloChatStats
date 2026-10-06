@@ -33,6 +33,7 @@ def handler(event, context):
         "ingests": _reap_ingests(cfg, limit, dry),
         "orphaned_downloaded": _reap_downloaded(cfg, limit, dry),
         "month_merge": _resume_month_merge(dry),
+        "late_republish": _resume_late_republish(dry),
         "stream_stats_backfill": (_dispatch_stream_stats_backfill(cfg, dry)
                                   if not dry else {"dispatched": 0,
                                                    "reason": "dry run"}),
@@ -47,6 +48,52 @@ def handler(event, context):
                                               "abandoned": out["downloads"]["abandoned"]})
     out["dispatch"] = dispatch.run(cfg)
     return out
+
+
+def _resume_late_republish(dry=False):
+    """Advance one durable late-data publication stage.
+
+    Each refresh invocation completes at most one expensive derived-data
+    stage. Reserved concurrency prevents overlap; the reaper supplies the
+    durable handoff after a worker exits or times out.
+    """
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""SELECT split_part(stage.key, ':', 2)::date,
+                              stage.value, stage.updated_at
+                         FROM service_config stage
+                         JOIN service_config marker
+                           ON marker.key = 'late_data_month:' ||
+                              split_part(stage.key, ':', 2)
+                          AND marker.value='pending'
+                        WHERE stage.key LIKE 'late_republish_stage:%'
+                          AND stage.updated_at < NOW() - INTERVAL '2 minutes'
+                        ORDER BY stage.updated_at
+                        LIMIT 1 FOR UPDATE OF stage SKIP LOCKED""")
+        row = cur.fetchone()
+    conn.rollback()
+    conn.close()
+    if not row:
+        return {"invoked": 0, "reason": "no late-data publication queued"}
+    month, stage, started_at = row
+    if dry:
+        return {"invoked": 0, "dry_run": True, "month": str(month),
+                "stage": stage, "started_at": str(started_at)}
+    try:
+        client("lambda").invoke(
+            FunctionName=f"{os.environ.get('APP_NAME', 'chat-ingest')}-refresh",
+            InvocationType="Event",
+            Payload=json.dumps({"publish_months": [str(month)],
+                                "source": "reaper"}).encode())
+    except Exception as exc:
+        log.warning("late-data publication wakeup deferred",
+                    extra={"month": str(month), "stage": stage,
+                           "error": str(exc)[:200]})
+        return {"invoked": 0, "month": str(month), "stage": stage,
+                "error": str(exc)}
+    log.info("resumed late-data publication",
+             extra={"month": str(month), "stage": stage})
+    return {"invoked": 1, "month": str(month), "stage": stage}
 
 
 def _resume_month_merge(dry=False):

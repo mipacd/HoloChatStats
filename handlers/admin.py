@@ -322,9 +322,14 @@ def snapshot():
                          for r in cur.fetchall()]
         cur.execute("""
             WITH bounds AS (
-              SELECT date_trunc('month', COALESCE(NULLIF(%s, '')::timestamptz,
+              SELECT LEAST(
+                       date_trunc('month', COALESCE(
+                         NULLIF(%s, '')::timestamptz,
                          '2026-07-01 00:00:00+00'::timestamptz)
-                         AT TIME ZONE 'UTC')::date AS first_month,
+                         AT TIME ZONE 'UTC')::date,
+                       COALESCE((SELECT MIN(observed_month)
+                                   FROM monthly_merge_state),
+                                DATE '2026-07-01')) AS first_month,
                      date_trunc('month', NOW() AT TIME ZONE 'UTC')::date
                          AS current_month
             ), months AS (
@@ -390,6 +395,10 @@ def snapshot():
                       WHERE marker.key = 'late_data_month:' || js.month::text
                         AND marker.value = 'pending'
                    ), 0) AS late_logs,
+                   (SELECT stage.value FROM service_config stage
+                     WHERE stage.key =
+                       'late_republish_stage:' || js.month::text)
+                     AS republish_stage,
                    js.current_month,
                    js.month = (SELECT MAX(observed_month)
                                  FROM monthly_merge_state
@@ -404,7 +413,8 @@ def snapshot():
             "merged_at": str(r[8]) if r[8] else None,
             "publish_rows_moved": int(r[9]),
             "channel_checks": int(r[10]), "late_logs": int(r[11]),
-            "closed": r[0] < r[12], "can_unpublish": bool(r[13]),
+            "republish_stage": r[12],
+            "closed": r[0] < r[13], "can_unpublish": bool(r[14]),
         } for r in cur.fetchall()]
         cur.execute("""
             SELECT video_id, channel_id, message_count, completed_at
@@ -820,20 +830,47 @@ def _republish_month(value):
         return {"ok": False, "error": "month must use YYYY-MM-01"}
     conn = get_conn()
     with conn.cursor() as cur:
-        cur.execute("""SELECT 1 FROM service_config
-                       WHERE key=%s AND value='pending'""",
-                    (f"late_data_month:{month}",))
-        pending = cur.fetchone() is not None
-    conn.rollback()
+        cur.execute("""SELECT EXISTS (
+                         SELECT 1 FROM service_config
+                          WHERE key=%s AND value='pending'),
+                              EXISTS (
+                         SELECT 1 FROM monthly_merge_state
+                          WHERE observed_month=%s::date AND status='merged')""",
+                    (f"late_data_month:{month}", month))
+        pending, published = cur.fetchone()
+        if pending and published:
+            # The row's updated_at is the workflow start watermark. Stage
+            # updates intentionally change only value so a newer late ingest
+            # cannot be accidentally consumed by this run.
+            cur.execute("""INSERT INTO service_config (key, value, updated_at)
+                           VALUES (%s, '0', NOW())
+                           ON CONFLICT (key) DO NOTHING""",
+                        (f"late_republish_stage:{month}",))
+            queued = cur.rowcount == 1
+        else:
+            queued = False
+    conn.commit()
     conn.close()
     if not pending:
         return {"ok": False, "error": f"no unpublished late logs for {month}"}
-    client("lambda").invoke(
-        FunctionName=f"{APP}-refresh", InvocationType="Event",
-        Payload=json.dumps({"publish_months": [month]}).encode())
+    if not published:
+        return {"ok": False, "error": f"{month} is not currently published"}
+    wakeup = "invoked"
+    try:
+        client("lambda").invoke(
+            FunctionName=f"{APP}-refresh", InvocationType="Event",
+            Payload=json.dumps({"publish_months": [month]}).encode())
+    except Exception as exc:
+        # The durable stage row is authoritative. The five-minute reaper will
+        # retry a wakeup rejected during a container restart or RC contention.
+        wakeup = "deferred to reaper"
+        log.warning("late month re-publication wakeup deferred",
+                    extra={"month": month, "error": str(exc)[:200]})
     log.info("late month re-publication requested", extra={"month": month})
     return {"ok": True, "action": "republish_month", "month": month,
-            "note": "refresh and cache invalidation queued"}
+            "resumed": not queued,
+            "wakeup": wakeup,
+            "note": "durable refresh and cache invalidation queued"}
 
 
 def _unpublish_month(value):
@@ -1367,8 +1404,11 @@ function render(d) {
   $("months").innerHTML = MONTHS.map((m, i) => {
     const publish = m.closed && !["merged", "merging"].includes(m.merge_status)
       ? `<button class="small go" onclick="publishMonth(${i})">Publish</button>` : "";
-    const republish = m.merge_status === "merged" && m.late_logs > 0
-      ? `<button class="small go" onclick="republishMonth(${i})">Re-publish</button>` : "";
+    const republishSteps = 6;
+    const republish = m.republish_stage != null
+      ? `<span class="pill warn" title="Late-data publication is durable and resumes every five minutes">Re-publishing ${Math.min(Number(m.republish_stage) + 1, republishSteps)}/${republishSteps}</span>`
+      : m.merge_status === "merged" && m.late_logs > 0
+        ? `<button class="small go" onclick="republishMonth(${i})">Re-publish</button>` : "";
     const unpublish = m.merge_status === "merged" && m.can_unpublish
       ? `<button class="small danger" onclick="unpublishMonth(${i})">Unpublish</button>` : "";
     const actions = publish + republish + unpublish;

@@ -377,11 +377,12 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertNotIn("last_scanned_at = NOW()", error_writer)
         self.assertIn("late_data_month:", ingest)
         self.assertIn("late_data_month:%", refresh)
-        self.assertIn("invalidate_finalized_month_caches(finalized_month=m)",
+        self.assertIn("invalidate_finalized_month_caches(finalized_month=month)",
                       refresh)
-        self.assertIn("updated_at=%s", refresh)
+        self.assertIn("updated_at <= %s", refresh)
         self.assertIn("late_data_published:", refresh)
         self.assertIn('event.get("publish_months")', refresh)
+        self.assertIn("REPUBLISH_VIEWS", refresh)
         admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
         self.assertIn('out["months"]', admin)
         self.assertIn('"republish_month"', admin)

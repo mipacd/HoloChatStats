@@ -6,8 +6,119 @@ from common.cache_invalidation import invalidate_finalized_month_caches
 import time
 import psycopg2
 log = get_logger("refresh")
+
+REPUBLISH_VIEWS = (
+    "mv_user_monthly_activity",
+    "mv_user_activity",
+    "chat_language_stats_mv",
+    "mv_user_language_per_month",
+)
+
+
 def handler(event, context):
     event = event or {}
+    if event.get("publish_months"):
+        return _resume_republish(event["publish_months"])
+    return _scheduled_refresh()
+
+
+def _resume_republish(values):
+    """Advance one durable late-data publication stage.
+
+    Refreshing every large materialized view in one Lambda exceeded the
+    15-minute ceiling on modest hosts.  The stage row is deliberately updated
+    only after a view finishes, so a timeout retries that view without losing
+    the late-data marker.  The scheduled reaper advances later stages.
+    """
+    if not isinstance(values, list) or not values:
+        raise ValueError("publish_months must contain at least one month")
+    month = datetime.fromisoformat(str(values[0])).date().replace(day=1)
+    conn = get_conn()
+    conn.autocommit = True
+    t0 = time.time()
+    with conn.cursor() as cur:
+        stage_key = f"late_republish_stage:{month}"
+        marker_key = f"late_data_month:{month}"
+        cur.execute("""SELECT marker.updated_at, stage.value, stage.updated_at,
+                              EXISTS (SELECT 1 FROM monthly_merge_state s
+                                       WHERE s.observed_month=%s
+                                         AND s.status='merged')
+                         FROM service_config marker
+                         JOIN service_config stage ON stage.key=%s
+                        WHERE marker.key=%s AND marker.value='pending'""",
+                    (month, stage_key, marker_key))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return {"month": str(month), "complete": False,
+                    "reason": "no queued late-data publication"}
+        marker_updated_at, stage_value, workflow_started_at, published = row
+        if not published:
+            conn.close()
+            return {"month": str(month), "complete": False,
+                    "reason": "month is not currently published"}
+        try:
+            stage = int(stage_value)
+        except (TypeError, ValueError):
+            stage = 0
+
+        if stage < len(REPUBLISH_VIEWS):
+            view = REPUBLISH_VIEWS[stage]
+            log.info("late-data re-publication stage started",
+                     extra={"month": str(month), "stage": stage,
+                            "view": view})
+            _refresh(cur, view, log)
+            cur.execute("UPDATE service_config SET value=%s WHERE key=%s",
+                        (str(stage + 1), stage_key))
+            emit({"RefreshSeconds": (time.time() - t0, SECONDS),
+                  "MonthsRefreshed": (0, COUNT)})
+            conn.close()
+            return {"month": str(month), "complete": False,
+                    "stage": stage + 1, "stages": len(REPUBLISH_VIEWS) + 2,
+                    "view": view}
+
+        if stage == len(REPUBLISH_VIEWS):
+            cur.execute("CALL refresh_membership_data_for_month(%s::date)",
+                        (month,))
+            cur.execute("UPDATE service_config SET value=%s WHERE key=%s",
+                        (str(stage + 1), stage_key))
+            log.info("late-data membership summary refreshed",
+                     extra={"month": str(month)})
+            emit({"RefreshSeconds": (time.time() - t0, SECONDS),
+                  "MonthsRefreshed": (0, COUNT)})
+            conn.close()
+            return {"month": str(month), "complete": False,
+                    "stage": stage + 1, "stages": len(REPUBLISH_VIEWS) + 2,
+                    "phase": "membership"}
+
+        removed = invalidate_finalized_month_caches(finalized_month=month)
+        # A log ingested after this workflow began updates the marker. Do not
+        # consume that newer work; leave it pending for another explicit pass.
+        cur.execute("""DELETE FROM service_config
+                        WHERE key=%s AND value='pending' AND updated_at <= %s""",
+                    (marker_key, workflow_started_at))
+        marker_cleared = cur.rowcount == 1
+        if marker_cleared:
+            cur.execute("""INSERT INTO service_config (key, value, updated_at)
+                           VALUES (%s, %s, NOW())
+                           ON CONFLICT (key) DO UPDATE
+                             SET value=EXCLUDED.value, updated_at=NOW()""",
+                        (f"late_data_published:{month}",
+                         datetime.now(timezone.utc).isoformat()))
+        cur.execute("DELETE FROM service_config WHERE key=%s", (stage_key,))
+        log.info("late finalized month published",
+                 extra={"month": str(month), "cache_keys_removed": removed,
+                        "marker_cleared": marker_cleared,
+                        "newer_late_data": marker_updated_at > workflow_started_at})
+    emit({"RefreshSeconds": (time.time() - t0, SECONDS),
+          "MonthsRefreshed": (1 if marker_cleared else 0, COUNT)})
+    conn.close()
+    return {"month": str(month), "complete": marker_cleared,
+            "cache_keys_removed": removed,
+            "newer_late_data_pending": not marker_cleared}
+
+
+def _scheduled_refresh():
     conn = get_conn()
     conn.autocommit = True           # REFRESH CONCURRENTLY cannot run in a txn block
     t0 = time.time()
@@ -29,12 +140,6 @@ def handler(event, context):
                        WHERE key LIKE 'late_data_month:%' AND value='pending'""")
         late_pending = {r[1]: (r[0], r[2]) for r in cur.fetchall()}
         late = {}
-        if event.get("publish_months"):
-            requested = {datetime.fromisoformat(str(m)).date().replace(day=1)
-                         for m in event["publish_months"]}
-            late = {m: marker for m, marker in late_pending.items()
-                    if m in requested}
-        months.update(late)
         for mv in ("mv_user_monthly_activity", "mv_user_activity",
                    "chat_language_stats_mv", "mv_user_language_per_month"):
             _refresh(cur, mv, log)
@@ -42,33 +147,12 @@ def handler(event, context):
         for m in sorted(months):
             cur.execute("CALL refresh_membership_data_for_month(%s::date)", (m,))
             log.info("membership summary refreshed", extra={"month": str(m)})
-        # Cache entries have no TTL.  A late finalized-month correction must
-        # therefore be invalidated explicitly, after all derived SQL data is
-        # current.  Deleting the marker last makes Redis failures retryable.
-        for m, (key, marker_updated_at) in sorted(late.items()):
-            removed = invalidate_finalized_month_caches(finalized_month=m)
-            # If another late ingest touched the marker while views were being
-            # rebuilt, leave it pending for the next run rather than losing
-            # that correction in a refresh/delete race.
-            cur.execute("""DELETE FROM service_config
-                           WHERE key=%s AND value='pending' AND updated_at=%s""",
-                        (key, marker_updated_at))
-            marker_cleared = cur.rowcount == 1
-            if marker_cleared:
-                cur.execute("""INSERT INTO service_config (key, value, updated_at)
-                               VALUES (%s, %s, NOW())
-                               ON CONFLICT (key) DO UPDATE
-                                 SET value=EXCLUDED.value, updated_at=NOW()""",
-                            (f"late_data_published:{m}",
-                             datetime.now(timezone.utc).isoformat()))
-            log.info("late finalized month published",
-                     extra={"month": str(m), "cache_keys_removed": removed,
-                            "marker_cleared": marker_cleared})
     conn.autocommit = False
+    conn.close()
     emit({"RefreshSeconds": (time.time() - t0, SECONDS),
           "MonthsRefreshed": (len(months), COUNT)})
     return {"months": [str(m) for m in sorted(months)],
-            "late_months": [str(m) for m in sorted(late)],
+            "late_months": [],
             "late_months_pending": [str(m) for m in sorted(late_pending)]}
 
 def _refresh(cur, mv, log):
