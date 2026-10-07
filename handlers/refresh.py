@@ -72,7 +72,7 @@ def _resume_republish(values):
                 # generation during the refresh, never a half-updated month.
                 cur.execute("DELETE FROM late_month_overrides "
                             "WHERE observed_month=%s", (month,))
-            cur.execute("CALL refresh_late_month_overlay(%s::date, %s)",
+            cur.execute("CALL refresh_late_month_delta(%s::date, %s)",
                         (month, stage))
             cur.execute("UPDATE service_config SET value=%s WHERE key=%s",
                         (str(stage + 1), stage_key))

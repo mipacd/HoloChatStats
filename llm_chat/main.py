@@ -36,10 +36,12 @@ logging.basicConfig(
 
 app = FastAPI(title="HoloChatStats LLM")
 
+_runtime_state = {"tool_store_ready": False, "last_error": None}
+
 @app.get("/healthz/llm")
 async def llm_health():
-    """Deployment-specific probe used to identify the LLM forwarded port."""
-    return {"ok": True, "service": "holochatstats-llm"}
+    """Liveness probe; database readiness is reported but does not block it."""
+    return {"ok": True, "service": "holochatstats-llm", **_runtime_state}
 
 app.add_middleware(
     CORSMiddleware,
@@ -422,12 +424,31 @@ def parse_page_context(message: str) -> tuple[Optional[str], str]:
     return None, message
 
 
+async def _initialize_tool_store_with_retry():
+    """Bring up database-backed LLM tools without blocking HTTP liveness."""
+    attempt = 0
+    while not tool_store.ready:
+        attempt += 1
+        try:
+            logger.info("Initializing tool store (attempt %s)...", attempt)
+            await tool_store.initialize()
+            _runtime_state.update(tool_store_ready=True, last_error=None)
+            logger.info("Tool store initialized successfully")
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            _runtime_state.update(
+                tool_store_ready=False,
+                last_error=f"{type(exc).__name__}: {str(exc)[:160]}")
+            logger.warning("Tool store initialization deferred: %s", exc)
+            await asyncio.sleep(min(60, 5 * attempt))
+
+
 @app.on_event("startup")
 async def startup_event():
-    """Initialize resources on application startup."""
-    logger.info("Initializing tool store...")
-    await tool_store.initialize()
-    logger.info("Tool store initialized successfully")
+    """Start recoverable background services after HTTP becomes live."""
+    asyncio.create_task(_initialize_tool_store_with_retry())
     logger.info("Starting model status poller...")
     asyncio.create_task(status_poller_loop(interval_seconds=300))
 
@@ -514,6 +535,13 @@ async def chat(request: Request):
     supplied_admin_key = str(data.get("admin_key") or "")
     admin = bool(settings.LLM_ADMIN_KEY and supplied_admin_key) and secrets.compare_digest(
         supplied_admin_key, settings.LLM_ADMIN_KEY)
+
+    if not tool_store.ready:
+        raise HTTPException(
+            status_code=503,
+            detail={"key": "service_starting",
+                    "message": "Eri is still connecting to the data service."},
+        )
 
     if is_rate_limited(user_key, admin or local_client):
         raise HTTPException(

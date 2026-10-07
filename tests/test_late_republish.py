@@ -67,7 +67,7 @@ class LateRepublishTests(unittest.TestCase):
             sql.startswith("DELETE FROM late_month_overrides")
             for sql, _params in cursor.calls))
         self.assertTrue(any(
-            sql.startswith("CALL refresh_late_month_overlay") and
+            sql.startswith("CALL refresh_late_month_delta") and
             params == (datetime(2026, 7, 1).date(), 0)
             for sql, params in cursor.calls))
         self.assertTrue(any(
@@ -126,13 +126,14 @@ class LateRepublishTests(unittest.TestCase):
     def test_month_overlays_replace_only_activated_months(self):
         root = os.path.dirname(os.path.dirname(__file__))
         migration = os.path.join(
-            root, "migrations", "014_late_month_overlays.sql")
+            root, "migrations", "015_late_month_delta_overlays.sql")
         with open(migration, encoding="utf-8") as f:
             sql = f.read()
-        self.assertIn("PROCEDURE refresh_late_month_overlay", sql)
+        self.assertIn("PROCEDURE refresh_late_month_delta", sql)
         self.assertIn("CREATE OR REPLACE VIEW mv_user_activity_live", sql)
         self.assertIn("JOIN late_month_overrides", sql)
-        self.assertIn("last_message_at >= target_month", sql)
+        self.assertIn("j.completed_at > s.merged_at", sql)
+        self.assertIn("WHERE b.video_id = j.video_id", sql)
         self.assertNotIn("REFRESH MATERIALIZED VIEW", sql)
 
         models = (Path(root) / "web" / "models.py").read_text(encoding="utf-8")

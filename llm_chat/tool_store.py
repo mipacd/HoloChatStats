@@ -38,6 +38,8 @@ class ToolVectorStore:
     
     def __init__(self):
         self.pool: Optional[asyncpg.Pool] = None
+        self.ready = False
+        self._initialize_lock = asyncio.Lock()
         # Use local MiniLM L6 v2 model - small, fast, and effective
         # This model produces 384-dimensional embeddings
         self.embeddings_model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -45,29 +47,42 @@ class ToolVectorStore:
         
     async def initialize(self):
         """Initialize database connection pool and create necessary tables."""
-        # Build connection string from Pydantic settings
-        self.pool = await asyncpg.create_pool(
-            user=settings.POSTGRES_USER,
-            password=settings.POSTGRES_PASSWORD,
-            database=settings.POSTGRES_DB,
-            host=settings.POSTGRES_HOST,
-            port=settings.POSTGRES_PORT,
-            min_size=1,
-            max_size=10
-        )
-        
-        # Create the tools table with vector extension
-        async with self.pool.acquire() as conn:
-            # Enable pgvector extension
-            await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            
-            # Initialize tool definitions table
-            await self._initialize_tool_table(conn)
-            
-            # Initialize knowledge base table
-            await self._initialize_knowledge_table(conn)
-            
-            logger.info(f"Tool store initialized with {self.embedding_dimension}-dimensional embeddings")
+        async with self._initialize_lock:
+            if self.ready and self.pool is not None:
+                return
+            if self.pool is not None:
+                await self.pool.close()
+                self.pool = None
+            try:
+                # Bound connection setup so database I/O pressure cannot leave
+                # ASGI startup waiting forever. The caller retries in the
+                # background while the lightweight health endpoint stays up.
+                self.pool = await asyncpg.create_pool(
+                    user=settings.POSTGRES_USER,
+                    password=settings.POSTGRES_PASSWORD,
+                    database=settings.POSTGRES_DB,
+                    host=settings.POSTGRES_HOST,
+                    port=settings.POSTGRES_PORT,
+                    min_size=1,
+                    max_size=10,
+                    timeout=20,
+                    command_timeout=60,
+                )
+
+                async with self.pool.acquire() as conn:
+                    await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+                    await self._initialize_tool_table(conn)
+                    await self._initialize_knowledge_table(conn)
+            except Exception:
+                self.ready = False
+                if self.pool is not None:
+                    await self.pool.close()
+                    self.pool = None
+                raise
+            self.ready = True
+            logger.info(
+                "Tool store initialized with %s-dimensional embeddings",
+                self.embedding_dimension)
     
     async def _initialize_tool_table(self, conn):
         """Initialize the tool definitions table."""
@@ -226,6 +241,8 @@ class ToolVectorStore:
         """Close the database connection pool."""
         if self.pool:
             await self.pool.close()
+            self.pool = None
+        self.ready = False
     
     def _format_vector_for_postgres(self, embedding: List[float]) -> str:
         """Format a vector embedding as a string for PostgreSQL."""

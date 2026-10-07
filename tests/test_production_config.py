@@ -86,8 +86,16 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("unterminated string", migrate)
         self.assertIn("drain_retry_queue", migrate)
 
-        self.assertIn('@app.get("/healthz/llm")',
-                      (ROOT / "llm_chat" / "main.py").read_text())
+        llm_main = (ROOT / "llm_chat" / "main.py").read_text()
+        self.assertIn('@app.get("/healthz/llm")', llm_main)
+        startup = llm_main.split("async def startup_event", 1)[1].split(
+            "def process_chart_blocks", 1)[0]
+        self.assertIn("create_task(_initialize_tool_store_with_retry())",
+                      startup)
+        self.assertNotIn("await tool_store.initialize()", startup)
+        tool_store = (ROOT / "llm_chat" / "tool_store.py").read_text()
+        self.assertIn("command_timeout=60", tool_store)
+        self.assertIn("self._initialize_lock", tool_store)
         self.assertIn('LLM_HEALTH_PATH = "/healthz/llm"', config)
         webapi = (ROOT / "infra" / "deploylib" / "webapi.py").read_text()
         uvicorn_at = webapi.index("nohup /opt/web/venv/bin/uvicorn")
@@ -383,7 +391,7 @@ class ProductionConfigTests(unittest.TestCase):
         self.assertIn("late_data_published:", refresh)
         self.assertIn('event.get("publish_months")', refresh)
         self.assertIn("REPUBLISH_STAGES", refresh)
-        self.assertIn("refresh_late_month_overlay", refresh)
+        self.assertIn("refresh_late_month_delta", refresh)
         admin = (ROOT / "handlers" / "admin.py").read_text(encoding="utf-8")
         self.assertIn('out["months"]', admin)
         self.assertIn('"republish_month"', admin)
