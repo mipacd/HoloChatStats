@@ -137,8 +137,8 @@ class MembershipDataSummary(db.Model):
 # Materialized views (read-only via ORM; managed by ETL's raw SQL)
 # ---------------------------------------------------------------------------
 class MvUserMonthlyActivity(db.Model):
-    """Mirrors mv_user_monthly_activity materialized view."""
-    __tablename__ = "mv_user_monthly_activity"
+    """Reads the base materialized view plus published late-month overlays."""
+    __tablename__ = "mv_user_monthly_activity_live"
     __table_args__ = {"info": {"is_view": True}}
     # Materialized views have no real primary key; SQLAlchemy requires one
     # to map a class, so we designate a composite "pseudo" PK matching the
@@ -148,16 +148,16 @@ class MvUserMonthlyActivity(db.Model):
     observed_month = db.Column(db.TIMESTAMP(timezone=True), primary_key=True)
     monthly_message_count = db.Column(db.BigInteger)
 class MvUserActivity(db.Model):
-    """Mirrors mv_user_activity materialized view."""
-    __tablename__ = "mv_user_activity"
+    """Reads the base materialized view plus published late-month overlays."""
+    __tablename__ = "mv_user_activity_live"
     __table_args__ = {"info": {"is_view": True}}
     user_id = db.Column(db.Text, primary_key=True)
     activity_month = db.Column(db.TIMESTAMP(timezone=True), primary_key=True)
     channel_id = db.Column(db.Text, primary_key=True)
     channel_group = db.Column(db.Text)
 class ChatLanguageStatsMv(db.Model):
-    """Mirrors chat_language_stats_mv materialized view."""
-    __tablename__ = "chat_language_stats_mv"
+    """Reads the base materialized view plus published late-month overlays."""
+    __tablename__ = "chat_language_stats_live"
     __table_args__ = {"info": {"is_view": True}}
     channel_id = db.Column(db.Text, primary_key=True)
     observed_month = db.Column(db.TIMESTAMP(timezone=True), primary_key=True)
@@ -168,8 +168,8 @@ class ChatLanguageStatsMv(db.Model):
     es_en_id_count = db.Column(db.BigInteger)
     total_messages = db.Column(db.BigInteger)
 class MvUserLanguagePerMonth(db.Model):
-    """Mirrors mv_user_language_per_month materialized view."""
-    __tablename__ = "mv_user_language_per_month"
+    """Reads the base materialized view plus published late-month overlays."""
+    __tablename__ = "mv_user_language_per_month_live"
     __table_args__ = {"info": {"is_view": True}}
     user_id = db.Column(db.Text, primary_key=True)
     channel_id = db.Column(db.Text, primary_key=True)

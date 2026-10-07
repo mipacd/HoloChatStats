@@ -37,6 +37,7 @@ UPSERT_KEYS = [
     ("schema_migrations", ["filename"]),
     ("video_stream_stats", ["video_id"]),
     ("monthly_merge_state", ["observed_month"]),
+    ("late_month_overrides", ["observed_month"]),
     ("membership_data_summary",
      ["channel_name", "observed_month", "membership_rank"]),
     ("user_data", ["user_id", "channel_id", "last_message_at", "video_id"]),

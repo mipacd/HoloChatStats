@@ -197,13 +197,13 @@ async def run_sql_query(query: str) -> dict:
                               membership_count BIGINT, percentage_total DECIMAL)
                               PK(channel_name, observed_month, membership_rank)
     MATERIALIZED VIEWS (preferred over base tables):
-      mv_user_monthly_activity(user_id, channel_id, observed_month DATE,
+      mv_user_monthly_activity_live(user_id, channel_id, observed_month DATE,
                                monthly_message_count BIGINT)
-      mv_user_activity(user_id, activity_month DATE, channel_id, channel_group)
-      chat_language_stats_mv(channel_id, observed_month DATE, jp_count,
+      mv_user_activity_live(user_id, activity_month DATE, channel_id, channel_group)
+      chat_language_stats_live(channel_id, observed_month DATE, jp_count,
                              kr_count, ru_count, emoji_count, es_en_id_count,
                              total_messages)
-      mv_user_language_per_month(user_id, channel_id, month DATE,
+      mv_user_language_per_month_live(user_id, channel_id, month DATE,
                                  total_jp_messages, total_non_emoji_messages)
     KEY NOTES:
       - membership_rank: -2 = unknown rank, -1 = non-member, 0 = new member,
@@ -253,9 +253,9 @@ async def run_sql_query(query: str) -> dict:
     -- Common chatters (not just members) between one channel and all others:
     SELECT c_other.channel_name,
            COUNT(DISTINCT uma_target.user_id) AS common_users
-    FROM mv_user_monthly_activity uma_target
+    FROM mv_user_monthly_activity_live uma_target
     JOIN channels c_target ON uma_target.channel_id = c_target.channel_id
-    JOIN mv_user_monthly_activity uma_other ON uma_target.user_id = uma_other.user_id
+    JOIN mv_user_monthly_activity_live uma_other ON uma_target.user_id = uma_other.user_id
       AND uma_target.observed_month = uma_other.observed_month
     JOIN channels c_other ON uma_other.channel_id = c_other.channel_id
     WHERE c_target.channel_name = 'Pekora'

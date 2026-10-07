@@ -49,8 +49,8 @@ CAPABILITIES = [
     "content": (
         "The SQL database contains ONLY these tables: channels, users, videos, user_data, "
         "streaming_forecasts, membership_data_summary; and these materialized views: "
-        "mv_user_monthly_activity, mv_user_activity, chat_language_stats_mv, "
-        "mv_user_language_per_month. "
+        "mv_user_monthly_activity_live, mv_user_activity_live, "
+        "chat_language_stats_live, mv_user_language_per_month_live. "
         "There are NO pre-computed tables for: common_users, common_members, "
         "games, categories, tags, superchats, or schedules. "
         "If you need overlap data, self-join user_data. "
@@ -69,8 +69,9 @@ CAPABILITIES = [
             "would otherwise require more than 3 API calls. "
             "Available tables: channels, users, videos (title, end_time, duration), user_data, "
             "streaming_forecasts, membership_data_summary. "
-            "Materialized views: mv_user_monthly_activity, mv_user_activity, "
-            "chat_language_stats_mv, mv_user_language_per_month. "
+            "Reader views: mv_user_monthly_activity_live, "
+            "mv_user_activity_live, chat_language_stats_live, "
+            "mv_user_language_per_month_live. "
             "Always JOIN with `channels` to resolve channel_id → channel_name, "
             "and always include a LIMIT clause."
         ),

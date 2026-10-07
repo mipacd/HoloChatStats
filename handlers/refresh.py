@@ -7,11 +7,11 @@ import time
 import psycopg2
 log = get_logger("refresh")
 
-REPUBLISH_VIEWS = (
-    "mv_user_monthly_activity",
-    "mv_user_activity",
-    "chat_language_stats_mv",
-    "mv_user_language_per_month",
+REPUBLISH_STAGES = (
+    "monthly activity",
+    "user activity",
+    "language totals",
+    "user language totals",
 )
 
 
@@ -25,10 +25,9 @@ def handler(event, context):
 def _resume_republish(values):
     """Advance one durable late-data publication stage.
 
-    Refreshing every large materialized view in one Lambda exceeded the
-    15-minute ceiling on modest hosts.  The stage row is deliberately updated
-    only after a view finishes, so a timeout retries that view without losing
-    the late-data marker.  The scheduled reaper advances later stages.
+    Each derived-data stage rebuilds only the selected month into an overlay.
+    The reader-facing SQL views substitute that complete month for the stale
+    full-history materialized-view rows once every stage has succeeded.
     """
     if not isinstance(values, list) or not values:
         raise ValueError("publish_months must contain at least one month")
@@ -62,22 +61,32 @@ def _resume_republish(values):
         except (TypeError, ValueError):
             stage = 0
 
-        if stage < len(REPUBLISH_VIEWS):
-            view = REPUBLISH_VIEWS[stage]
-            log.info("late-data re-publication stage started",
+        if stage < len(REPUBLISH_STAGES):
+            phase = REPUBLISH_STAGES[stage]
+            log.info("late-data overlay stage started",
                      extra={"month": str(month), "stage": stage,
-                            "view": view})
-            _refresh(cur, view, log)
+                            "phase": phase})
+            if stage == 0:
+                # Hide a prior overlay generation until all replacement
+                # datasets have been rebuilt. Readers see the consistent base
+                # generation during the refresh, never a half-updated month.
+                cur.execute("DELETE FROM late_month_overrides "
+                            "WHERE observed_month=%s", (month,))
+            cur.execute("CALL refresh_late_month_overlay(%s::date, %s)",
+                        (month, stage))
             cur.execute("UPDATE service_config SET value=%s WHERE key=%s",
                         (str(stage + 1), stage_key))
+            log.info("late-data overlay stage completed",
+                     extra={"month": str(month), "stage": stage,
+                            "phase": phase})
             emit({"RefreshSeconds": (time.time() - t0, SECONDS),
                   "MonthsRefreshed": (0, COUNT)})
             conn.close()
             return {"month": str(month), "complete": False,
-                    "stage": stage + 1, "stages": len(REPUBLISH_VIEWS) + 2,
-                    "view": view}
+                    "stage": stage + 1, "stages": len(REPUBLISH_STAGES) + 2,
+                    "phase": phase}
 
-        if stage == len(REPUBLISH_VIEWS):
+        if stage == len(REPUBLISH_STAGES):
             cur.execute("CALL refresh_membership_data_for_month(%s::date)",
                         (month,))
             cur.execute("UPDATE service_config SET value=%s WHERE key=%s",
@@ -88,9 +97,17 @@ def _resume_republish(values):
                   "MonthsRefreshed": (0, COUNT)})
             conn.close()
             return {"month": str(month), "complete": False,
-                    "stage": stage + 1, "stages": len(REPUBLISH_VIEWS) + 2,
+                    "stage": stage + 1, "stages": len(REPUBLISH_STAGES) + 2,
                     "phase": "membership"}
 
+        # Make all four complete month overlays visible together.  If cache
+        # invalidation fails, this idempotent upsert is harmless on retry and
+        # the durable stage marker remains available to the reaper.
+        cur.execute("""INSERT INTO late_month_overrides
+                           (observed_month, published_at)
+                       VALUES (%s, NOW())
+                       ON CONFLICT (observed_month) DO UPDATE
+                         SET published_at=EXCLUDED.published_at""", (month,))
         removed = invalidate_finalized_month_caches(finalized_month=month)
         # A log ingested after this workflow began updates the marker. Do not
         # consume that newer work; leave it pending for another explicit pass.

@@ -105,7 +105,7 @@ Query Strategy Rules
 3. **One-to-all overlap queries**
    "Which channels share the most users/members with X?" cannot be answered by
    calling pairwise API tools in a loop. Use `run_sql_query` with a self-join on
-   `user_data` (or `mv_user_monthly_activity` for chatters).
+   `user_data` (or `mv_user_monthly_activity_live` for chatters).
 4. **Never hallucinate tables or tools**
    Only use tables listed in the `run_sql_query` schema. Only call tools from your
    tool list. If you're unsure whether a table exists, it probably doesn't — stick

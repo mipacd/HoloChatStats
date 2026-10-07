@@ -1,6 +1,7 @@
 import os
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest import mock
 
 
@@ -56,14 +57,19 @@ class LateRepublishTests(unittest.TestCase):
         cursor = FakeCursor(self.row(0))
         with mock.patch.object(refresh, "get_conn",
                                return_value=FakeConnection(cursor)), \
-                mock.patch.object(refresh, "_refresh") as refresh_view, \
                 mock.patch.object(refresh, "emit"):
             result = refresh._resume_republish(["2026-07-01"])
 
-        refresh_view.assert_called_once_with(
-            cursor, "mv_user_monthly_activity", refresh.log)
         self.assertEqual(result["stage"], 1)
+        self.assertEqual(result["phase"], "monthly activity")
         self.assertFalse(result["complete"])
+        self.assertTrue(any(
+            sql.startswith("DELETE FROM late_month_overrides")
+            for sql, _params in cursor.calls))
+        self.assertTrue(any(
+            sql.startswith("CALL refresh_late_month_overlay") and
+            params == (datetime(2026, 7, 1).date(), 0)
+            for sql, params in cursor.calls))
         self.assertTrue(any(
             sql.startswith("UPDATE service_config SET value=%s") and
             params[0] == "1" for sql, params in cursor.calls))
@@ -80,6 +86,9 @@ class LateRepublishTests(unittest.TestCase):
         invalidate.assert_called_once()
         self.assertTrue(result["complete"])
         self.assertEqual(result["cache_keys_removed"], 17)
+        self.assertTrue(any(
+            sql.startswith("INSERT INTO late_month_overrides")
+            for sql, _params in cursor.calls))
         self.assertTrue(any("late_data_published:" in str(params)
                             for _sql, params in cursor.calls))
         self.assertTrue(any("late_republish_stage:" in str(params)
@@ -113,6 +122,22 @@ class LateRepublishTests(unittest.TestCase):
         self.assertIn("late_republish_stage:%", reaper)
         self.assertIn('"republish_stage": r[12]', admin)
         self.assertIn("Re-publishing ${Math.min", admin)
+
+    def test_month_overlays_replace_only_activated_months(self):
+        root = os.path.dirname(os.path.dirname(__file__))
+        migration = os.path.join(
+            root, "migrations", "014_late_month_overlays.sql")
+        with open(migration, encoding="utf-8") as f:
+            sql = f.read()
+        self.assertIn("PROCEDURE refresh_late_month_overlay", sql)
+        self.assertIn("CREATE OR REPLACE VIEW mv_user_activity_live", sql)
+        self.assertIn("JOIN late_month_overrides", sql)
+        self.assertIn("last_message_at >= target_month", sql)
+        self.assertNotIn("REFRESH MATERIALIZED VIEW", sql)
+
+        models = (Path(root) / "web" / "models.py").read_text(encoding="utf-8")
+        self.assertIn('__tablename__ = "mv_user_activity_live"', models)
+        self.assertIn('__tablename__ = "chat_language_stats_live"', models)
 
 
 if __name__ == "__main__":
